@@ -28,7 +28,7 @@ line per run without borders:
  demo 4 clangsa (3/3), clang-tidy (3/3) 2026-10-23 23:39:49.951933 v2 0:00:00  6.30 (451b0c5c1786ed21b0685c298f759164a8c5d379)
 ```
 
-"Analyzer statistics" shows successful/total analyzed files per analyzer.
+"Analyzer statistics" shows `<analyzer> (<total>/<successful>)`: the number of analyzed files, then how many of them succeeded (from the latest store).
 
 ## Filter and sort runs ✅
 
@@ -92,5 +92,8 @@ CodeChecker cmd history --url localhost:8555/Default        # all runs
 ```
 
 "User" is `Anonymous` on servers without authentication.
+
+⚠️ If the `-n` pattern matches no run, the history of **all** runs is printed
+(verified). At most the 500 newest entries are shown.
 
 Exit code: `0` (`1` on connection or authentication errors).

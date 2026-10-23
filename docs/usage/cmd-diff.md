@@ -46,16 +46,18 @@ CodeChecker cmd diff -b multi -n demo --resolved --report-status outstanding --u
 when at least one side is a server run. All other filters of
 [`cmd results`](cmd-results.md) work too.
 
-## Fix only the new reports ✅ / ⚠️
+## Fix only the new reports ⚠️
 
 ```sh
-CodeChecker cmd diff -b demo2 -n ./fx2 -o json --new --url localhost:8555/Default \
+CodeChecker cmd diff -b fixbase -n ./fx2 -o json --new --url localhost:8555/Default \
   | CodeChecker fixit ./fx2
 ```
 
-✅ Works (server run vs. local folder). ⚠️ The JSON of a server-run vs.
-server-run diff (`-b demo:v1 -n demo:v2`) makes `fixit` crash with
-`KeyError: 'checkedFile'`. See [fixit.md](fixit.md).
+Does not work in 6.30.0: the diff JSON has no `checkedFile`, so `fixit`
+crashes with `KeyError: 'checkedFile'` whenever the diff contains a report
+(verified with a server run vs. a local folder that has one new
+`modernize-use-nullptr` report). Use `cmd results -o json` as input instead.
+See [fixit.md](fixit.md).
 
 ## Gerrit output for a server diff
 

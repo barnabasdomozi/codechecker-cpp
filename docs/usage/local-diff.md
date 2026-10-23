@@ -100,10 +100,16 @@ side:
 CodeChecker cmd diff -b reports -n reports --new      # exit code 0
 ```
 
-## Filters ✅
+## Filters ✅ / ⚠️
 
-All result filters of `cmd results` work (see
-[cmd-results.md](cmd-results.md)), e.g.:
+Only five filters work when both sides are local:
+
+| Filter | Matching |
+|---|---|
+| `--severity` | severity names, case-insensitive |
+| `--checker-name`, `--checker-msg` | whole value, `*` wildcard, case-insensitive |
+| `--file` | whole **absolute** path, `*` wildcard, case-insensitive (`--file main.c` matches nothing; use `--file "*/main.c"`) |
+| `--review-status` | `unreviewed` is always included; default `unreviewed confirmed` |
 
 ```sh
 CodeChecker cmd diff -b reports -n reports2 --new --severity high --checker-name "core.*" --print-steps
@@ -117,8 +123,14 @@ CodeChecker cmd diff -b reports -n reports2 --new --severity high --checker-name
   Steps: ...
 ```
 
-`--report-status`, `--detection-status`, `--tag` and date filters only make
-sense for server runs. For local folders they are accepted without error.
+⚠️ The other filters are accepted but **ignored** for local folders
+(verified: `--report-hash`, `--analyzer-name`, `--bug-path-length` and
+`--filter-preset` do not change the result). The same holds for
+`--report-status`, `--detection-status`, `--tag`, `--uniqueing` and the date
+filters. ⚠️ `--component` crashes (`AttributeError`), and an unknown
+`--review-status`/`--severity`/`--detection-status` value (e.g.
+`--review-status suppress`) crashes with `KeyError`. See
+[known-issues.md](known-issues.md).
 
 ## Output formats ✅
 

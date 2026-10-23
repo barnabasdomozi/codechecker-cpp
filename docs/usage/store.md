@@ -43,8 +43,13 @@ before), `resolved` (gone in this store), `reopened`, `off` (checker was
 turned off), `unavailable` (checker no longer exists). See
 [cmd-results.md](cmd-results.md).
 
-By default, the update is incremental: reports from source files that were not
-analyzed this time are kept.
+⚠️ The help text says that without `-f`, reports from files that were not
+analyzed this time are kept. In 6.30.0 this is **not** the case (verified):
+every report of the run that is not in the new upload gets detection status
+`resolved` (or `off`/`unavailable`, see [cmd-results.md](cmd-results.md)).
+Storing a folder with only `main.c` results into a run that also had
+`style.cpp` reports marks all `style.cpp` reports `RESOLVED`. Always store
+the complete result set of the project into a run.
 
 ## Replace the run completely (`-f`) ✅
 
@@ -137,8 +142,9 @@ CodeChecker store ./asan_results -n asan_run --url localhost:8555/Default
 
 ## Authentication
 
-With an authenticated server, log in first or provide credentials through
-`CC_PASSWORD`, `CC_PASS_FILE` or `CC_SESSION_FILE` (see
+With an authenticated server, log in first (`cmd login`, which can read
+`CC_PASSWORD`), or provide credentials through the password file
+(`CC_PASS_FILE`); the session is kept in `CC_SESSION_FILE` (see
 [server-authentication.md](server-authentication.md)).
 
 ## Exit codes

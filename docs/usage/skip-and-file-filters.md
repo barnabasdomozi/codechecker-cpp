@@ -75,16 +75,31 @@ Only entries whose source file matches are analyzed. Absolute patterns start
 with `/`; relative patterns must start with `*`. Several patterns can be
 given.
 
-⚠️ `--file` only matches the `file` entries of the compilation database
-(source files). A header pattern such as `--file "*/lib/util.h"` matches
-nothing in 6.30.0:
+Headers: if an argument is an **existing absolute path** to a header
+(`.h`, `.hpp`, ... ), every source file that includes it is analyzed ✅:
+
+```sh
+CodeChecker analyze compile_commands.json -o reports --file /home/user/demo/lib/util.h
+```
+
+```
+[INFO] - Get dependent source files for '/home/user/demo/lib/util.h'...
+[INFO] - Get dependent source files for '/home/user/demo/lib/util.h' done.
+```
+
+Both `main.c` and `lib/util.c` are analyzed.
+
+⚠️ Two cases do not work in 6.30.0:
+- A **relative** header path (`--file lib/util.h`) is recognized as a header,
+  but no dependent sources are found, so nothing is analyzed.
+- A header **glob** (`--file "*/lib/util.h"`) is not treated as a header at
+  all, so nothing is analyzed.
+
+Both print:
 
 ```
 [WARNING] - There were no compilation commands in the provided compilation database or all of them were skipped.
 ```
-
-To find the sources that include a header, use
-`tu_collector -d -f <header>` (see [tu-collector.md](tu-collector.md)).
 
 ## Filter printed results by file (`parse --file`) ✅
 

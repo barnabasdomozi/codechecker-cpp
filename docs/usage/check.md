@@ -80,7 +80,8 @@ CodeChecker check -l compile_commands.json --suppress suppress.txt
 
 | Code | Meaning |
 |---|---|
-| 0 | No reports |
+| 0 | No reports and every analysis succeeded |
 | 1 | CodeChecker error |
-| 2 | At least one report |
-| 3 | At least one analysis failed (same as `analyze`) |
+| 2 | At least one report printed (also when some analysis failed ✅) |
+| 3 | No reports, but at least one analysis failed |
+| other | With `-b`: the build command's non-zero exit code |

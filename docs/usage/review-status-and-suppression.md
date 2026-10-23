@@ -115,8 +115,8 @@ CodeChecker parse reports --review-status intentional
 [MEDIUM] ~/demo/main.c:21:7: unused variable 'unused' [clang-diagnostic-unused-variable] [Intentional]
 ```
 
-Filters: `filepath` (glob), `checker_name`, `report_hash` ✅. All filters in
-one rule must match. A rule by hash:
+Filters: `filepath` (glob), `checker_name`, `report_hash` (prefix) ✅. All
+filters in one rule must match; the first matching rule wins. A rule by hash:
 
 ```yaml
 $version: 1
@@ -126,8 +126,15 @@ rules:
     actions:
       review_status: false_positive
       reason: by hash
-``` Actions: `review_status` and `reason`. The status is written
-into the result files, so `parse` and `store` both see it.
+```
+
+Actions: `review_status` (`false_positive`, `suppress`, `confirmed`,
+`intentional`) and `reason`.
+
+The result files are **not** changed. `analyze` copies the rules file to
+`<report folder>/review_status.yaml`; `parse`, `store` and `cmd diff` read it
+from there when they read the reports. A source-code comment on the same
+report takes precedence over a rule.
 
 ## 3. Suppress files ✅
 

@@ -133,6 +133,36 @@ are up to date, outdated (source changed after analysis), failed, and missing
 [analysis-debugging.md](analysis-debugging.md) for an example with a failure.
 With `--status`, the exit code is `0`.
 
+The status can also be exported as JSON ✅ (`-o FILE` writes it to a file):
+
+```sh
+CodeChecker parse ./reports --status -e json
+CodeChecker parse ./reports --status --detailed -e json -o status.json
+```
+
+```json
+{
+  "analyzers": {
+    "clangsa": {
+      "summary": {
+        "up-to-date": 3,
+        "outdated": 0,
+        "missing": 0,
+        "failed": 0
+      }
+    },
+    ...
+  },
+  "total_analyzed_compilation_commands": 3,
+  "total_available_compilation_commands": 3
+}
+```
+
+With `--detailed`, each analyzer also lists the file names under
+`up-to-date`, `outdated`, `missing` and `failed`. Other export formats are
+rejected: `Only JSON export format is supported.` (exit 1). `--status --file F`
+limits the status to source files `F` (they must exist).
+
 ## Shorten file paths ✅
 
 ```sh

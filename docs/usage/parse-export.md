@@ -102,7 +102,7 @@ Use the baseline with `cmd diff` to find new reports without a server (see
 ## Gerrit ✅
 
 ```sh
-export CC_REPO_DIR=$HOME/demo                       # repository root
+export CC_REPO_DIR=$HOME/demo                       # required: repository root
 export CC_CHANGED_FILES=changed_files.json          # required: Gerrit's list of changed files
 export CC_REPORT_URL=http://ci.example.com/run/42   # optional: link added to the message
 CodeChecker parse ./reports -e gerrit -o gerrit_review.json
@@ -119,8 +119,9 @@ CodeChecker parse ./reports -e gerrit -o gerrit_review.json
 ```
 
 Only reports in changed files become comments; paths are relative to
-`CC_REPO_DIR`. Without `-o`, the JSON is printed to standard output. Without
-`CC_CHANGED_FILES`:
+`CC_REPO_DIR`. Without `-o`, the JSON is printed to standard output. Both
+`CC_REPO_DIR` and `CC_CHANGED_FILES` must be set; each missing one gives an
+error, e.g. without `CC_CHANGED_FILES`:
 
 ```
 [ERROR] - When using gerrit output the 'CC_CHANGED_FILES' environment variable needs to be set to the path of changed files json from Gerrit!

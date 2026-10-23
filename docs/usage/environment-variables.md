@@ -11,10 +11,10 @@
 | `CC_ANALYZERS_FROM_PATH` | `analyzers`, `checkers`, `analyze`, `check` | `yes`/`1`: take analyzer binaries from `PATH` | ✅ |
 | `CC_ANALYZER_BIN` | same | `analyzer:/path;analyzer2:/path2` exact binaries | ✅ |
 | `CC_CLANGSA_PLUGIN_DIR` | same | Clang SA plugin folder when `CC_ANALYZERS_FROM_PATH` is set | ❌ |
-| `CC_REPO_DIR` | `parse -e gerrit`, `cmd diff -o gerrit` | Repository root; paths are made relative to it | ✅ |
+| `CC_REPO_DIR` | `parse -e gerrit`, `cmd diff -o gerrit` | Repository root; paths are made relative to it (required for `parse -e gerrit`) | ✅ |
 | `CC_CHANGED_FILES` | same | Gerrit changed-files JSON (required for gerrit output) | ✅ |
 | `CC_REPORT_URL` | same | Link added to the review message | ✅ |
-| `CC_PASSWORD` | `cmd login`, all clients | Password or personal access token | ✅ |
+| `CC_PASSWORD` | `cmd login` only | Password or personal access token used by `cmd login` (other commands use the saved session or the password file) | ✅ |
 | `CC_PASS_FILE` | all clients | Password file (default `~/.codechecker.passwords.json`) | ✅ |
 | `CC_SESSION_FILE` | all clients | Session file (default `~/.codechecker.session.json`) | ✅ |
 | `SSL_CERT_FILE` | all clients | CA certificate to trust for `https://` servers | ✅ |

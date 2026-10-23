@@ -63,8 +63,14 @@ CodeChecker analyze compile_commands.json -o reports --ctu --ctu-ast-mode load-f
 
 | Mode | Behavior |
 |---|---|
-| `parse-on-demand` (default) | The collect phase saves only the commands needed to parse each file. ASTs are parsed during analysis. Uses less disk space, more CPU. |
-| `load-from-pch` | The collect phase writes serialized ASTs (PCH) to disk. Uses a lot of disk space. |
+| `parse-on-demand` | The collect phase saves only the commands needed to parse each file (`invocation-list.yml`). ASTs are parsed during analysis. Uses less disk space, more CPU. |
+| `load-from-pch` | The collect phase writes serialized ASTs to `ctu-dir/<arch>/ast/<absolute source path>.ast`. Uses a lot of disk space. |
+
+⚠️ The help text says `parse-on-demand` is the default. In 6.30.0, when
+`--ctu-ast-mode` is **not** given, the AST files are written, i.e. the
+behavior is `load-from-pch` (verified: `ctu-dir/x86_64/ast/.../main.c.ast`
+exists after a plain `--ctu-collect`). Give
+`--ctu-ast-mode parse-on-demand` explicitly to get on-demand parsing.
 
 ## Retry without CTU on failure ✅
 

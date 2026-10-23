@@ -120,27 +120,38 @@ Interactive mode needs a terminal. When standard input is not a terminal:
 ```
 (exit code 1)
 
-## Fix only new reports (pipe from `cmd diff`) ⚠️
+## Fix only selected reports (pipe a report list) ✅ / ⚠️
 
 `fixit` reads JSON from standard input when it is not a terminal, and applies
-only the fixes for the reports in that JSON:
+only the fixes whose location matches a report in that JSON (same line,
+column and `checkedFile`).
+
+✅ Works with the output of `cmd results -o json` (server report format,
+which has `checkedFile`):
+
+```sh
+CodeChecker cmd results my_run -o json --url localhost:8001/Default \
+  | CodeChecker fixit ./reports
+```
+
+⚠️ The documented `cmd diff` pipe does **not** work in 6.30.0:
 
 ```sh
 CodeChecker cmd diff -b my_run -n ./reports -o json --new --url localhost:8001/Default \
   | CodeChecker fixit ./reports
 ```
 
-✅ This works when the base (`-b`) is a **server run** and the new side (`-n`)
-is a **local report folder**.
-
-⚠️ When both sides are local folders, or both are server runs, `fixit`
-crashes:
+`cmd diff -o json` writes the local report format (`{"version": 1,
+"reports": [...]}` without `checkedFile`), so as soon as the diff contains at
+least one report, `fixit` crashes:
 
 ```
 KeyError: 'checkedFile'
 ```
 
-(exit code 1). The JSON from these diffs uses a different report format. See
+(exit code 1). This happens for every combination of server runs and local
+folders (verified). If the diff is **empty**, `fixit` gets an empty list and
+then applies **no** filtering at all, i.e. it lists/applies every fix. See
 [known-issues.md](known-issues.md).
 
 ## Exit codes

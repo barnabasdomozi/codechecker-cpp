@@ -51,7 +51,7 @@ CodeChecker parse reports -e gerrit -o gerrit_review.json
 
 Post this JSON to Gerrit's "set review" endpoint. Without `CC_REPORT_URL`,
 the message is just `CodeChecker found 3 issue(s) in the code.`.
-`CC_CHANGED_FILES` is required.
+`CC_REPO_DIR` and `CC_CHANGED_FILES` are required.
 
 ## Gerrit review JSON for new reports only ✅
 
