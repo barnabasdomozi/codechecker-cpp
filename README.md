@@ -35,6 +35,14 @@ The main parts of the Python project that need porting:
 See `../codechecker/docs/architecture.md` for an overview of how these parts
 work together.
 
+## Documentation
+
+[docs/usage/](docs/usage/README.md) describes every use case of the Python
+CodeChecker 6.30.0, one page each, tested against a real build. The C++
+version must support the same commands, options, outputs and exit codes.
+[docs/usage/known-issues.md](docs/usage/known-issues.md) lists bugs found in
+the Python version while testing.
+
 ## Layout
 
 Not decided yet. It will be documented here once the first component is
