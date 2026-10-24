@@ -39,7 +39,9 @@ workspace). This example uses the built-in user list ("dictionary"):
 - `regex_groups` puts users into groups by regex on the user name.
 - Keep the file `chmod 0600`; the server warns otherwise.
 
-Start the server (or use `CodeChecker server -r` to reload a running one):
+Start (or restart) the server. ⚠️ `CodeChecker server -r` does not work
+for this: after a reload the server still does not require a login
+(verified; see [server.md](server.md)):
 
 ```sh
 CodeChecker server -w ./ws3 -v 8560

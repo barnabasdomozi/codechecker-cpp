@@ -27,7 +27,10 @@ Commonly used keys:
   `max-nodes=...`, `unroll-loops=true`
 - `clang-tidy:Checks`, `HeaderFilterRegex`, `WarningsAsErrors`, ...
 - `clang-tidy:take-config-from-directory=true` (see below)
-- `cppcheck:addons`, `libraries`, `platform`, `inconclusive` ❌ (not tested)
+- `cppcheck:addons`, `libraries`, `platform`, `inconclusive` ✅: they reach
+  Cppcheck as `--addon=`, `--library=`, `--platform=` and `--inconclusive`
+  (e.g. `cppcheck:addons=/usr/lib/x86_64-linux-gnu/cppcheck/addons/misra.py`
+  on Debian)
 - `<any analyzer>:cc-verbatim-args-file=<file>`
 
 ## Checker options ✅
@@ -40,8 +43,9 @@ CodeChecker analyze compile_commands.json -o reports --analyzers clang-tidy \
   --checker-config clang-tidy:readability-identifier-length:MinimumVariableNameLength=1
 ```
 
-With the default minimum length, the demo has 12 `readability-identifier-length`
-reports. With `MinimumVariableNameLength=1` it has 5.
+With the default minimum length, the demo has 11 `readability-identifier-length`
+reports. With `MinimumVariableNameLength=1` it has 4 (only the one-letter
+parameters remain).
 
 The Clang-Tidy style `CHECKER.OPTION` is rejected:
 
@@ -71,10 +75,12 @@ CodeChecker analyze compile_commands.json -o reports --analyzers clangsa \
 ```sh
 CodeChecker analyze compile_commands.json -o reports --saargs sa.txt         # = clangsa:cc-verbatim-args-file
 CodeChecker analyze compile_commands.json -o reports --tidyargs tidy_args.txt  # = clang-tidy:cc-verbatim-args-file
-CodeChecker analyze compile_commands.json -o reports --cppcheckargs cc.txt   # = cppcheck:cc-verbatim-args-file  (❌ not tested)
+CodeChecker analyze compile_commands.json -o reports --cppcheckargs cc.txt   # = cppcheck:cc-verbatim-args-file
 ```
 
-These still work in 6.30.0 and give the same results.
+These still work in 6.30.0 and give the same results. For Cppcheck, the file
+holds Cppcheck options, e.g. `--suppress=zerodiv` removes the
+`cppcheck-zerodiv` reports ✅.
 
 ## Use a `.clang-tidy` file ✅
 
@@ -102,8 +108,38 @@ CodeChecker analyze compile_commands.json -o reports --z3-refutation off
 `on` (default) re-checks Clang SA findings with the Z3 solver to remove false
 positives. It only has an effect if Clang is built with Z3.
 
-## Taint analysis configuration ❌
+## Taint analysis configuration ✅
 
 A Clang SA taint configuration file is set with
 `--checker-config clangsa:alpha.security.taint.TaintPropagation:Config=<file.yaml>`.
-Not tested.
+The configuration is used by the checker
+`alpha.security.taint.GenericTaint`, which must be enabled:
+
+`taint.yaml`:
+
+```yaml
+Propagations:
+  - Name: my_source
+    DstArgs: [-1]
+Sinks:
+  - Name: my_sink
+    Args: [0]
+```
+
+```c
+int my_source(void);
+void my_sink(int);
+void f(void) { int v = my_source(); my_sink(v); }
+```
+
+```sh
+CodeChecker analyze compile_commands.json -o reports --analyzers clangsa \
+  -e alpha.security.taint.GenericTaint \
+  --checker-config clangsa:alpha.security.taint.TaintPropagation:Config=$PWD/taint.yaml
+```
+
+```
+[UNSPECIFIED] ~/taint/taint.c:3:37: Untrusted data is passed to a user-defined sink [alpha.security.taint.GenericTaint]
+```
+
+Without the `--checker-config` option, no report is found.

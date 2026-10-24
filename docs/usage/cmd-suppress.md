@@ -32,4 +32,12 @@ The command prints only the login lines and exits `0`.
 CodeChecker cmd suppress demo -i srv_suppress.txt -f --url localhost:8555/Default
 ```
 
-Without `-f`, reports that already have a review status keep it.
+The help text says that without `-f`, reports that already have a review
+status keep it. ⚠️ In 6.30.0 the import overwrites existing review statuses
+with and without `-f` (verified: a `false_positive` set by a first import
+became `confirmed` after importing a second file without `-f`).
+
+A review status set with `cmd suppress` is lost when the run is stored
+again: the new store replaces the report rows, and the reports are
+`unreviewed` again (verified). Import the suppress file again after each
+store.

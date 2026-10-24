@@ -166,6 +166,11 @@ These options are passed to `analyze --checker-config` as
 ## Deprecated: `-w/--warnings` ✅
 
 `-w` is deprecated. In 6.30.0 it prints the same list as plain
-`CodeChecker checkers`.
+`CodeChecker checkers` (the order of the Cppcheck checkers is not fixed and
+can differ between runs).
 
-Exit code: `0`.
+Exit code: `0`, except `--checker-config` without `--analyzers`: GCC (and
+Cppcheck, when installed) have no checker options, which is logged as
+`[ERROR] - Failed to get checker configuration options for 'gcc, cppcheck' analyzer(s)! Please try to upgrade your analyzer version to use this feature.`,
+and the exit code is `1` (verified). The options of the other analyzers are
+still printed. `--checker-config --analyzers clangsa clang-tidy` exits `0`.

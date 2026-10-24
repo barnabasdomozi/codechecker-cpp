@@ -20,16 +20,16 @@ CodeChecker analyzers
 
 ```
 [WARNING] - Can't analyze with 'infer': Failed to detect analyzer binary!
-[WARNING] - Can't analyze with 'cppcheck': Failed to detect analyzer binary!
  clangsa /usr/lib/llvm-19/bin/clang       19.1.7
  clang-tidy /usr/lib/llvm-19/bin/clang-tidy  19.1.7
- cppcheck                                  NOT FOUND
+ cppcheck /usr/bin/cppcheck                2.17.1
  gcc /usr/bin/x86_64-linux-gnu-g++-14 14.2.0
  infer                                  NOT FOUND
 ```
 
 Analyzers that are not found are still listed, with `NOT FOUND`, and a
-warning is printed for each.
+warning is printed for each (here Infer; on a machine without Cppcheck,
+Cppcheck too: `Can't analyze with 'cppcheck': Failed to detect analyzer binary!`).
 
 ## Other output formats ✅
 
@@ -43,8 +43,9 @@ CodeChecker analyzers -o json
 name,path,version
 clangsa,/usr/lib/llvm-19/bin/clang,19.1.7
 clang-tidy,/usr/lib/llvm-19/bin/clang-tidy,19.1.7
-cppcheck,,NOT FOUND
-...
+cppcheck,/usr/bin/cppcheck,2.17.1
+gcc,/usr/bin/x86_64-linux-gnu-g++-14,14.2.0
+infer,,NOT FOUND
 ```
 
 ```json
@@ -64,7 +65,7 @@ The options printed here can be passed to
 CodeChecker analyzers --analyzer-config clangsa
 CodeChecker analyzers --analyzer-config clang-tidy
 CodeChecker analyzers --analyzer-config gcc
-CodeChecker analyzers --analyzer-config cppcheck     # works even if cppcheck is not installed
+CodeChecker analyzers --analyzer-config cppcheck     # works even if cppcheck is not installed (verified)
 CodeChecker analyzers --analyzer-config clang-tidy -o json
 ```
 
@@ -95,8 +96,8 @@ CodeChecker analyzers --analyzer-config clang-tidy -o json
 ```
 
 Every analyzer has the CodeChecker-specific `cc-verbatim-args-file` option.
-Clang-Tidy also has `take-config-from-directory`, which is not listed here
-(see [analyzer-configuration.md](analyzer-configuration.md)).
+Clang-Tidy also has `take-config-from-directory`, listed as the last
+`clang-tidy:` option (see [analyzer-configuration.md](analyzer-configuration.md)).
 
 ## Dump a full analyzer configuration ✅ / ⚠️
 
@@ -117,7 +118,8 @@ HeaderFileExtensions:
 The help text says only Clang-Tidy supports `--dump-config`. ⚠️ In practice,
 `--dump-config clangsa` prints Clang's own analyzer option help
 (`OVERVIEW: Clang Static Analyzer Checker and Package Option List ...`)
-and exits `0`.
+and exits `0`. `--dump-config cppcheck` prints
+`[WARNING] - '--dump-config cppcheck' is not supported.` and exits `0`.
 
 A `.clang-tidy` file placed in the project is used by `analyze` and `check`
 only together with `--analyzer-config clang-tidy:take-config-from-directory=true`.

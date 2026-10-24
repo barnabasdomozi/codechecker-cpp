@@ -31,6 +31,7 @@ with its sanitizer, runs it, and saves the output in `out/`:
 | `out/leak.lsan.out` | `make lsan` |
 | `out/clang-tidy.out`, `out/clang-tidy-fixes.yaml` | `make clang-tidy` |
 | `out/analyzer_input.cpp.sarif` | `make gcc` |
+| `out/cppcheck/*.plist` | `make cppcheck` (not part of `make`; needs Cppcheck) |
 
 The sanitized programs fail on purpose. `make` ignores their exit codes and
 exits 0.
@@ -49,6 +50,8 @@ exits 0.
 | `-t clang-tidy-yaml` | `src/analyzer_input.cpp:7:12` | clang-tidy-yaml | `clang-analyzer-core.DivideZero` | UNSPECIFIED | `7504e303eea993b2c28c6da226a94e70` |
 | | `src/analyzer_input.cpp:13:3` | clang-tidy-yaml | `clang-analyzer-unix.Malloc` | UNSPECIFIED | `4b9e210abce8caf356a4fe15031f19c6` |
 | `-t gcc` | `src/analyzer_input.cpp:13:3` | gcc | `-Wanalyzer-double-free` | UNSPECIFIED | `cab37a6f7c6a668daa8fef05c634cc0b` |
+| `-t cppcheck` (`out/cppcheck`, Cppcheck 2.17.1) | `src/analyzer_input.cpp:7:12` | cppcheck | `zerodiv` | UNSPECIFIED | `50f2fce54ca6e5db6ab5e0bb4e25e980` |
+| | `src/analyzer_input.cpp:13:8` | cppcheck | `doubleFree` | UNSPECIFIED | `da378a3e514d240f8954d517f6432240` |
 
 For example:
 
@@ -63,5 +66,9 @@ CodeChecker parse rc/asan
   another directory.
 - LeakSanitizer works on this machine, although `report-converter.md`
   marks `lsan` as not tested.
+- Converted Cppcheck results have checker names without the `cppcheck-`
+  prefix that `CodeChecker analyze` gives them. If Cppcheck is run on a
+  relative path, the converted report points to that path inside the plist
+  folder, so give Cppcheck absolute paths.
 - Report locations are relative to the project root. The sanitizer output
   contains absolute paths of wherever the project was built.

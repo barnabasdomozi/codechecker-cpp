@@ -31,10 +31,17 @@ make
 |---|---|---|---|---|---|
 | `macros.cpp:5:36` | clang-tidy | `clang-diagnostic-division-by-zero` | MEDIUM | `bbcdf4a0a721589c8534378cfe34368b` | unreviewed |
 | `macros.cpp:5:36` | clangsa | `core.DivideZero` | HIGH | `07807283f6584365e028eb35cac19ac1` | unreviewed |
+| `macros.cpp:5:36` | cppcheck | `cppcheck-zerodiv` | HIGH | `3226dadfd58b72f6c4a950ff6d225510` | unreviewed |
+| `memory.cpp:11:3` | cppcheck | `cppcheck-deallocret` | HIGH | `cb0532beaf19b480b367a12c24b5af75` | unreviewed |
 | `memory.cpp:11:10` | clangsa | `cplusplus.NewDelete` | HIGH | `642600142d719663853164ce08c47008` | unreviewed |
 | `memory.cpp:16:3` | clangsa | `unix.MismatchedDeallocator` | MEDIUM | `8ccb39caaf8d0f257f4589df7fce5df3` | unreviewed |
+| `memory.cpp:16:10` | cppcheck | `cppcheck-mismatchAllocDealloc` | HIGH | `47801fe8bcd5c413917cc9b0cd69c0ae` | unreviewed |
+| `memory.cpp:16:10` | cppcheck | `cppcheck-uninitdata` | HIGH | `e9693e3195fff1189611bc72e9dda5d8` | unreviewed |
 | `memory.cpp:22:3` | clangsa | `unix.Malloc` | MEDIUM | `fad81d6cdc809b9207f8dd4de4bd0312` | unreviewed |
+| `memory.cpp:22:8` | cppcheck | `cppcheck-doubleFree` | HIGH | `06bc3ad6d7239dba0ceaf73475e51f6f` | unreviewed |
+| `memory.cpp:28:5` | cppcheck | `cppcheck-memleak` | HIGH | `d9c541bbd42fc5954622cd6abf6e7310` | unreviewed |
 | `memory.cpp:28:12` | clangsa | `cplusplus.NewDeleteLeaks` | HIGH | `48e963206ecb5d0db35f98b4e21691f5` | unreviewed |
+| `memory.cpp:29:12` | cppcheck | `cppcheck-uninitdata` | HIGH | `a22065cdab2dae996d42f26338d3b44e` | unreviewed |
 | `moves.cpp:11:10` | clang-tidy | `bugprone-use-after-move` | HIGH | `890f36f01563c34b36b8be060c1aa8a0` | unreviewed |
 | `moves.cpp:11:10` | clangsa | `cplusplus.Move` | HIGH | `cd452d07fcbca281557b093166e42cd3` | unreviewed |
 | `paths.cpp:21:10` | clangsa | `core.NullDereference` | HIGH | `89953e85372f16f4735e60148daad0cc` | unreviewed |
@@ -46,7 +53,8 @@ make
 | `style.cpp:31:7` | clangsa | `deadcode.DeadStores` | LOW | `b01102f2adfd450aa7de85e81799d551` | unreviewed |
 | `style.cpp:32:3` | clangsa | `deadcode.DeadStores` | LOW | `4f7787e173ead2abd9960f5f3d6d7ac8` | unreviewed |
 
-- 16 reports. `analyze` exits 0. `parse` exits 2.
+- 23 reports (16 from the Clang analyzers, 7 from Cppcheck). `analyze`
+  exits 0. `parse` exits 2.
 - GCC does not run: the default profile has no GCC checkers
   (`No checkers enabled for gcc`).
 
@@ -66,7 +74,7 @@ make
 
 ### `-e profile:sensitive`
 
-20 reports: the 16 above plus:
+27 reports: the 23 above plus:
 
 | Location | Analyzer | Checker | Severity | Report hash |
 |---|---|---|---|---|
@@ -77,7 +85,8 @@ make
 
 ### `-e profile:extreme`
 
-92 reports, most of them style checks. The profile enables GCC checkers, so
+99 reports, most of them style checks (Cppcheck's 7 are the same as with
+the default profile). The profile enables GCC checkers, so
 GCC runs and adds 8 reports:
 
 | Location | Checker | Severity | Report hash |
@@ -98,8 +107,8 @@ The `moves.cpp` and `style.cpp` GCC reports are false positives inside
 
 | Option | Result |
 |---|---|
-| `-e modernize-use-nullptr` | 17 reports: the default 16 plus `style.cpp:27:30` `modernize-use-nullptr` (LOW, `6c402b0d0f171d950520975c981b4c50`) |
-| `-e gcc-analyzer-double-free` | 17 reports: the default 16 plus the GCC `memory.cpp:22:3` report above; GCC runs because one of its checkers is enabled |
+| `-e modernize-use-nullptr` | 24 reports: the default 23 plus `style.cpp:27:30` `modernize-use-nullptr` (LOW, `6c402b0d0f171d950520975c981b4c50`) |
+| `-e gcc-analyzer-double-free` | 24 reports: the default 23 plus the GCC `memory.cpp:22:3` report above; GCC runs because one of its checkers is enabled |
 
 ### Fix-its
 

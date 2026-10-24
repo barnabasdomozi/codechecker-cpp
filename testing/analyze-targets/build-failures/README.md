@@ -39,13 +39,17 @@ as well:
 |---|---|---|---|---|---|
 | `broken_syntax.cpp:2:16` | clang-tidy | `clang-diagnostic-unused-parameter` | MEDIUM | `99dd5f454683f1ab35a1c06ecc3355c3` | unreviewed |
 | `broken_syntax.cpp:3:12` | clang-tidy | `clang-diagnostic-error` | CRITICAL | `b6fd4eadba03ca0e7f33c5545f59d269` | unreviewed |
+| `gcc_only_flag.cpp:5:12` | cppcheck | `cppcheck-zerodiv` | HIGH | `78bbd37f090bfd873717c44d289d025d` | unreviewed |
 | `good.cpp:5:12` | clangsa | `core.DivideZero` | HIGH | `22dbad23af0073e135c0d28d3a0599ec` | unreviewed |
+| `good.cpp:5:12` | cppcheck | `cppcheck-zerodiv` | HIGH | `87ced4a94610c49a791abd4f6a4410bf` | unreviewed |
 | `ignored_flag.cpp:6:12` | clangsa | `core.NullDereference` | HIGH | `5abd775762e6087041c084d98f60bc90` | unreviewed |
+| `ignored_flag.cpp:6:13` | cppcheck | `cppcheck-nullPointer` | HIGH | `e68a3e6b629947738835685f9fdd7797` | unreviewed |
 | `missing_header.cpp:2:10` | clang-tidy | `clang-diagnostic-error` | CRITICAL | `2f16c4902139fbaee7b9a8307ae56a37` | unreviewed |
 
 - `analyze` exits 3 (some analysis failed). `parse` exits 2.
-- Summary: successfully analyzed clangsa 2, clang-tidy 2; failed clangsa 3,
-  clang-tidy 3.
+- Summary: successfully analyzed clangsa 2, clang-tidy 2, cppcheck 5;
+  failed clangsa 3, clang-tidy 3. Cppcheck analyzes every file, also the
+  ones Clang cannot compile.
 - `reports/failed/` has one `<file>_<analyzer>_<hash>.plist_compile_error.zip`
   per failed analysis: `broken_syntax.cpp`, `gcc_only_flag.cpp` and
   `missing_header.cpp`, each for clangsa and clang-tidy (6 files).
@@ -54,8 +58,9 @@ as well:
 
 ### `make`
 
-The same, without the `missing_header.cpp` report: 4 reports, and failed
-clangsa 2, clang-tidy 2 (4 files in `reports/failed/`). `analyze` exits 3.
+The same, without the `missing_header.cpp` report: 7 reports, and failed
+clangsa 2, clang-tidy 2 (4 files in `reports/failed/`); Cppcheck analyzed
+4 files. `analyze` exits 3.
 
 ### `CodeChecker check -b make`
 

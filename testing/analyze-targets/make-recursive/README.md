@@ -33,13 +33,18 @@ and `tools/cli.cpp`. The `tools/cli.cpp` command still contains
 | `core/buffer.cpp:11:29` | clang-tidy | `clang-diagnostic-division-by-zero` | MEDIUM | `9886ed0410290a9839cece481887aae3` | unreviewed |
 | `core/buffer.cpp:11:29` | clangsa | `core.DivideZero` | HIGH | `4ceebfd2af13d60f352c65c4ce6851b0` | unreviewed |
 | `core/buffer.cpp:20:10` | clangsa | `core.NullDereference` | HIGH | `76079336dd9f27777c81917b2503b383` | unreviewed |
+| `core/buffer.cpp:20:10` | cppcheck | `cppcheck-nullPointer` | HIGH | `a46d8b08f699bc8f22408fc32a93d069` | unreviewed |
 | `core/codec.cpp:10:11` | clangsa | `core.NullDereference` | HIGH | `fe0afaf52ab95f45da71275d987d4a55` | unreviewed |
+| `core/codec.cpp:10:11` | cppcheck | `cppcheck-nullPointer` | HIGH | `6cde733c3fcc9635361ef246aecde349` | unreviewed |
 | `core/codec.cpp:14:27` | clangsa | `core.DivideZero` | HIGH | `fe56b9074153abc232cfdc4e65c4d8ac` | unreviewed |
+| `core/codec.cpp:14:27` | cppcheck | `cppcheck-zerodiv` | HIGH | `099cb8c070e27142b4d2fd339ded2bad` | unreviewed |
 | `tools/cli.cpp:10:27` | clangsa | `core.DivideZero` | HIGH | `ef781612330e0fbe66cf77b875db2564` | unreviewed |
+| `tools/cli.cpp:10:27` | cppcheck | `cppcheck-zerodiv` | HIGH | `90d45884ce93413dea1540584cd72260` | unreviewed |
 
 `analyze` exits 0. `parse` exits 2.
 
-What each report depends on:
+What each report depends on (the Cppcheck reports on the same lines depend
+on the same options):
 
 | Report | Needs |
 |---|---|
@@ -51,6 +56,8 @@ What each report depends on:
 
 ### Compile uniqueing
 
+With `--analyzers clangsa`:
+
 | `--compile-uniqueing` | Exit | `codec.cpp` reports |
 |---|---|---|
 | `none` (default) | 0 | both lines 10 and 14 |
@@ -58,6 +65,9 @@ What each report depends on:
 | `alpha` | 0 | line 10 only (keeps `codec_fast.o`, the alphabetically first output) |
 | `.*-DCODEC_FAST.*` | 0 | line 10 only |
 | `(?!.*CODEC_FAST)` | 0 | line 14 only |
+| `-DCODEC_FAST` | 0 | line 10 only |
 
 The regex is matched from the start of the command (`re.match`), so a
-pattern like `-DCODEC_FAST` alone matches nothing.
+pattern like `-DCODEC_FAST` alone matches nothing; then the first entry
+(`codec_fast.o`) is kept. Pass it as `--compile-uniqueing=-DCODEC_FAST`,
+otherwise the value is taken for an option.

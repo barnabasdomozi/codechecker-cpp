@@ -66,6 +66,10 @@ CodeChecker analyze compile_commands.json -o reports --enable-all
 4 [readability-magic-numbers]
 ```
 
+With Cppcheck installed, its checkers are on too, e.g. `3 [cppcheck-missingIncludeSystem]`,
+`3 [cppcheck-staticFunction]`, `1 [cppcheck-unassignedVariable]`,
+`1 [cppcheck-unreadVariable]`, `1 [cppcheck-uninitvar]`, `2 [cppcheck-zerodiv]`.
+
 These groups are still **not** enabled and must be listed with `-e`:
 `alpha.`, `debug.`, `osx.`, `abseil-`, `android-`, `darwin-`, `objc-`,
 `cppcoreguidelines-`, `fuchsia.`, `fuchsia-`, `hicpp-`, `llvm-`, `llvmlibc-`,
@@ -105,6 +109,8 @@ CodeChecker analyze compile_commands.json -o reports -e guideline:sei-cert-c
 1 [clang-diagnostic-uninitialized]
 1 [clang-diagnostic-unused-variable]
 1 [core.DivideZero]
+1 [cppcheck-uninitvar]
+2 [cppcheck-zerodiv]
 1 [gcc-analyzer-use-of-uninitialized-value]
 ```
 

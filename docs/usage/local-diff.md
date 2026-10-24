@@ -29,15 +29,19 @@ CodeChecker cmd diff -b reports -n reports2 --new
   int *q = 0; *q = 1;
                  ^
 
+[HIGH] ~/demo2/main.c:21:16: Null pointer dereference: q [cppcheck-nullPointer]
+...
 [LOW] ~/demo2/style.cpp:4:12: use nullptr [modernize-use-nullptr]
 ...
 [HIGH] ~/demo2/style.cpp:4:35: Division by zero [core.DivideZero]
+...
+[HIGH] ~/demo2/style.cpp:4:35: Division by zero. [cppcheck-zerodiv]
 ...
 ----======== Summary ========----
 ┌───────────────────────────────────────────┬───┐
 │ Number of processed analyzer result files │ 0 │
 ├───────────────────────────────────────────┼───┤
-│ Number of analyzer reports                │ 3 │
+│ Number of analyzer reports                │ 5 │
 └───────────────────────────────────────────┴───┘
 ----=================----
 [INFO] - Compared the following local files / directories: ~/reports and ~/reports2
@@ -61,6 +65,8 @@ CodeChecker cmd diff -b reports -n reports2 --unresolved -o table
 ├──────┼──────────────────────┼──────────────────┼─────────────────┼─────────────────┤
 ...
 │ HIGH │ ~/demo2/main.c:11:12 │ Division by zero │ core.DivideZero │   return a / z; │
+...
+│ HIGH │ ~/demo2/main.c:25:10 │ Uninitialized variable: x │ cppcheck-uninitvar │   return x; │
 └──────┴──────────────────────┴──────────────────┴─────────────────┴─────────────────┘
 ```
 
@@ -82,8 +88,10 @@ CodeChecker cmd diff -b reports.baseline -n reports2 --new
 [INFO] - Matching local baseline files (--baseline): ~/reports.baseline
 [INFO] - Matching local report directories (--newname): ~/reports2
 [HIGH] ~/demo2/main.c:21:18: Dereference of null pointer (loaded from variable 'q') [core.NullDereference]
+[HIGH] ~/demo2/main.c:21:16: Null pointer dereference: q [cppcheck-nullPointer]
 [LOW] ~/demo2/style.cpp:4:12: use nullptr [modernize-use-nullptr]
 [HIGH] ~/demo2/style.cpp:4:35: Division by zero [core.DivideZero]
+[HIGH] ~/demo2/style.cpp:4:35: Division by zero. [cppcheck-zerodiv]
 ```
 
 A baseline has only hashes, so reports can only be printed from the folder

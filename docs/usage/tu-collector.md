@@ -73,8 +73,11 @@ tu_collector -b "gcc -c main.c -o /dev/null" -z t2.zip
 The zip has `main.c` and `lib/util.h`. `-b` takes **one compiler call**, not a
 build system command. With `-b "make"`, it prints
 `[ERROR] - Couldn't create dependencies:`, writes a zip with only
-`compilation_database.json`, and still exits `0`. `-f` and `--ctu-deps-dir`
-are ignored with `-b` (with a warning).
+`compilation_database.json`, and still exits `0`. With `-b`, `--ctu-deps-dir`
+is ignored (with a warning). ⚠️ `-f` is not ignored as its warning says
+(`In case of using build command --filter has no effect.`): with `-b ... -f F`
+no sources are collected at all, and the zip has only
+`compilation_database.json` (verified, also for `-f main.c`).
 
 ## List the sources that include a header (`-d`) ✅
 

@@ -20,6 +20,7 @@ make
 | Location | Analyzer | Checker | Severity | Report hash | Review status |
 |---|---|---|---|---|---|
 | `src/math.cpp:9:16` | clangsa | `core.DivideZero` | HIGH | `81c09a828d41670f973195d420cea744` | unreviewed |
+| `src/math.cpp:9:16` | cppcheck | `cppcheck-zerodiv` | HIGH | `f3af4ff4ef15a3238f266e3a7957ab4e` | unreviewed |
 
 ### With CTU (`analyze --ctu`)
 
@@ -30,10 +31,13 @@ make
 | `src/math.cpp:4:37` | clangsa | `core.DivideZero` | HIGH | `865e7d753963ded7f9d6d8df74615ead` | unreviewed |
 | `src/math.cpp:4:37` | clangsa | `core.DivideZero` | HIGH | `865e7d753963ded7f9d6d8df74615ead` | unreviewed |
 | `src/math.cpp:9:16` | clangsa | `core.DivideZero` | HIGH | `81c09a828d41670f973195d420cea744` | unreviewed |
+| `src/math.cpp:9:16` | cppcheck | `cppcheck-zerodiv` | HIGH | `f3af4ff4ef15a3238f266e3a7957ab4e` | unreviewed |
 | `src/pipeline_c.cpp:3:34` | clangsa | `core.NullDereference` | HIGH | `e4723311622348a6ece385bd066dcb83` | unreviewed |
 
 - `analyze` exits 0 in both modes. `parse` exits 2.
-- The same 6 reports come from `--ctu-collect` followed by `--ctu-analyze`
+- CTU only changes the Clang SA results; Cppcheck reports `math.cpp:9`
+  in both modes.
+- The same 7 reports come from `--ctu-collect` followed by `--ctu-analyze`
   on the same output folder, and from `--ctu-ast-mode load-from-pch` and
   `--ctu-ast-mode parse-on-demand`.
 - `math.cpp:4:37` is listed twice: once from the analysis of `math.cpp`

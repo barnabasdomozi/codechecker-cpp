@@ -34,22 +34,23 @@ CodeChecker analyze compile_commands.json -o ./reports
 ```
 
 ```
-[INFO] - CodeChecker analyzer version: ...
-[WARNING] - Can't analyze with 'infer': Failed to detect analyzer binary!
-[WARNING] - Can't analyze with 'cppcheck': Failed to detect analyzer binary!
 [INFO] - No checkers enabled for gcc
-[INFO] - Enabled checker list can be found in ./reports/metadata.json
+[INFO] - Enabled checker list can be found in ~/demo/reports/metadata.json
 [INFO] - Starting static analysis ...
-[INFO] - [1/6] clangsa analyzed util.c successfully.
-[INFO] - [2/6] clangsa analyzed main.c successfully.
-[INFO] - [3/6] clangsa analyzed style.cpp successfully.
-[INFO] - [4/6] clang-tidy analyzed main.c successfully.
-[INFO] - [5/6] clang-tidy analyzed util.c successfully.
-[INFO] - [6/6] clang-tidy analyzed style.cpp successfully.
+[INFO] - [1/9] clangsa analyzed util.c successfully.
+[INFO] - [2/9] cppcheck analyzed main.c successfully.
+[INFO] - [3/9] cppcheck analyzed util.c successfully.
+[INFO] - [4/9] clangsa analyzed main.c successfully.
+[INFO] - [5/9] clangsa analyzed style.cpp successfully.
+[INFO] - [6/9] cppcheck analyzed style.cpp successfully.
+[INFO] - [7/9] clang-tidy analyzed main.c successfully.
+[INFO] - [8/9] clang-tidy analyzed util.c successfully.
+[INFO] - [9/9] clang-tidy analyzed style.cpp successfully.
 [INFO] - ----==== Summary ====----
 [INFO] - Successfully analyzed
 [INFO] -   clangsa: 3
 [INFO] -   clang-tidy: 3
+[INFO] -   cppcheck: 3
 [INFO] - Total analyzed compilation commands: 3
 [INFO] - ----=================----
 [INFO] - Analysis finished.
@@ -60,7 +61,10 @@ CodeChecker analyze compile_commands.json -o ./reports
 ```
 
 By default, every analyzer that is found and has enabled checkers runs. GCC
-has no checkers on by default, so it is skipped.
+has no checkers on by default, so it is skipped. Analyzers that are not
+installed (here Infer) are skipped without a message. The order of the
+progress lines depends on the parallel jobs. Without Cppcheck installed,
+there are 6 actions and no `cppcheck` lines.
 
 ### What the report folder contains
 
@@ -72,6 +76,7 @@ reports/
 ├── compiler_info.json                    # detected implicit includes / target / standard
 ├── main.c_clangsa_<hash>.plist           # one result file per source file and analyzer
 ├── main.c_clang-tidy_<hash>.plist
+├── main.c_cppcheck_<hash>.plist
 ├── ...
 ├── conf/                                 # analyzer config files used (e.g. clang-tidy config)
 ├── fixit/                                # clang-tidy fix-it YAML files (used by `fixit`)
@@ -128,8 +133,26 @@ CodeChecker analyze compile_commands.json -o ./reports --analyzers clangsa
 CodeChecker analyze compile_commands.json -o ./reports --analyzers clang-tidy gcc
 ```
 
-Valid names: `clangsa`, `clang-tidy`, `cppcheck`, `gcc`, `infer`.
-❌ `cppcheck` and `infer` could not be run on the test machine.
+```sh
+CodeChecker analyze compile_commands.json -o ./reports --analyzers cppcheck
+```
+
+Valid names: `clangsa`, `clang-tidy`, `cppcheck`, `gcc`, `infer`. With
+`--analyzers cppcheck`, the demo gives `cppcheck-zerodiv` on `main.c:11`,
+`style.cpp:11` and `style.cpp:17` (the last one a false positive) and
+`cppcheck-uninitvar` on `main.c:25` ✅. Naming an analyzer that is not
+installed is an error, also together with others:
+
+```sh
+CodeChecker analyze compile_commands.json -o ./reports --analyzers infer clangsa
+```
+
+```
+[WARNING] - Analyzer 'infer' is enabled but CodeChecker failed to execute analysis with it: 'Failed to detect analyzer binary!'. Please check your 'PATH' environment variable and the 'config/package_layout.json' file!
+[ERROR] - Failed to run command because the given analyzer(s) cannot be found on your machine!
+```
+
+(exit code 1). ❌ `infer` itself could not be run on the test machine.
 
 ## Number of parallel jobs ✅
 

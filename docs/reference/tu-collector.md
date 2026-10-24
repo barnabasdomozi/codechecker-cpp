@@ -30,7 +30,9 @@ Plain `argparse` (errors exit 2). Logging to **stderr**, format
 3. `-z`: with `-b`, WARNING `In case of using build command --filter has no
    effect.` (always, because `-f` defaults to `*`) and, if given,
    `In case of using build command --ctu-deps-dir has no effect.`; then
-   `zip_tu_files` (§3), INFO `Done.`
+   `zip_tu_files` (§3), INFO `Done.` Despite the warning, an explicit `-f`
+   is applied to the one-entry database, whose `file` is `""`, so nothing
+   matches and no sources are collected (verified).
 4. `-d`: `get_dependent_sources(db, [filter])` (§4); print the result set
    one path per line (unordered), or INFO `No source file dependencies.`
 

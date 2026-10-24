@@ -36,8 +36,14 @@ setup as the docs ([usage/README.md](../../docs/usage/README.md)):
 
 - CodeChecker 6.30.0 (git `451b0c5c`), Python 3.13, run from its
   `venv_dev` virtual environment;
-- Clang and Clang-Tidy 19.1.7, GCC 14.2.0, CMake 3.31.6, GNU Make;
-- not installed: Cppcheck, Facebook Infer, Bear, Ninja.
+- Clang and Clang-Tidy 19.1.7, GCC 14.2.0, Cppcheck 2.17.1, CMake 3.31.6,
+  GNU Make;
+- not installed: Facebook Infer, Bear, Ninja.
+
+A plain `analyze` runs every analyzer it finds, so on a machine with other
+analyzers the results differ. The black-box suite passes
+`--analyzers clangsa clang-tidy gcc cppcheck` when it compares with these
+pages.
 
 Unless a page says otherwise, the commands were:
 
@@ -57,8 +63,7 @@ Plain `parse` hides `false_positive` and `intentional` reports.
 - **Statistical analysis** (`--stats`). It needs a Clang with the
   statistics collector checkers, which Debian's Clang 19 does not have (see
   [statistical-analysis.md](../../docs/usage/statistical-analysis.md)).
-- **Cppcheck and Infer** results. The projects can be analyzed with them
-  once they are installed, but there are no expected results yet.
+- **Infer** results: Infer is not installed.
 - **Bazel** (`bazel-compile-commands`): Bazel is not installed.
 
 Server use cases (`store`, `cmd ...`) have no project of their own. They

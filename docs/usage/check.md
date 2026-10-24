@@ -70,6 +70,10 @@ CodeChecker check -l compile_commands.json -e modernize-use-nullptr \
 [HIGH] ~/demo/style.cpp:11:12: Division by zero [core.DivideZero] [False positive]
 [HIGH] ~/demo/style.cpp:17:12: Division by zero [core.DivideZero] [False positive]
 [HIGH] ~/demo/main.c:11:12: Division by zero [core.DivideZero]
+[HIGH] ~/demo/style.cpp:11:12: Division by zero. [cppcheck-zerodiv]
+[HIGH] ~/demo/style.cpp:17:12: Division by zero. [cppcheck-zerodiv] [False positive]
+[HIGH] ~/demo/main.c:11:12: Division by zero. [cppcheck-zerodiv]
+[HIGH] ~/demo/main.c:25:10: Uninitialized variable: x [cppcheck-uninitvar]
 ```
 
 ```sh

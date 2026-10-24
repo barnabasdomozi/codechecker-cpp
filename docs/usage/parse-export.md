@@ -17,8 +17,12 @@ CodeChecker parse ./reports -e html -o ./html
 ├── index.html                                          # list of reports
 ├── statistics.html                                     # tables like the terminal summary
 ├── main.c_clangsa_681db965dea6200719ba62bde2ba8cb4.plist.html
-└── main.c_clang-tidy_681db965dea6200719ba62bde2ba8cb4.plist.html
+├── main.c_clang-tidy_681db965dea6200719ba62bde2ba8cb4.plist.html
+├── main.c_cppcheck_681db965dea6200719ba62bde2ba8cb4.plist.html
+└── style.cpp_cppcheck_3d2af223724183d98c10c4e691ad0f87.plist.html
 ```
+
+One page per result file that has a shown report.
 
 The pages show the source code with the bug path drawn on it, and need no
 server. `-o` is required for HTML:
@@ -84,10 +88,15 @@ CodeChecker parse ./reports -e baseline -o reports.baseline
 A baseline file is a sorted list of report hashes, one per line:
 
 ```
+04d39a256ef58c412c5acf3f9280fe2e
 09296549497056a329a9ce22dda7d710
 249a121710b6a5cb467697f323de0d5f
 2e5ec744a6a360431ece6fe858d3f172
+3b2c4905253f6d0f7409d271d65dbdd6
+990560afd081e416b9c7cc4c772c4cff
 ```
+
+(The last line has no line break at the end.)
 
 The output file must end in `.baseline`:
 
@@ -110,7 +119,7 @@ CodeChecker parse ./reports -e gerrit -o gerrit_review.json
 
 ```json
 {"tag": "jenkins",
- "message": "CodeChecker found 3 issue(s) in the code. See: http://ci.example.com/run/42",
+ "message": "CodeChecker found 6 issue(s) in the code.\n\nThere following reports are introduced in files which are not changed and can't be shown as individual reports:\n[HIGH] style.cpp:11:12: Division by zero. [cppcheck-zerodiv]\n  return a / z;\n\n See: http://ci.example.com/run/42",
  "labels": {"Code-Review": -1, "Verified": -1},
  "comments": {"main.c": [
    {"range": {"start_line": 21, "start_character": 7, "end_line": 21, "end_character": 7},
@@ -118,8 +127,12 @@ CodeChecker parse ./reports -e gerrit -o gerrit_review.json
    ...]}}
 ```
 
-Only reports in changed files become comments; paths are relative to
-`CC_REPO_DIR`. Without `-o`, the JSON is printed to standard output. Both
+Here only `main.c` is in the changed-files list. Only reports in changed
+files become comments (the five `main.c` reports); paths are relative to
+`CC_REPO_DIR`. The count in the message includes every report, and reports
+in files that were not changed are listed in the message itself ("There
+following reports ..." is the reference's wording). Without such reports,
+the message is just `CodeChecker found <N> issue(s) in the code. See: <URL>`. Without `-o`, the JSON is printed to standard output. Both
 `CC_REPO_DIR` and `CC_CHANGED_FILES` must be set; each missing one gives an
 error, e.g. without `CC_CHANGED_FILES`:
 

@@ -15,10 +15,10 @@ echo "x y x" | ./wordstat   # prints "3 words, 2 distinct", then "x 2", "y 1"
 
 ## Expected results
 
-- No reports, also with `--ctu`.
+- No reports, also with `--ctu`, and also from Cppcheck.
 - `analyze` exits 0. `parse` exits 0 and prints `Found no defects in <file>`
   for `main.cpp`, `tokenizer.cpp` and `word_count.cpp`, then a summary with
-  6 processed result files and 0 reports.
+  9 processed result files and 0 reports.
 - `CodeChecker check -b make` exits 0.
 
 `-e profile:sensitive` also gives no reports. `-e profile:extreme` gives

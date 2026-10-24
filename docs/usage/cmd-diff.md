@@ -23,7 +23,7 @@ CodeChecker cmd diff -b BASE [...] -n NEW [...] (--new | --resolved | --unresolv
 CodeChecker cmd diff -b demo:v1 -n demo:v2 --new --url localhost:8555/Default
 ```
 
-Prints the 3 reports added between the `v1` and `v2` stores, then a summary.
+Prints the 5 reports added between the `v1` and `v2` stores (3 from Clang SA and Clang-Tidy, 2 from Cppcheck), then a summary.
 Exit code `2`.
 
 ## Compare a server run with a local folder ✅
@@ -35,6 +35,15 @@ CodeChecker cmd diff -b demo -n ./reports2 --unresolved --url localhost:8555/Def
 5 reports are in both. This is the usual CI pattern: store the main branch as
 a run, analyze a change locally, and diff with `--new` to see only what the
 change introduced.
+
+Local reports are matched by hash, and a local report is left out when
+another local report with the **same hash** is suppressed by a source-code
+comment (the client collects suppressed hashes, not reports). In the demo,
+Cppcheck's two `style.cpp` reports share a hash and line 17 is a false
+positive, so the unreviewed one on line 11 is usually missing from
+`--unresolved` as well (verified with runs stored from `demo`/`demo2`; with
+the run above it is listed, because the client then fetches it from the
+server).
 
 ## Compare two different runs ✅
 

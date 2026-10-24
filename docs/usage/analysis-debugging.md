@@ -13,6 +13,8 @@ The standard output and error of each successful analyzer run are saved in
 main.c_clangsa_681db965dea6200719ba62bde2ba8cb4.plist.stderr.txt
 main.c_clang-tidy_681db965dea6200719ba62bde2ba8cb4.plist.stderr.txt
 main.c_clang-tidy_681db965dea6200719ba62bde2ba8cb4.plist.stdout.txt
+main.c_cppcheck_681db965dea6200719ba62bde2ba8cb4.plist.stderr.txt
+main.c_cppcheck_681db965dea6200719ba62bde2ba8cb4.plist.stdout.txt
 ...
 ```
 
@@ -30,6 +32,7 @@ For every analyzer action, a zip file with everything needed to repeat it
 reports/reproducer/
 ├── main.c_clangsa_681db965dea6200719ba62bde2ba8cb4.plist.zip
 ├── main.c_clang-tidy_681db965dea6200719ba62bde2ba8cb4.plist.zip
+├── main.c_cppcheck_681db965dea6200719ba62bde2ba8cb4.plist.zip
 └── ...
 ```
 
@@ -60,6 +63,9 @@ adds the file names (see [parse.md](parse.md)):
 [INFO] -   clangsa: ['~/brk/broken.c'] (1)
 [INFO] - Missing analysis results
 [INFO] -   clang-tidy: ['~/brk/broken.c'] (1)
+[INFO] -   cppcheck: ['~/brk/broken.c'] (1)
+[INFO] -   gcc: ['~/brk/broken.c'] (1)
+[INFO] -   infer: ['~/brk/broken.c'] (1)
 ```
 
 ## Time limit per analysis ✅

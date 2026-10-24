@@ -59,8 +59,12 @@ files:
 
 ```sh
 printf -- '-*/main.c\n' > skip_main.txt
-CodeChecker parse reports -i skip_main.txt     # no reports printed, exit code 0
+CodeChecker parse reports -i skip_main.txt     # only reports outside main.c, exit code 2
 ```
+
+With the demo, the only report left is Cppcheck's
+`[HIGH] ~/demo/style.cpp:11:12: Division by zero. [cppcheck-zerodiv]`. Without
+Cppcheck installed, no report is printed and the exit code is 0.
 
 `check` passes `-i` to its analyze step.
 

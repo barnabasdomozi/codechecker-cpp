@@ -8,7 +8,10 @@ C++ port must support the same use cases with the same command line, output
 formats and exit codes.
 
 Every command shown here was run against a real CodeChecker 6.30.0 build on
-2026-10-23. Each page marks its use cases like this:
+2026-10-23. On 2026-10-24 Cppcheck and PostgreSQL were installed on the test
+machine; the outputs were re-checked and updated with the black-box test
+suite ([testing/](../../testing/README.md)), which runs
+the use cases of these pages. Each page marks its use cases like this:
 
 | Mark | Meaning |
 |------|---------|
@@ -24,8 +27,13 @@ whether to copy the behavior or fix it.
 
 - CodeChecker 6.30.0 (git `451b0c5c`), Thrift API 6.74, Python 3.13.
 - Analyzers found: Clang Static Analyzer 19.1.7, Clang-Tidy 19.1.7,
-  GCC 14.2.0. **Not installed:** Cppcheck, Facebook Infer.
-- Also not installed: PostgreSQL, Bazel, `unzip`.
+  GCC 14.2.0, Cppcheck 2.17.1. **Not installed:** Facebook Infer.
+- PostgreSQL 17 (for the PostgreSQL use cases a temporary server was used).
+- Not installed: Bazel.
+- A plain `CodeChecker analyze` runs every analyzer it finds, so the outputs
+  on these pages include Cppcheck's reports. Without Cppcheck, the
+  `cppcheck-*` reports are missing, and Cppcheck is listed as `NOT FOUND`
+  and under "Missing analysis results".
 - CodeChecker was built from source (`make package` in the CodeChecker
   repository). The CodeChecker on `PATH` needs the Python packages of the
   repository's development virtual environment (`make venv_dev`), so activate

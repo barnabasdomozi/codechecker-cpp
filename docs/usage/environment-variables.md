@@ -18,7 +18,7 @@
 | `CC_PASS_FILE` | all clients | Password file (default `~/.codechecker.passwords.json`) | ✅ |
 | `CC_SESSION_FILE` | all clients | Session file (default `~/.codechecker.session.json`) | ✅ |
 | `SSL_CERT_FILE` | all clients | CA certificate to trust for `https://` servers | ✅ |
-| `PGPASSFILE` | server (PostgreSQL) | libpq password file | ❌ |
+| `PGPASSFILE` | server (PostgreSQL) | libpq password file | ✅ |
 | `COLUMNS` | all table output | Table width | ✅ |
 
 Files CodeChecker creates in the home folder:

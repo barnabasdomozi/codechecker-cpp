@@ -20,11 +20,11 @@ report-converter --example TYPE
 | `ubsan` | UndefinedBehaviorSanitizer | ✅ |
 | `msan` | MemorySanitizer | ❌ |
 | `tsan` | ThreadSanitizer | ❌ |
-| `lsan` | LeakSanitizer | ❌ |
+| `lsan` | LeakSanitizer | ✅ |
 | `clang-tidy` | Clang-Tidy text output | ✅ |
 | `clang-tidy-yaml` | Clang-Tidy `-export-fixes` YAML | ✅ |
 | `gcc` | GCC `-fanalyzer` SARIF | ✅ |
-| `cppcheck` | Cppcheck plist | ❌ |
+| `cppcheck` | Cppcheck plist | ✅ |
 | `fbinfer` | Facebook Infer | ❌ |
 | `pylint` | Pylint JSON | ✅ |
 | `pyflakes` | Pyflakes | ❌ |
@@ -98,6 +98,30 @@ CodeChecker parse ./rc_asan
 clang -fsanitize=undefined -g ubsan.c -o ubsan_bin && ./ubsan_bin 2> ubsan.out
 report-converter -t ubsan -o ./rc_ubsan ubsan.out
 ```
+
+```sh
+clang -fsanitize=leak -g leak.c -o leak_bin && ./leak_bin 2> leak.out
+report-converter -t lsan -o ./rc_lsan leak.out
+```
+
+LeakSanitizer reports become `LeakSanitizer` reports (severity HIGH). The
+memory addresses in the sanitizer messages change from run to run, but the
+report hashes do not (verified with
+[testing/analyze-targets/external-tools](../../testing/analyze-targets/external-tools/README.md)).
+
+## Cppcheck ✅
+
+```sh
+cppcheck --plist-output=./cppcheck_out $PWD/main.c
+report-converter -t cppcheck -o ./rc_cppcheck ./cppcheck_out
+```
+
+The checker names are Cppcheck's own (`zerodiv`, `uninitvar`), without the
+`cppcheck-` prefix that `CodeChecker analyze` gives them, and the severity
+is `UNSPECIFIED`. Give Cppcheck absolute paths (as
+`report-converter --example cppcheck` says): a relative path in the plist
+is resolved against the plist folder, so the report points to e.g.
+`cppcheck_out/main.c`.
 
 ## Pylint ✅
 

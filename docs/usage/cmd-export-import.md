@@ -18,10 +18,14 @@ The JSON goes to standard output; log lines go to standard error.
    "21b0090745a8a3abdf9a0989d93a8ce7": {"status": 2, "comment": "intentional for the demo",
        "author": "Anonymous", "date": "2026-10-23 23:39:49.942365", "isInSource": true},
    "07a8f6647771d7458a6a8cf8e4b15643": {"status": 2, "comment": "demo comment",
+       "author": "Anonymous", "date": "2026-10-23 23:39:49.942365", "isInSource": true},
+   "990560afd081e416b9c7cc4c772c4cff": {"status": 2, "comment": "demo comment",
        "author": "Anonymous", "date": "2026-10-23 23:39:49.942365", "isInSource": true}}}
 ```
 
-Keys are report hashes. `status` uses the Thrift review status numbers.
+Keys are report hashes, so reports with the same hash share one entry: the
+two Cppcheck reports of `style.cpp` have the hash `990560af...`; only the
+one on line 17 is a false positive, but the export lists the hash as one. `status` uses the Thrift review status numbers.
 `comments` holds comments by report hash. These include the system comments
 the server adds when a review status changes, e.g.:
 

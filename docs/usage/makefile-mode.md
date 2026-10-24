@@ -37,13 +37,16 @@ all: all_clangsa
 # Target to run only 'clangtidy' analysis.
 all: all_clangtidy
 
+# Target to run only 'cppcheck' analysis.
+all: all_cppcheck
+
 7c4c04e7a36437427f489d356ff0a853:
 	@echo "[`date +'%Y-%m-%d %H:%M:%S'`] - clangsa analyze ~/demo/main.c."
 	...
 ```
 
-There is one target per analyzer action, and `all_clangsa` / `all_clangtidy`
-group targets.
+There is one target per analyzer action, and `all_clangsa` /
+`all_clangtidy` / `all_cppcheck` group targets.
 
 ## Run it ✅
 
@@ -60,3 +63,10 @@ the ones `analyze` writes (`main.c_clang-tidy_3b59...` instead of
 `main.c_clang-tidy_681d...`). `parse --status` then lists clang-tidy under
 "Missing analysis results", but `parse` still prints the clang-tidy reports.
 For files without findings, no clang-tidy result file is written.
+
+⚠️ Cppcheck writes its own plist files into `reports/cppcheck/`, and the
+Makefile does not post-process them as `analyze` does. `parse` still reads
+them, but the checker names have no `cppcheck-` prefix (`[zerodiv]`,
+`[uninitvar]` instead of `[cppcheck-zerodiv]`), and `parse --status` lists
+Cppcheck under "Missing analysis results" too. See
+[known-issues.md](known-issues.md) #13.

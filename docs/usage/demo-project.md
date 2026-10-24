@@ -99,16 +99,24 @@ clean:
 
 ## What the default analysis finds
 
-`CodeChecker check -b make` reports three issues in `main.c`:
+`CodeChecker check -b make` reports six issues:
 
 | Location | Checker | Severity |
 |---|---|---|
 | `main.c:11:12` | `core.DivideZero` | HIGH |
+| `main.c:11:12` | `cppcheck-zerodiv` | HIGH |
 | `main.c:21:7` | `clang-diagnostic-unused-variable` | MEDIUM |
 | `main.c:25:10` | `clang-diagnostic-uninitialized` | HIGH |
+| `main.c:25:10` | `cppcheck-uninitvar` | HIGH |
+| `style.cpp:11:12` | `cppcheck-zerodiv` | HIGH |
 
-The two divisions by zero in `style.cpp` are hidden by their source-code
-comments. `main.c:6` is only found with CTU analysis.
+The Clang SA divisions by zero in `style.cpp` are hidden by their
+source-code comments. The comment on line 10 names `core.DivideZero` only,
+so Cppcheck's report on line 11 is still shown; the `[all]` comment on line
+16 hides Cppcheck's report on line 17 too. `main.c:6` is only found with CTU
+analysis. Without Cppcheck installed, only the three Clang reports in
+`main.c` are found. The exact results are in
+[reference/demo-project.md](../reference/demo-project.md).
 
 ## Second version
 
@@ -116,6 +124,8 @@ comments. `main.c:6` is only found with CTU analysis.
 [store.md](store.md) also use a changed copy, `~/demo2`:
 
 - `main.c:21` changes from `int unused = 5;` to `int *q = 0; *q = 1;`. This
-  removes the unused-variable report and adds a `core.NullDereference`.
+  removes the unused-variable report and adds a `core.NullDereference` (and
+  a `cppcheck-nullPointer`).
 - `style.cpp:4` gets a new division by zero:
-  `int *p = 0; int t = 0; (void)(1 / t);`.
+  `int *p = 0; int t = 0; (void)(1 / t);` (`core.DivideZero` and
+  `cppcheck-zerodiv`).

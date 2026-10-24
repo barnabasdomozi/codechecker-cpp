@@ -23,14 +23,16 @@ Mostly C (`main.c`, `lib/util.c`), plus one C++ file (`style.cpp`).
 ## Expected results
 
 The full tables, with report hashes and review statuses, are in
-[reference/demo-project.md](../../../docs/reference/demo-project.md). They
-were re-checked against these files on 2026-10-24 and match exactly:
+[reference/demo-project.md](../../../docs/reference/demo-project.md), and the
+black-box suite checks them. In short (Clang SA, Clang-Tidy, GCC and
+Cppcheck 2.17.1):
 
-- `v1`: 5 reports (3 unreviewed in `main.c`, 2 false positives in
-  `style.cpp` hidden by source-code comments). `parse` exits 2.
-- `v2`: 6 reports. Compared with `v1`: `249a1217...` (unused variable) is
-  resolved, `19a15bf4...` (`main.c:21:18`) and `b8956890...`
-  (`style.cpp:4:35`) are new.
+- `v1`: 9 reports. `parse` shows 6 of them (the five `main.c` reports and
+  Cppcheck's `style.cpp:11`) and exits 2; three are false positives hidden
+  by source-code comments.
+- `v2`: 12 reports. Compared with `v1`: `249a1217...` (unused variable) is
+  resolved; `19a15bf4...` and `b8956890...` (Clang SA), `dc01f098...` and
+  `0983180e...` (Cppcheck) are new.
 
 `main.c:6` and `main.c:16` are only found with CTU
 ([ctu-analysis.md](../../../docs/reference/ctu-analysis.md)).

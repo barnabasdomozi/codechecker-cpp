@@ -70,6 +70,12 @@ int f6(int a) { int z = 0; int u;
   return a / z + u; }   // -> DivideZero [Intentional], uninitialized [Confirmed]
 ```
 
+Cppcheck reports the same divisions by zero (and `u` in `f6`) as
+`cppcheck-zerodiv` and `cppcheck-uninitvar`. Only the `[all]` comment of `f3`
+covers them (false positive); the others stay unreviewed, because their
+comments name Clang checkers. `[core]` does not match `cppcheck-zerodiv`:
+the token must be a part of the checker name.
+
 `confirmed` reports are still shown by default, with `[Confirmed]` at the end
 of the line.
 
@@ -82,7 +88,12 @@ CodeChecker parse ./reports --review-status false_positive
 ```
 [HIGH] ~/demo/style.cpp:11:12: Division by zero [core.DivideZero] [False positive]
 [HIGH] ~/demo/style.cpp:17:12: Division by zero [core.DivideZero] [False positive]
+[HIGH] ~/demo/style.cpp:17:12: Division by zero. [cppcheck-zerodiv] [False positive]
 ```
+
+The `[all]` comment on line 16 also covers Cppcheck's report on line 17. The
+comment on line 10 names `core.DivideZero` only, so Cppcheck's report on
+line 11 stays unreviewed and `parse` shows it by default.
 
 When stored to a server, these reports get the review status from the comment,
 with `isInSource: true`, and it cannot be changed in the web UI.
@@ -153,7 +164,12 @@ CodeChecker parse ./reports --export-source-suppress --suppress suppress.txt
 ```
 21b0090745a8a3abdf9a0989d93a8ce7||style.cpp||intentional for the demo||false_positive
 07a8f6647771d7458a6a8cf8e4b15643||style.cpp||demo comment||false_positive
+990560afd081e416b9c7cc4c772c4cff||style.cpp||demo comment||false_positive
 ```
+
+The last line is Cppcheck's report on `style.cpp:17`. Cppcheck gives the
+same hash to the report on line 11, and a suppress file matches by hash and
+file name, so using this file with `--suppress` hides that report too.
 
 ### Hide reports with it
 

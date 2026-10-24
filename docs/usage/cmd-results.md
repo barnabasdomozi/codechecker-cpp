@@ -14,18 +14,20 @@ CodeChecker cmd results demo --url localhost:8555/Default
 ```
 
 ```
-┌───────────────┬──────────────────────┬──────────┬──────────────────────────────────────┬─────────────────┬───────────────┬───────────────┬──────────────────┐
-│ File          │ Checker              │ Severity │ Message                              │ Bug path length │ Analyzer name │ Review status │ Detection status │
-├───────────────┼──────────────────────┼──────────┼──────────────────────────────────────┼─────────────────┼───────────────┼───────────────┼──────────────────┤
-│ main.c @ 11   │ core.DivideZero      │ HIGH     │ Division by zero                     │ 2               │ clangsa       │ UNREVIEWED    │ UNRESOLVED       │
-│ main.c @ 21   │ core.NullDereference │ HIGH     │ Dereference of null pointer (loaded  │ 2               │ clangsa       │ UNREVIEWED    │ NEW              │
-│               │                      │          │ from variable ...                    │                 │               │               │                  │
-│ style.cpp @ 4 │ core.DivideZero      │ HIGH     │ Division by zero                     │ 2               │ clangsa       │ UNREVIEWED    │ NEW              │
-│ main.c @ 25   │ clang-diagnostic-    │ HIGH     │ variable 'x' is uninitialized when   │ 2               │ clang-tidy    │ UNREVIEWED    │ UNRESOLVED       │
-│               │ uninitialized        │          │ used here                            │                 │               │               │                  │
-│ style.cpp @ 4 │ modernize-use-       │ LOW      │ use nullptr                          │ 1               │ clang-tidy    │ UNREVIEWED    │ NEW              │
-│               │ nullptr              │          │                                      │                 │               │               │                  │
-└───────────────┴──────────────────────┴──────────┴──────────────────────────────────────┴─────────────────┴───────────────┴───────────────┴──────────────────┘
+┌────────────────┬────────────────────────────────┬──────────┬───────────────────────────────────────────────────────┬─────────────────┬───────────────┬───────────────┬──────────────────┐
+│ File           │ Checker                        │ Severity │ Message                                               │ Bug path length │ Analyzer name │ Review status │ Detection status │
+├────────────────┼────────────────────────────────┼──────────┼───────────────────────────────────────────────────────┼─────────────────┼───────────────┼───────────────┼──────────────────┤
+│ style.cpp @ 4  │ core.DivideZero                │ HIGH     │ Division by zero                                      │ 2               │ clangsa       │ UNREVIEWED    │ NEW              │
+│ main.c @ 11    │ core.DivideZero                │ HIGH     │ Division by zero                                      │ 2               │ clangsa       │ UNREVIEWED    │ UNRESOLVED       │
+│ main.c @ 21    │ core.NullDereference           │ HIGH     │ Dereference of null pointer (loaded from variable ... │ 2               │ clangsa       │ UNREVIEWED    │ NEW              │
+│ style.cpp @ 4  │ cppcheck-zerodiv               │ HIGH     │ Division by zero.                                     │ 3               │ cppcheck      │ UNREVIEWED    │ NEW              │
+│ style.cpp @ 11 │ cppcheck-zerodiv               │ HIGH     │ Division by zero.                                     │ 3               │ cppcheck      │ UNREVIEWED    │ UNRESOLVED       │
+│ main.c @ 21    │ cppcheck-nullPointer           │ HIGH     │ Null pointer dereference: q                           │ 3               │ cppcheck      │ UNREVIEWED    │ NEW              │
+│ main.c @ 11    │ cppcheck-zerodiv               │ HIGH     │ Division by zero.                                     │ 3               │ cppcheck      │ UNREVIEWED    │ UNRESOLVED       │
+│ main.c @ 25    │ cppcheck-uninitvar             │ HIGH     │ Uninitialized variable: x                             │ 1               │ cppcheck      │ UNREVIEWED    │ UNRESOLVED       │
+│ main.c @ 25    │ clang-diagnostic-uninitialized │ HIGH     │ variable 'x' is uninitialized when used here          │ 2               │ clang-tidy    │ UNREVIEWED    │ UNRESOLVED       │
+│ style.cpp @ 4  │ modernize-use-nullptr          │ LOW      │ use nullptr                                           │ 1               │ clang-tidy    │ UNREVIEWED    │ NEW              │
+└────────────────┴────────────────────────────────┴──────────┴───────────────────────────────────────────────────────┴─────────────────┴───────────────┴───────────────┴──────────────────┘
 ```
 
 (The run was stored twice, `v1` then `v2`, with `--trim-path-prefix` on the
@@ -41,8 +43,11 @@ CodeChecker cmd results demo --tag v1 --uniqueing on -o csv --url localhost:8555
 
 ```
 File,Checker,Severity,Message,Bug path length,Analyzer name,Review status,Detection status
+main.c @ 11,cppcheck-zerodiv,HIGH,Division by zero.,3,cppcheck,UNREVIEWED,UNRESOLVED
 main.c @ 11,core.DivideZero,HIGH,Division by zero,2,clangsa,UNREVIEWED,UNRESOLVED
 main.c @ 25,clang-diagnostic-uninitialized,HIGH,variable 'x' is uninitialized when used here,2,clang-tidy,UNREVIEWED,UNRESOLVED
+main.c @ 25,cppcheck-uninitvar,HIGH,Uninitialized variable: x,1,cppcheck,UNREVIEWED,UNRESOLVED
+style.cpp @ 11,cppcheck-zerodiv,HIGH,Division by zero.,3,cppcheck,UNREVIEWED,UNRESOLVED
 ```
 
 ## Full details as JSON ✅
@@ -113,6 +118,7 @@ CodeChecker cmd results demo --bug-path-length 2: --analyzer-name clangsa --chec
 ```
 │ style.cpp @ 11 │ core.DivideZero │ HIGH │ Division by zero │ 2 │ clangsa │ FALSE_POSITIVE │ UNRESOLVED │
 │ style.cpp @ 17 │ core.DivideZero │ HIGH │ Division by zero │ 2 │ clangsa │ FALSE_POSITIVE │ UNRESOLVED │
+│ style.cpp @ 17 │ cppcheck-zerodiv │ HIGH │ Division by zero. │ 3 │ cppcheck │ FALSE_POSITIVE │ UNRESOLVED │
 ```
 
 Notes from testing:

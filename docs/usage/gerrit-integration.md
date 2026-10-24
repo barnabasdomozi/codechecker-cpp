@@ -41,7 +41,7 @@ CodeChecker parse reports -e gerrit -o gerrit_review.json
 
 ```json
 {"tag": "jenkins",
- "message": "CodeChecker found 3 issue(s) in the code. See: http://ci.example.com/job/42",
+ "message": "CodeChecker found 6 issue(s) in the code.\n\nThere following reports are introduced in files which are not changed and can't be shown as individual reports:\n[HIGH] style.cpp:11:12: Division by zero. [cppcheck-zerodiv]\n  return a / z;\n\n See: http://ci.example.com/job/42",
  "labels": {"Code-Review": -1, "Verified": -1},
  "comments": {"main.c": [
    {"range": {"start_line": 21, "start_character": 7, "end_line": 21, "end_character": 7},
@@ -49,9 +49,11 @@ CodeChecker parse reports -e gerrit -o gerrit_review.json
    ...]}}
 ```
 
-Post this JSON to Gerrit's "set review" endpoint. Without `CC_REPORT_URL`,
-the message is just `CodeChecker found 3 issue(s) in the code.`.
-`CC_REPO_DIR` and `CC_CHANGED_FILES` are required.
+Post this JSON to Gerrit's "set review" endpoint. Only `main.c` is in
+`changed.json`, so its five reports become comments; the count in the message
+includes all six reports, and the report in the unchanged `style.cpp` is
+listed in the message. Without `CC_REPORT_URL`, the ` See: <URL>` part is
+left out. `CC_REPO_DIR` and `CC_CHANGED_FILES` are required.
 
 ## Gerrit review JSON for new reports only ✅
 
@@ -61,4 +63,8 @@ CC_CHANGED_FILES=changed.json CC_REPO_DIR=$HOME/demo2 \
 ```
 
 Writes `./diff_gerrit/gerrit_review.json`. The base can also be a server run.
+With only `main.c` changed, the two new `main.c` reports
+(`core.NullDereference`, `cppcheck-nullPointer`) become comments, and the
+message counts all four new reports (`CodeChecker found 4 issue(s) in the
+code.`) and lists the two new ones in `style.cpp`.
 See [local-diff.md](local-diff.md) and [cmd-diff.md](cmd-diff.md).

@@ -43,7 +43,7 @@ CodeChecker cmd products add proj3 --sqlite proj3.sqlite --url localhost:8555
 
 Store into the new product with `--url localhost:8555/proj2`.
 
-## Add a product (PostgreSQL) ❌
+## Add a product (PostgreSQL) ✅
 
 ```sh
 CodeChecker cmd products add proj4 --postgresql --db-host localhost --db-port 5432 \
@@ -51,7 +51,18 @@ CodeChecker cmd products add proj4 --postgresql --db-host localhost --db-port 54
 ```
 
 The database must already exist, and the **server** connects to it. Defaults:
-username and database name = `<ENDPOINT>`. Not tested (no PostgreSQL).
+username and database name = `<ENDPOINT>`. Verified with a temporary
+PostgreSQL 17 server: the product works like a SQLite one (`store`,
+`cmd results`), and the reports are in the PostgreSQL database. If the
+database does not exist:
+
+```
+[ERROR] - Calling API endpoint: addProduct
+[ERROR] - Database error on server
+```
+
+(exit code 1). The password given with `--db-password` is stored in the
+product's connection string in the configuration database.
 
 ## Remove a product ✅
 

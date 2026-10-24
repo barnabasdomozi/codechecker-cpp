@@ -38,4 +38,10 @@ gcc: | $(OUT)
 clean:
 	rm -rf $(OUT)
 
-.PHONY: all asan ubsan lsan clang-tidy gcc clean
+# Not in 'all': Cppcheck is optional. Cppcheck must get absolute paths (see
+# 'report-converter --example cppcheck').
+cppcheck: | $(OUT)
+	mkdir -p $(OUT)/cppcheck
+	cppcheck --plist-output=$(OUT)/cppcheck $(CURDIR)/src/analyzer_input.cpp
+
+.PHONY: all asan ubsan lsan clang-tidy gcc cppcheck clean

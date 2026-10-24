@@ -11,8 +11,9 @@ Concepts:
 - **Configuration database**: server-wide settings (products, permissions,
   sessions, tokens). SQLite `WORKSPACE/config.sqlite` by default.
 - **Product**: a separate result database with its own URL endpoint. On first
-  start, a product `Default` is created (`WORKSPACE/Default.sqlite`). See
-  [cmd-products.md](cmd-products.md).
+  start with a SQLite configuration database, a product `Default` is created
+  (`WORKSPACE/Default.sqlite`). With a PostgreSQL configuration database, no
+  product is created. See [cmd-products.md](cmd-products.md).
 
 Database migration options are on [server-database.md](server-database.md)
 and authentication on [server-authentication.md](server-authentication.md).
@@ -65,18 +66,33 @@ CodeChecker server -w ./ws2 -f ./cfg2 --sqlite ./ws2/my_config.sqlite -v 8557
 `server_config.json` is created in `./cfg2`. The configuration database is
 `./ws2/my_config.sqlite`. Product databases stay in the workspace.
 
-## PostgreSQL configuration database ❌
+## PostgreSQL configuration database ✅
 
 ```sh
 CodeChecker server -w ./ws --postgresql --db-host localhost --db-port 5432 \
   --db-username codechecker --db-name config
 ```
 
-PostgreSQL arguments are ignored unless `--postgresql` is given. Defaults:
-host `localhost`, port `5432`, user `codechecker`, database `config`. The
-password comes from a libpq `pgpass` file (`~/.pgpass`, or the file named by
-`PGPASSFILE`), e.g. `*:5432:*:codechecker:my_password`. Not tested: no
-PostgreSQL server was available.
+Defaults: host `localhost`, port `5432`, user `codechecker`, database
+`config`. The password comes from a libpq `pgpass` file (`~/.pgpass`, or the
+file named by `PGPASSFILE`), e.g. `*:5432:*:codechecker:my_password`. The
+database must exist. Verified with a temporary PostgreSQL 17 server:
+
+- The configuration tables are created in the PostgreSQL database; no
+  `config.sqlite` is written to the workspace.
+- No `Default` product is created; `cmd products list` is empty until
+  products are added (they can be SQLite or PostgreSQL products).
+- With a wrong password, the server does not start (exit code 1):
+
+  ```
+  [ERROR] - Database connection failed to 'postgresql+psycopg2://codechecker@localhost:5432/config?client_encoding=utf8':
+  [ERROR] - Failed to get product configurations from the database.
+  [ERROR] - Please check your command arguments.
+  ```
+
+- The PostgreSQL arguments are **not** allowed without `--postgresql`:
+  `CodeChecker server: error: argument --db-port: not allowed without argument --postgresql`
+  (exit code 1).
 
 ## Process counts and machine ID ✅
 
@@ -174,8 +190,12 @@ Running servers are recorded in `~/.codechecker.instances.json`.
 CodeChecker server -w ./ws -v 8555 -r
 ```
 
-Sends `SIGHUP` to the server for that workspace and port. The server re-reads
-`server_config.json` (e.g. authentication settings) without restarting.
+Sends `SIGHUP` to the server for that workspace and port. The server logs
+`Server configuration reload: Done.`. ⚠️ The reload only affects the main
+server process, not the processes that answer API requests (see
+[reference/server.md](../reference/server.md) §6): e.g. turning on
+authentication in `server_config.json` and reloading does **not** make the
+server ask for a login (verified). Restart the server instead.
 
 ## Stop servers ✅
 

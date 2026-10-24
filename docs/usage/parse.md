@@ -35,11 +35,27 @@ Found no defects in util.c
 
 Found 2 defect(s) in main.c
 
+[HIGH] ~/demo/style.cpp:11:12: Division by zero. [cppcheck-zerodiv]
+  return a / z;
+           ^
+
+Found 1 defect(s) in style.cpp
+
 [HIGH] ~/demo/main.c:11:12: Division by zero [core.DivideZero]
   return a / z;
            ^
 
 Found 1 defect(s) in main.c
+
+[HIGH] ~/demo/main.c:11:12: Division by zero. [cppcheck-zerodiv]
+  return a / z;
+           ^
+
+[HIGH] ~/demo/main.c:25:10: Uninitialized variable: x [cppcheck-uninitvar]
+  return x;
+         ^
+
+Found 2 defect(s) in main.c
 
 
 ----==== Severity Statistics ====----
@@ -47,7 +63,7 @@ Found 1 defect(s) in main.c
 │ Severity │ Number of reports │
 ├──────────┼───────────────────┤
 │ MEDIUM   │ 1                 │
-│ HIGH     │ 2                 │
+│ HIGH     │ 5                 │
 └──────────┴───────────────────┘
 ----=================----
 
@@ -57,7 +73,9 @@ Found 1 defect(s) in main.c
 ├──────────────────────────────────┼──────────┼───────────────────┤
 │ clang-diagnostic-unused-variable │ MEDIUM   │ 1                 │
 │ clang-diagnostic-uninitialized   │ HIGH     │ 1                 │
+│ cppcheck-zerodiv                 │ HIGH     │ 2                 │
 │ core.DivideZero                  │ HIGH     │ 1                 │
+│ cppcheck-uninitvar               │ HIGH     │ 1                 │
 └──────────────────────────────────┴──────────┴───────────────────┘
 ----=================----
 
@@ -65,25 +83,26 @@ Found 1 defect(s) in main.c
 ┌───────────┬───────────────────┐
 │ File name │ Number of reports │
 ├───────────┼───────────────────┤
-│ main.c    │ 3                 │
+│ main.c    │ 5                 │
+│ style.cpp │ 1                 │
 └───────────┴───────────────────┘
 ----=================----
 
 ----======== Summary ========----
 ┌───────────────────────────────────────────┬───┐
-│ Number of processed analyzer result files │ 6 │
+│ Number of processed analyzer result files │ 9 │
 ├───────────────────────────────────────────┼───┤
-│ Number of analyzer reports                │ 3 │
+│ Number of analyzer reports                │ 6 │
 └───────────────────────────────────────────┴───┘
 ----=================----
 [INFO] - ----==== Summary ====----
 [INFO] - Up-to-date analysis results
 [INFO] -   clangsa: 3
 [INFO] -   clang-tidy: 3
+[INFO] -   cppcheck: 3
 [INFO] - Outdated analysis results
 [INFO] - Failed to analyze
 [INFO] - Missing analysis results
-[INFO] -   cppcheck: 3
 [INFO] -   gcc: 3
 [INFO] -   infer: 3
 [INFO] - Total analyzed compilation commands: 3
@@ -91,8 +110,11 @@ Found 1 defect(s) in main.c
 [INFO] - ----=================----
 ```
 
-The report blocks are grouped by result file, so reports from Clang SA and
-Clang-Tidy for the same source file appear in separate groups. The final
+The report blocks are grouped by result file, so reports from Clang SA,
+Clang-Tidy and Cppcheck for the same source file appear in separate groups.
+The order of the groups is not fixed. The Cppcheck report on `style.cpp:11`
+is shown because its comment names `core.DivideZero` only (see
+[demo-project.md](demo-project.md)). The final
 `[INFO]` block is the analysis status summary (see `--status` below).
 
 ## Parse one result file or several folders ✅
@@ -112,7 +134,7 @@ CodeChecker parse ./reports --print-steps
 [HIGH] ~/demo/main.c:11:12: Division by zero [core.DivideZero]
   return a / z;
            ^
-  Report hash: d11a6fc279b8946a4bdc0365ff032ae0
+  Report hash: 09296549497056a329a9ce22dda7d710
   Steps:
     1, main.c:22:18: Calling 'local_div'
     2, main.c:9:1: Entered call from 'main'
