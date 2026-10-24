@@ -1,0 +1,5 @@
+88567cf6f5f144b85c8ad3c4d42114cd||comments.cpp||hidden by the suppress file||false_positive
+eea0be19368155e064d9fcd61fa6a3c1||comments.cpp||new format, no status field
+3ece47aaa18304eecdacbc06d45db074||old format, no file name: never matches
+72770300dcb8a05f8f8c26fa782edfd6||other_file.cpp||file name does not match||false_positive
+this line is malformed

@@ -1,0 +1,14 @@
+# Build and analysis outputs, in case a project is built in place by mistake.
+# Projects should be copied to a temporary directory before building.
+*.o
+*.a
+*.plist
+compile_commands.json
+reports/
+build/
+out/
+out dir/
+/demo/*/app
+/clean/wordstat
+/ctu/ctu-demo
+/make-recursive/tools/cli

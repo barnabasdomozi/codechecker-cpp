@@ -118,23 +118,25 @@ The suite defines several small C and C++ projects to run CodeChecker on.
 Each project has known bugs, and the expected results (reports, checker
 names, report counts, exit codes) are written down with the project.
 
-The [demo project](../docs/reference/demo-project.md) from the docs is one
-of them. Other projects are needed to cover features the demo project does
-not, for example:
+The projects are in [testing/analyze-targets/](analyze-targets/README.md). The
+[demo project](../docs/reference/demo-project.md) from the docs is one of
+them. The others cover features the demo project does not:
 
-- different build systems (plain compiler commands, Make, CMake), for
-  `log` and for compilation databases written by other tools;
+- different build systems (Make, recursive Make, CMake, a shell script),
+  for `log` and for compilation databases written by other tools;
 - C and C++ sources, headers, and code that only some analyzers report on;
 - cross translation unit (CTU) bugs, where the bug spans more than one
   source file;
 - source-code suppression comments and review statuses;
-- statistical analysis;
 - sources that fail to compile, for failed-analysis exit codes;
 - a project with no bugs, for the "no reports" paths;
 - paths with spaces or non-ASCII characters;
-- two versions of the same project, for `cmd diff` and local diffs.
+- two versions of the same project, for `cmd diff` and local diffs;
+- output of other tools (sanitizers, Clang-Tidy, GCC) for
+  `report-converter`.
 
-The full list of projects and where they are kept is not decided yet.
+Statistical analysis has no project yet. See
+[Not covered yet](analyze-targets/README.md#not-covered-yet).
 
 ## Comparing output
 

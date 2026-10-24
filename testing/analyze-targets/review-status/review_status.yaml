@@ -1,0 +1,22 @@
+# Review status rules for rules_target.cpp. Pass this file with
+# 'CodeChecker analyze --review-status-config review_status.yaml'; analyze
+# copies it into the report folder, where parse, store and cmd diff read it.
+# The first matching rule wins. A source-code comment beats every rule.
+$version: 1
+rules:
+  - filters:
+      report_hash: a3b0cc72
+    actions:
+      review_status: confirmed
+      reason: matched by a report hash prefix
+  - filters:
+      filepath: "*/rules_target.cpp"
+      checker_name: core.DivideZero
+    actions:
+      review_status: false_positive
+      reason: matched by file path and checker name
+  - filters:
+      checker_name: core.NullDereference
+    actions:
+      review_status: intentional
+      reason: matched by checker name
