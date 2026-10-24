@@ -1,7 +1,9 @@
 # CodeChecker usage reference
 
 These pages describe everything a user can do with CodeChecker **6.30.0**
-(the Python version in `../codechecker`). Each page covers one use case. The
+(the Python version, [Ericsson/codechecker](https://github.com/Ericsson/codechecker/tree/451b0c5c1786ed21b0685c298f759164a8c5d379) at commit `451b0c5c`).
+Source paths mentioned in these pages (e.g. `web/server/...`) are relative to
+that repository. Each page covers one use case. The
 C++ port must support the same use cases with the same command line, output
 formats and exit codes.
 
@@ -24,9 +26,10 @@ whether to copy the behavior or fix it.
 - Analyzers found: Clang Static Analyzer 19.1.7, Clang-Tidy 19.1.7,
   GCC 14.2.0. **Not installed:** Cppcheck, Facebook Infer.
 - Also not installed: PostgreSQL, Bazel, `unzip`.
-- The CodeChecker on `PATH` needs the Python packages from
-  `codechecker/venv_dev`. Activate it first:
-  `source codechecker/venv_dev/bin/activate`.
+- CodeChecker was built from source (`make package` in the CodeChecker
+  repository). The CodeChecker on `PATH` needs the Python packages of the
+  repository's development virtual environment (`make venv_dev`), so activate
+  it first: `source venv_dev/bin/activate` (run in the CodeChecker repository).
 
 ## Demo project
 

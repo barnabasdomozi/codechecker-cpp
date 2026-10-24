@@ -3,7 +3,8 @@
 `memory_safety_reporter` packs a report folder into an archive with a fixed
 layout and a name built from product information. It is meant for delivering
 memory-safety analysis evidence. The tool is in the `bin/` folder of the
-package (source: `codechecker/tools/memory-safety-reporter`).
+package (source:
+[`tools/memory-safety-reporter`](https://github.com/Ericsson/codechecker/tree/451b0c5c1786ed21b0685c298f759164a8c5d379/tools/memory-safety-reporter)).
 
 ```
 memory_safety_reporter -r REPORT_DIRECTORY [-o OUTPUT_FILE] [-p PRODUCT_NAME]

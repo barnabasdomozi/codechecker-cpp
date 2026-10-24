@@ -97,7 +97,7 @@ CodeChecker server -w ./ws2 -v 8557 --api-handler-processes 2 --task-worker-proc
   `server_config.json`.
 - `--machine-id`: names this server instance for task bookkeeping (see
   [cmd-serverside-tasks.md](cmd-serverside-tasks.md)). The default is
-  `<hostname>:<port>`, e.g. `ai-house:8555`. Set it when the same server runs
+  `<hostname>:<port>`, e.g. `myhost:8555`. Set it when the same server runs
   in changing environments such as containers.
 
 ## Skip database cleanup at start ✅

@@ -1,10 +1,12 @@
-# CodeChecker++
+# CodeChecker-cpp
 
-CodeChecker++ is a port of [CodeChecker](https://github.com/Ericsson/codechecker)
+CodeChecker-cpp is a port of [CodeChecker](https://github.com/Ericsson/codechecker)
 from Python to C++.
 
-The original Python project lives in `../codechecker` (version 6.30.0) and is
-the reference for how the port should behave.
+The original Python project is
+[Ericsson/codechecker](https://github.com/Ericsson/codechecker). The
+documentation here is based on package version 6.30.0, commit
+[`451b0c5c`](https://github.com/Ericsson/codechecker/tree/451b0c5c1786ed21b0685c298f759164a8c5d379), which is the reference for how the port should behave.
 
 ## Status
 
@@ -32,7 +34,8 @@ The main parts of the Python project that need porting:
 | `web/` (`codechecker_web`, server, client)| Report storage server, Thrift API, database, command line client     |
 | `codechecker_api`                         | Thrift API definitions                                               |
 
-See `../codechecker/docs/architecture.md` for an overview of how these parts
+See [docs/architecture.md](https://github.com/Ericsson/codechecker/blob/451b0c5c1786ed21b0685c298f759164a8c5d379/docs/architecture.md) in the CodeChecker
+repository for an overview of how these parts
 work together.
 
 ## Documentation

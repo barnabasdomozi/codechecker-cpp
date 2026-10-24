@@ -53,5 +53,43 @@ The **Suggestion** column is a recommendation only.
   upstream Clang 19 lacks.
 - On Debian, `clang-apply-replacements` and `clang-extdef-mapping` are only in
   `/usr/lib/llvm-19/bin` (or with a `-19` suffix), not on `PATH`.
-- The installed `bin/CodeChecker` needs the Python packages from
-  `codechecker/venv_dev` (e.g. `argcomplete`, `lxml`).
+- The installed `bin/CodeChecker` needs the Python packages of the CodeChecker
+  repository's development virtual environment (`venv_dev`, e.g. `argcomplete`,
+  `lxml`).
+
+## Found while writing the reference pages
+
+Found in the source code while writing [../reference/](../reference/README.md).
+"✔" = verified against the 6.30.0 build; the others are from the source
+code only. The **Page** column links to the reference page that describes
+the behavior.
+
+| # | Area | What happens | Suggestion | Page |
+|---|---|---|---|---|
+| 21 | `server -r` (`SIGHUP`) | The reload only reaches the main process. The API worker processes keep the old configuration, so the reload has no effect ✔ (e.g. a changed `max_run_count` is not applied). | Fix: apply the reload where requests are served. | [server.md](../reference/server.md) |
+| 22 | `server` start-up check | "There are some database issues" only looks at the first product (the loop stops after one). | Fix: check every product. | [server-database.md](../reference/server-database.md) |
+| 23 | `--db-upgrade-schema P` (intended code path, see #1) | Checks that `P` exists, then upgrades **all** products. | Fix: upgrade only `P`. | [server-database.md](../reference/server-database.md) |
+| 24 | `cmd token new` | Without `--expiration` it always fails with `Invalid expiration length. The length must be between 1 and 365!` ✔ | Fix: default to the server maximum. | [server-authentication.md](../reference/server-authentication.md) |
+| 25 | `store` with invalid source-code comments (e.g. two comments for one report) | The run is committed, then the task fails with `Row has incorrect number of values, (actual) 1!=3 (expected)` (the code that builds the error table crashes); `store` exits 1 ✔ | Fix: report the comment errors clearly; decide whether to store or reject before committing. | [store.md](../reference/store.md) |
+| 26 | `store` with several report folders | `off`/`unavailable` **are** computed (the help text says they are not). A checker disabled in one folder and enabled in another becomes `off` ✔ | Fix the help text; treat "enabled anywhere" as enabled. | [store.md](../reference/store.md) |
+| 27 | `store` report annotations | An unknown key or a badly formatted value fails the task with `type object 'ErrorCode' has no attribute 'REPORT_FORMAT'` instead of the intended message. | Fix: report the intended message. | [store.md](../reference/store.md) |
+| 28 | `store` and review status rules | The rule's author and date are not copied to newly stored reports (misspelled attribute names); they keep the storing user and the store time. | Fix: copy them. | [store.md](../reference/store.md) |
+| 29 | `cmd suppress -f` | `-f` is ignored: existing review statuses are always overwritten ✔ (the usage page and help say they are kept without `-f`). | Fix: honour `-f`. | [cmd-suppress.md](../reference/cmd-suppress.md) |
+| 30 | `cmd suppress` (`changeReviewStatus`) | Setting false positive / intentional never sets `fixed_at` (an integer is compared with strings), so the report still counts as outstanding ✔ | Fix the comparison. | [cmd-suppress.md](../reference/cmd-suppress.md) |
+| 31 | `cmd del -n` | Names are case-insensitive patterns with `*` wildcards ✔ (the usage page says "no wildcards"). | Document it (or match exactly). | [cmd-run-management.md](../reference/cmd-run-management.md) |
+| 32 | `cmd export` → `cmd import` | Import fails for whole-second timestamps: export writes `2026-01-02 03:04:05`, import requires `.%f` ✔ | Fix: accept both forms. | [cmd-export-import.md](../reference/cmd-export-import.md) |
+| 33 | `cmd import` | Imported review status rules get the importing user as author, not the exported author. | Decide; probably keep the exported author. | [cmd-export-import.md](../reference/cmd-export-import.md) |
+| 34 | `cmd products add --sqlite Default.sqlite` | Accepted: two products then share one database ✔ (the "already in use" check misses relative SQLite paths). | Fix the check. | [cmd-products.md](../reference/cmd-products.md) |
+| 35 | `cmd products del MISSING` | Prints `The product '...' does not exist!` but exits `0` ✔ | Fix: exit `1`. | [cmd-products.md](../reference/cmd-products.md) |
+| 36 | `cmd serverside-tasks` filters | `--no-username` and `--no-product` are ignored; `--last-seen-before/after` send the `--started-before/after` values ✔ | Fix. | [cmd-serverside-tasks.md](../reference/cmd-serverside-tasks.md) |
+| 37 | `cmd serverside-tasks` permissions | Viewing/listing product tasks needs `PRODUCT_ACCESS` (the API docs say `PRODUCT_ADMIN`); the task's submitter can cancel it (the usage page says superusers only). | Decide and document. | [cmd-serverside-tasks.md](../reference/cmd-serverside-tasks.md) |
+| 38 | `cmd components add` (update) | The stored user name is not updated (wrong attribute name). | Fix. | [cmd-components.md](../reference/cmd-components.md) |
+| 39 | Password file (`~/.codechecker.passwords.json`) | Invalid JSON or a missing `credentials` key crashes with `KeyError: 'credentials'` ✔; `cmd login` cuts a saved password at its second `:`. | Fix: clear error; split at the first `:` only. | [server-api.md](../reference/server-api.md) |
+| 40 | Server URL (`--url` of `login`, `token`, `permissions`, `products`, `serverside-tasks`) | An unknown protocol or a non-numeric port prints a `ValueError` traceback ✔ | Fix: error message, exit `2` like product URLs. | [server-api.md](../reference/server-api.md) |
+| 41 | `report-converter --meta analyzer_command=...` | The command is stored on the server with a space between every character (`a b` → `a   b`) ✔ | Fix: write `command` as a list in `metadata.json`. | [report-converter.md](../reference/report-converter.md) |
+| 42 | `report-converter` arguments | `--meta` swallows the inputs that follow it; a `--meta` value without `=` and an empty input directory crash with tracebacks ✔ | Fix: clear errors. | [report-converter.md](../reference/report-converter.md) |
+| 43 | `report-converter -t clang-tidy` | A blank line after a diagnostic aborts the whole conversion (`Expected a FixIt line!`, exit `1`) ✔ | Fix: treat it as the end of the diagnostic. | [report-converter.md](../reference/report-converter.md) |
+| 44 | `tu_collector -l` | Compilation databases that use `arguments` instead of `command` crash with `KeyError: 'command'` ✔ | Fix: support `arguments`. | [tu-collector.md](../reference/tu-collector.md) |
+| 45 | `gerrit_changed_files_to_skipfile.py` | Pretty-printed (multi-line) JSON gives a skipfile with only `-*`, which skips every file, without a warning ✔ | Fix: parse the whole file. | [gerrit-integration.md](../reference/gerrit-integration.md) |
+| 46 | `memory_safety_reporter` | A report folder without `metadata.json` or `conf/` crashes with `FileNotFoundError` ✔ | Fix: clear error, or skip the missing part. | [memory-safety-reporter.md](../reference/memory-safety-reporter.md) |
+| 47 | `post-process-stats` | A non-existent input folder prints `Done.` and exits `0` ✔ | Fix: error, exit `1`. | [exit-codes.md](../reference/exit-codes.md) |

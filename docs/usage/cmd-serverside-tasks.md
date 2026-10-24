@@ -65,7 +65,7 @@ CodeChecker cmd serverside-tasks --enqueued-after 2020:01:01 --no-cancelled --ou
 ```
 
 ```json
-[{"machineId": "ai-house:8555", "statusConsumed": false,
+[{"machineId": "myhost:8555", "statusConsumed": false,
   "token": "1211a1c332a30b6d2843a97a230beb1abb834f8237bc2109ab6dcd907e9d7fe2",
   "taskKind": "report_server::massStoreRunAsynchronous()", "actorUsername": ..., ...}]
 ```
