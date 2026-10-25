@@ -14,7 +14,7 @@ export default async function globalSetup(): Promise<void> {
   // analyzer that is not installed makes `analyze` fail.
   if (!findOnPath('cppcheck')) {
     throw new Error(
-      'Cppcheck is not on PATH. The documented results (docs/ and testing/analyze-targets/) include Cppcheck 2.17.1 reports; install Cppcheck first.',
+      'Cppcheck is not on PATH. The documented results (docs/ and blackbox_tests/analyze-targets/) include Cppcheck 2.17.1 reports; install Cppcheck first.',
     );
   }
   const session = mkdtempSync(path.join(os.tmpdir(), 'ccbb-'));

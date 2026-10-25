@@ -8,7 +8,7 @@ so a port can use them as acceptance tests. Environment: CodeChecker
 6.30.0, Clang/Clang-Tidy 19.1.7, GCC 14.2.0, Cppcheck 2.17.1 (no Infer),
 default checker profile, `CodeChecker log -b make` + `CodeChecker analyze`
 (re-verified 2026-10-24 with Cppcheck; the black-box suite in
-[testing/](../../testing/README.md) checks these tables).
+[blackbox_tests/](../../blackbox_tests/README.md) checks these tables).
 
 Report hashes depend only on file **base names**, line contents, columns,
 checker names and messages ([report-hash.md](report-hash.md)), so they are

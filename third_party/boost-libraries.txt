@@ -1,0 +1,56 @@
+# Boost libraries whose headers libthrift needs: the closure that Boost's
+# CMake computes for algorithm, locale, numeric_conversion, smart_ptr,
+# tokenizer and uuid (docs/implementation/build-system.md, section 3.2).
+# One submodule path of third_party/boost per line. Check this list again
+# when Thrift or Boost is updated.
+libs/algorithm
+libs/align
+libs/array
+libs/assert
+libs/atomic
+libs/bind
+libs/charconv
+libs/chrono
+libs/compat
+libs/concept_check
+libs/config
+libs/container
+libs/container_hash
+libs/conversion
+libs/core
+libs/date_time
+libs/describe
+libs/detail
+libs/exception
+libs/function
+libs/function_types
+libs/fusion
+libs/integer
+libs/intrusive
+libs/io
+libs/iterator
+libs/lexical_cast
+libs/locale
+libs/move
+libs/mp11
+libs/mpl
+libs/numeric/conversion
+libs/optional
+libs/predef
+libs/preprocessor
+libs/range
+libs/ratio
+libs/regex
+libs/smart_ptr
+libs/system
+libs/thread
+libs/throw_exception
+libs/tokenizer
+libs/tuple
+libs/typeof
+libs/type_traits
+libs/unordered
+libs/utility
+libs/uuid
+libs/variant2
+libs/winapi

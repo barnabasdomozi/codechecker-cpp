@@ -1,4 +1,4 @@
-// testing/analyze-targets/ctu
+// blackbox_tests/analyze-targets/ctu
 
 import { describe, expect, test } from '@jest/globals';
 import { cc } from '../../src/run';

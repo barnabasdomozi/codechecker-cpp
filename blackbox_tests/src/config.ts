@@ -13,7 +13,7 @@ interface SuiteConfig {
   binDir: string;
   /** Optional second build, for the comparison tests. */
   compareCodechecker?: string;
-  /** `testing/analyze-targets`. */
+  /** `blackbox_tests/analyze-targets`. */
   projectsDir: string;
   /** `docs/` of the repository. */
   docsDir: string;

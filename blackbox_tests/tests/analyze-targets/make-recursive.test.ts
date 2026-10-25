@@ -1,4 +1,4 @@
-// testing/analyze-targets/make-recursive
+// blackbox_tests/analyze-targets/make-recursive
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';

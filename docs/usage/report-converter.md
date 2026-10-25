@@ -107,7 +107,7 @@ report-converter -t lsan -o ./rc_lsan leak.out
 LeakSanitizer reports become `LeakSanitizer` reports (severity HIGH). The
 memory addresses in the sanitizer messages change from run to run, but the
 report hashes do not (verified with
-[testing/analyze-targets/external-tools](../../testing/analyze-targets/external-tools/README.md)).
+[blackbox_tests/analyze-targets/external-tools](../../blackbox_tests/analyze-targets/external-tools/README.md)).
 
 ## Cppcheck ✅
 

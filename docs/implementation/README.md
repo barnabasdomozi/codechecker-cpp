@@ -11,9 +11,14 @@ These are **accepted** and apply to every page below.
   it at all times. It is the only coding guideline of the project: the
   language version (C++20), naming, formatting, which language features may
   be used, and the project's waivers (exceptions only at the Thrift boundary,
-  `std::filesystem` allowed, namespace `cc`) are all defined there, and no
-  other document adds or changes coding rules.
-- **Build system: CMake.**
+  `std::filesystem` allowed, namespace `cc`) are all defined there. So are
+  the project principles: avoid overengineering, prefer minimal solutions,
+  write reusable functions, use the third-party libraries fully, and test
+  every ported module on the black-box suite. No other document adds or
+  changes coding rules.
+- **Build system: CMake. Every third-party library is a git submodule,
+  compiled from source** and linked statically (see
+  [build-system.md](build-system.md) for the exceptions).
 - **Platform: Linux only.** No macOS or other systems.
 - **No Python code in this repository.** Nothing is written in Python, and
   nothing copied from the Python repository may contain Python code.
@@ -23,9 +28,9 @@ These are **accepted** and apply to every page below.
 - **Testing: the black-box suite first.** CodeChecker's own tests (Python
   unit and functional tests, including ldlogger's) are not migrated to this
   repository, at least as a first step. The port is checked mainly by the
-  black-box suite in [testing/](../../testing/README.md), which is extended
-  as needed: new use cases, new test projects, or new options such as running
-  the client and the server from different builds.
+  black-box suite in [blackbox_tests/](../../blackbox_tests/README.md),
+  which is extended as needed: new use cases, new test projects, or new
+  options such as running the client and the server from different builds.
 - **The web UI is copied, not changed.** The Vue sources
   (`web/server/vue-cli` in the Python repository, built into `www/`) are
   copied as they are. The C++ server serves the same files and the same
@@ -47,4 +52,5 @@ These are **accepted** and apply to every page below.
 |---|---|---|
 | [cppguide.md](cppguide.md) | accepted | The C++ coding guideline (Google C++ Style Guide with the project's waivers); mandatory for all C++ code |
 | [libraries.md](libraries.md) | accepted | What the C++ standard library covers, what we write ourselves, and which third-party libraries we use |
-| [architecture.md](architecture.md) | proposed | How the port is structured: source tree, libraries, programs, processes, and how each part works |
+| [build-system.md](build-system.md) | accepted | Third-party libraries as git submodules, the deps build, CMake options and presets, ldlogger, web UI, install, CI |
+| [architecture.md](architecture.md) | accepted | How the port is structured: source tree, libraries, programs, processes, and how each part works |

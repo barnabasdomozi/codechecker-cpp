@@ -1,0 +1,64 @@
+[submodule "third_party/pcre2"]
+	path = third_party/pcre2
+	url = https://github.com/PCRE2Project/pcre2.git
+	shallow = true
+[submodule "third_party/yyjson"]
+	path = third_party/yyjson
+	url = https://github.com/ibireme/yyjson.git
+	shallow = true
+[submodule "third_party/libyaml"]
+	path = third_party/libyaml
+	url = https://github.com/yaml/libyaml.git
+	shallow = true
+[submodule "third_party/libxml2"]
+	path = third_party/libxml2
+	url = https://gitlab.gnome.org/GNOME/libxml2.git
+	shallow = true
+[submodule "third_party/zlib"]
+	path = third_party/zlib
+	url = https://github.com/madler/zlib.git
+	shallow = true
+[submodule "third_party/libzip"]
+	path = third_party/libzip
+	url = https://github.com/nih-at/libzip.git
+	shallow = true
+[submodule "third_party/openssl"]
+	path = third_party/openssl
+	url = https://github.com/openssl/openssl.git
+	shallow = true
+[submodule "third_party/curl"]
+	path = third_party/curl
+	url = https://github.com/curl/curl.git
+	shallow = true
+[submodule "third_party/cpp-httplib"]
+	path = third_party/cpp-httplib
+	url = https://github.com/yhirose/cpp-httplib.git
+	shallow = true
+[submodule "third_party/thrift"]
+	path = third_party/thrift
+	url = https://github.com/apache/thrift.git
+	shallow = true
+[submodule "third_party/boost"]
+	path = third_party/boost
+	url = https://github.com/boostorg/boost.git
+	shallow = true
+[submodule "third_party/sqlite"]
+	path = third_party/sqlite
+	url = https://github.com/sqlite/sqlite.git
+	shallow = true
+[submodule "third_party/postgres"]
+	path = third_party/postgres
+	url = https://github.com/postgres/postgres.git
+	shallow = true
+[submodule "third_party/jwt-cpp"]
+	path = third_party/jwt-cpp
+	url = https://github.com/Thalhammer/jwt-cpp.git
+	shallow = true
+[submodule "third_party/openldap"]
+	path = third_party/openldap
+	url = https://git.openldap.org/openldap/openldap.git
+	shallow = true
+[submodule "third_party/googletest"]
+	path = third_party/googletest
+	url = https://github.com/google/googletest.git
+	shallow = true

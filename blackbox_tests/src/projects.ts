@@ -1,5 +1,5 @@
-// The test projects in testing/analyze-targets, and the steps to build, log and
-// analyze them.
+// The test projects in blackbox_tests/analyze-targets, and the steps to build,
+// log and analyze them.
 
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -9,7 +9,7 @@ import type { Sandbox } from './sandbox';
 import { shared } from './shared';
 
 interface ProjectDef {
-  /** Folder under testing/analyze-targets. The copy is named after the project (the docs use ~/demo and ~/demo2). */
+  /** Folder under blackbox_tests/analyze-targets. The copy is named after the project (the docs use ~/demo and ~/demo2). */
   source: string;
   /** Run before `log`, not logged (e.g. CMake's configure step). */
   prepare?: string;

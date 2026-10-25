@@ -1,4 +1,4 @@
-// testing/analyze-targets/odd-paths
+// blackbox_tests/analyze-targets/odd-paths
 
 import { existsSync } from 'node:fs';
 import path from 'node:path';

@@ -10,8 +10,9 @@ documentation here is based on package version 6.30.0, commit
 
 ## Status
 
-The port has not started yet. This directory contains documentation only.
-Nothing has been implemented.
+The build system is set up (see [Building](#building)): the third-party
+libraries, ldlogger and a test of the libraries build. No component has
+been ported yet.
 
 ## Goals
 
@@ -56,7 +57,26 @@ All C++ code in this repository **must** follow
 times. It is the only coding guideline of the project; no other document adds
 or changes coding rules.
 
+## Building
+
+Linux only. The host tools are listed in
+[build-system.md](docs/implementation/build-system.md#1-host-tools)
+(on Debian also `apt install flex bison gcc-multilib`).
+
+```sh
+third_party/checkout.sh                  # the submodules, about 1 GB
+cmake -S third_party -B build/deps       # the third-party libraries, once
+cmake --build build/deps --parallel
+cmake --preset dev                       # the project
+cmake --build --preset dev --parallel
+ctest --preset dev
+```
+
+Other presets: `dev-clang`, `asan`, `release` and `analyzer` (the analyzer
+side only). Never check out the submodules with `--recursive`; see
+[build-system.md](docs/implementation/build-system.md#23-checkout).
+
 ## Layout
 
-Not decided yet. It will be documented here once the first component is
-ported.
+The source tree is described in
+[architecture.md](docs/implementation/architecture.md#2-source-tree).

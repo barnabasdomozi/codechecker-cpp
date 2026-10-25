@@ -10,7 +10,7 @@ formats and exit codes.
 Every command shown here was run against a real CodeChecker 6.30.0 build on
 2026-10-23. On 2026-10-24 Cppcheck and PostgreSQL were installed on the test
 machine; the outputs were re-checked and updated with the black-box test
-suite ([testing/](../../testing/README.md)), which runs
+suite ([blackbox_tests/](../../blackbox_tests/README.md)), which runs
 the use cases of these pages. Each page marks its use cases like this:
 
 | Mark | Meaning |

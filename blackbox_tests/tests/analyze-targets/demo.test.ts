@@ -1,4 +1,4 @@
-// testing/analyze-targets/demo, against docs/reference/demo-project.md.
+// blackbox_tests/analyze-targets/demo, against docs/reference/demo-project.md.
 
 import { describe, expect, test } from '@jest/globals';
 import { cc } from '../../src/run';

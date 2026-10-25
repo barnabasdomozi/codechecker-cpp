@@ -1,4 +1,4 @@
-// testing/analyze-targets/clean
+// blackbox_tests/analyze-targets/clean
 
 import { describe, expect, test } from '@jest/globals';
 import { cc, run } from '../../src/run';

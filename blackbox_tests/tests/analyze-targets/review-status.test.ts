@@ -1,4 +1,4 @@
-// testing/analyze-targets/review-status
+// blackbox_tests/analyze-targets/review-status
 
 import path from 'node:path';
 import { describe, expect, test } from '@jest/globals';

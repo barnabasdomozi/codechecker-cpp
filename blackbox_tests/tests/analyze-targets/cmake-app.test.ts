@@ -1,4 +1,4 @@
-// testing/analyze-targets/cmake-app
+// blackbox_tests/analyze-targets/cmake-app
 
 import { readdirSync } from 'node:fs';
 import path from 'node:path';

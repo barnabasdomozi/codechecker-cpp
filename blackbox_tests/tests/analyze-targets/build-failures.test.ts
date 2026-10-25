@@ -1,4 +1,4 @@
-// testing/analyze-targets/build-failures
+// blackbox_tests/analyze-targets/build-failures
 
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';

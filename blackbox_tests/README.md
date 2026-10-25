@@ -45,7 +45,7 @@ reference are in [known-issues.md](../docs/usage/known-issues.md).
 ## How to run it
 
 ```sh
-cd testing
+cd blackbox_tests
 npm install                      # once
 
 # 1. Set up the environment of the build under test, if it needs one.
@@ -149,7 +149,7 @@ needs its own PostgreSQL support (the Python reference uses `psycopg2`).
 ## Layout
 
 ```
-testing/
+blackbox_tests/
 ├── package.json, jest.config.js, babel.config.js, tsconfig.json
 ├── src/                  helpers
 │   ├── config.ts         the environment variables
@@ -191,7 +191,8 @@ testing/
   - `[fixed: known-issues #N]`: reserved for tests that expect the port's
     fixed behavior (none yet). They are expected to fail on the reference.
 - Expected results are read from the docs where they are written down as
-  tables: the project READMEs in [testing/analyze-targets/](analyze-targets/README.md)
+  tables: the project READMEs in
+  [blackbox_tests/analyze-targets/](analyze-targets/README.md)
   and [reference/demo-project.md](../docs/reference/demo-project.md).
 
 ## Command chains
@@ -222,7 +223,8 @@ In a chain:
 
 ## Test projects
 
-The projects are in [testing/analyze-targets/](analyze-targets/README.md). The
+The projects are in
+[blackbox_tests/analyze-targets/](analyze-targets/README.md). The
 [demo project](../docs/reference/demo-project.md) from the docs is one of
 them. The others cover features the demo project does not:
 

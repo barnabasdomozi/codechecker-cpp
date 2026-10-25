@@ -1,4 +1,4 @@
-// testing/analyze-targets/analyzer-features
+// blackbox_tests/analyze-targets/analyzer-features
 
 import { describe, expect, test } from '@jest/globals';
 import { cc } from '../../src/run';

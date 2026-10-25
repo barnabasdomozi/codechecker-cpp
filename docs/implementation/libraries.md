@@ -34,7 +34,7 @@ Everything here was checked against the Python sources in `codechecker/`
 2. **If a Python dependency is a wrapper around a C library, we use that same
    C library.** It then behaves the same, error messages included. Examples:
    `lxml` → libxml2, PyYAML → libyaml, `python-ldap` → libldap,
-   `python-pam` → libpam, `sqlite3` → libsqlite3, `psycopg2` → libpq,
+   `sqlite3` → libsqlite3, `psycopg2` → libpq,
    `zlib` → zlib, `ssl` → OpenSSL. GitPython runs the `git` program, so we
    run it too.
 3. **Protocols, file formats, compression and security code come from a
@@ -46,7 +46,7 @@ Everything here was checked against the Python sources in `codechecker/`
 5. **The analyzer must not depend on server libraries.** `analyze`, `parse`,
    `report-converter` and the other local tools must build and run without
    libcurl, cpp-httplib, Thrift (and the Boost headers it needs), the
-   database drivers, jwt-cpp or LDAP/PAM.
+   database drivers, jwt-cpp or LDAP.
 
 ## Summary
 
@@ -81,7 +81,7 @@ Everything here was checked against the Python sources in `codechecker/`
 | JWT (OAuth ID tokens) | `authlib.jose` | **jwt-cpp** | third-party |
 | OAuth 2 flow | `authlib` `OAuth2Session` | in-house on top of libcurl | in-house |
 | LDAP | `python-ldap` | **libldap** (OpenLDAP) | third-party |
-| PAM | `python-pam` | **libpam** | third-party |
+| PAM | `python-pam` | not ported: PAM authentication is never available | — |
 | Git blame | GitPython | the `git` program | external tool |
 | Unit tests | `pytest` | **GoogleTest** (development only) | third-party |
 
@@ -335,7 +335,6 @@ platform layer (`src/platform/`).
 | `portalocker` | locking `~/.codechecker.passwords.json`, the server instance list, and JSON files while they are read (`util.load_json`) | `flock(2)` (what `portalocker` uses on Linux) |
 | `tempfile` | temporary files and folders | `mkstemp`, `mkdtemp`; the temp folder is chosen like Python's `gettempdir()` (`TMPDIR`, `TEMP`, `TMP`, then `/tmp`, `/var/tmp`, current folder) |
 | `getpass` | password prompt, current user name | `termios` (turn off echo), `getpwuid` |
-| `pwd`, `grp` | PAM group checks | `getpwnam`, `getgrouplist` |
 | `socket` options | keep-alive settings on the server socket | `setsockopt` |
 | `os.environ` | reading and changing the environment | `environ`, `setenv`, `unsetenv` |
 | `platform` | OS checks | `uname` |
@@ -675,7 +674,15 @@ dependency.
 **libldap** (OpenLDAP) for LDAP authentication; `python-ldap` is a binding
 of it. `ldap.filter.escape_filter_chars` is a few lines we write ourselves.
 
-**libpam** for PAM authentication; `python-pam` calls it through `ctypes`.
+**PAM is not ported** (decided 2026-10-25). There is no libpam
+dependency. The port behaves like the Python server when `python-pam` is
+not installed, which is also the case in the reference environment:
+`session_manager.py` then lists `pam` in `UNSUPPORTED_METHODS`. A
+`server_config.json` with `method_pam.enabled` gets the WARNING
+`PAM authentication was enabled but prerequisites are NOT installed on the
+system... Disabling PAM authentication.` at start-up
+([server-authentication.md](../reference/server-authentication.md) §1),
+and PAM is then turned off.
 
 ### Git blame: the `git` program
 
@@ -691,7 +698,7 @@ with `git`'s, and the stored blame info would change.
 
 ### Unit tests: GoogleTest
 
-The port is checked mainly by the black-box suite in `testing/` (Jest),
+The port is checked mainly by the black-box suite in `blackbox_tests/` (Jest),
 which runs the finished programs; CodeChecker's own `pytest` tests are not
 migrated (see [README](README.md)). Unit tests are an addition, for in-house
 modules where many small cases are easier to check directly than through a
@@ -709,14 +716,15 @@ files; the repository contains no Python code (see [README](README.md)).
 | `analyze`, `check`, `parse`, `fixit`, `log`, `checkers`, `analyzers` | + libxml2, zlib, libzip, OpenSSL (libcrypto) |
 | `report-converter`, `tu_collector`, other local tools | + libxml2, zlib, libzip, OpenSSL (libcrypto) |
 | `store`, `cmd` (client) | + libcurl, Apache Thrift (+ Boost headers), OpenSSL (libssl) |
-| `server` | + cpp-httplib, Apache Thrift (+ Boost headers), libcurl (OAuth), libsqlite3, libpq, jwt-cpp, libldap, libpam |
+| `server` | + cpp-httplib, Apache Thrift (+ Boost headers), libcurl (OAuth), libsqlite3, libpq, jwt-cpp, libldap |
 | development only | GoogleTest |
 | run time, not linked | `git` (blame), the analyzers themselves |
 
 `ldlogger` (C) and the web UI are copied unchanged (see [README](README.md)).
 
-The build system is CMake. How we get these libraries (distribution packages,
-vcpkg, Conan, CMake `FetchContent`) is decided in the build system document.
+The build system is CMake. Every library above is a git submodule under
+`third_party/`, compiled from source and linked statically; the pinned
+versions and build settings are in [build-system.md](build-system.md).
 
 ## Open questions
 

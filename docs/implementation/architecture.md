@@ -1,6 +1,6 @@
 # Architecture of the C++ port
 
-Status: **proposed**. Nothing here is implemented yet.
+Status: **accepted** (2026-10-25).
 
 This page describes how the C++ port is structured: the source tree, the
 libraries it is split into, the programs that are installed, the processes
@@ -14,8 +14,8 @@ repeating it.
 ## Design goals
 
 1. **Same behavior as the Python version.** Same command line, output, files
-   and exit codes. The black-box suite in [testing/](../../testing/README.md)
-   is the judge.
+   and exit codes. The black-box suite in
+   [blackbox_tests/](../../blackbox_tests/README.md) is the judge.
 2. **Compatible with the Python version on the outside.** The parts can be
    work together with Python ones, but only through the network and files;
    neither version ever starts the other's programs:
@@ -95,8 +95,10 @@ codechecker-cpp/
 │   ├── server/                  codechecker_server
 │   ├── launcher/                the CodeChecker program: launcher, subcommand table
 │   └── tools/                   one folder per standalone tool (main.cc)
-├── tests/unit/                  GoogleTest unit tests, one folder per library
-├── testing/                     the black-box suite (already exists)
+├── unit_tests/                  GoogleTest unit tests, one folder per library
+├── third_party/                 one git submodule per third-party library, and
+│                                the build of these libraries (build-system.md)
+├── blackbox_tests/              the black-box suite (already exists)
 └── docs/
 ```
 
@@ -108,7 +110,7 @@ them here:
 |---|---|
 | `api/` | `codechecker_api/*.thrift`, `codechecker_api/api_version.json` |
 | `ldlogger/` | `analyzer/tools/build-logger/src/` and its `README.md` (not the `Makefile` or the Python tests) |
-| `web-ui/` | `web/server/vue-cli/` (without `node_modules/` and `dist/`) |
+| `web-ui/` | `web/server/vue-cli/` with its `package.json`, `package-lock.json`, `.npmrc` and other files, without `node_modules/` and `dist/` |
 | `config/` | `config/` (labels, guidelines, `package_layout.json`, `config.json`), `web/config/` (`session_client.json`, `system_comment_kinds.json`, `git_commit_urls.json`), `web/server/config/server_config.json` |
 | `data/html/` | `tools/report-converter/codechecker_report_converter/report/output/html/static/` |
 
@@ -140,7 +142,7 @@ Each `src/` folder is one static library (CMake target). Executables are thin
 | `cc_api` | code generated from `api/*.thrift`, API version, Thrift JSON helpers | `codechecker_api` | Apache Thrift (+ Boost headers) |
 | `cc_web` | code shared by client and server: web version, Thrift ↔ model conversions, enum names, database status texts | `codechecker_web` | – |
 | `cc_client` | HTTP transport, credentials and sessions, call wrapper, `store`, `cmd` | `codechecker_client` | libcurl, OpenSSL (libssl) |
-| `cc_server` | supervisor and processes, HTTP layer, routing, API handlers, database layer, authentication, background tasks | `codechecker_server` | cpp-httplib, libsqlite3, libpq, jwt-cpp, libldap, libpam, libcurl, OpenSSL |
+| `cc_server` | supervisor and processes, HTTP layer, routing, API handlers, database layer, authentication, background tasks | `codechecker_server` | cpp-httplib, libsqlite3, libpq, jwt-cpp, libldap, libcurl, OpenSSL |
 
 Dependencies between them (direct dependencies only):
 
@@ -204,7 +206,8 @@ because the test suite and users rely on it:
   parser setting.
 - `ldlogger` and `ldlogger.so` are compiled by CMake from the copied C
   sources; the Python repository's `Makefile` is not used. The details,
-  including the 32-bit library, are part of the build system document.
+  including the 32-bit library, are in
+  [build-system.md](build-system.md#44-ldlogger).
 
 Installed programs find the package root from their own location
 (`/proc/self/exe`, then `..`), the same way `CC_DATA_FILES_DIR` is set in
@@ -645,8 +648,11 @@ design document.
 
 - sessions and personal access tokens are rows in the configuration
   database, so every API process sees the same sessions;
-- login methods: dictionary, LDAP (libldap), PAM (libpam), OAuth (libcurl
-  and jwt-cpp), with regex groups and the super user rule;
+- login methods: dictionary, LDAP (libldap), OAuth (libcurl and jwt-cpp),
+  with regex groups and the super user rule. PAM is not ported: an enabled
+  `method_pam` gets the reference's "prerequisites are NOT installed"
+  warning and is turned off
+  ([libraries.md](libraries.md#ldap-and-pam));
 - the permission model and its checks, used by the handlers through
   `RequestContext`.
 
@@ -714,7 +720,7 @@ CodeChecker's own tests (Python unit and functional tests, including
 ldlogger's) are not migrated (see [README](README.md)). The port is checked
 mainly by the black-box suite.
 
-- **Black-box tests** (`testing/`) are the main check. They run on the
+- **Black-box tests** (`blackbox_tests/`) are the main check. They run on the
   install tree: `CODECHECKER_BIN=<root>/bin/CodeChecker npm test`. A CMake
   target runs them after `install` into a temporary prefix. Each porting step
   (§14) is done when its part of the suite passes.
@@ -731,7 +737,7 @@ mainly by the black-box suite.
   the extensions: an optional variable naming the build that runs
   `CodeChecker server` (for example `CODECHECKER_SERVER_BIN`). The suite
   starts the two builds separately, so neither one starts the other.
-- **Unit tests** (GoogleTest) in `tests/unit/<library>/`, run with `ctest`,
+- **Unit tests** (GoogleTest) in `unit_tests/<library>/`, run with `ctest`,
   are a supporting tool for the Python-compatible building blocks (`pypath`,
   `shlex`, `fnmatch`, JSON and YAML writers, Unicode, `argparse`, report
   hash), where many small cases are easier to check directly. Expected values
@@ -764,7 +770,9 @@ and C++ never starts a Python one (see [README](README.md)).
    the store metadata send this value to the server, and the web UI shows it.
 2. **Web UI build.** The web UI is built with `npm` from the copied sources.
    Does the CMake build run `npm ci && npm run build`, or does it take a
-   prebuilt `www/` folder? (Build system document.)
+   prebuilt `www/` folder? Proposed in
+   [build-system.md](build-system.md#45-web-ui): CMake builds it, and a
+   prebuilt folder can be given instead.
 3. **Threads per API process.** One thread, like the reference, is the safe
    start. More threads per process would need thread-safe handlers and one
    database connection per thread; decide after measuring.
