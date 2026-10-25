@@ -5,9 +5,11 @@
 #ifndef CC_UTIL_JSON_H_
 #define CC_UTIL_JSON_H_
 
+#include <stdint.h>
 #include <yyjson.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -41,6 +43,30 @@ MutableJsonDocument NewJsonDocument();
 // Returns `value` as Python's json.dumps() writes it with its defaults:
 // ", " and ": " separators, and non-ASCII characters as \uXXXX escapes.
 std::string DumpJson(yyjson_mut_val* value);
+
+// Returns the member `key` of the object `value`, or null if `value` is not
+// an object or has no such member. Of duplicate members the last one
+// counts, as in json.loads(). Lookups are linear.
+yyjson_val* JsonGet(yyjson_val* value, std::string_view key);
+
+// Returns `value` as Python's int(value) converts it: integers, floats
+// (truncated), booleans and strings that int() accepts; nullopt for the
+// others.
+std::optional<int64_t> JsonToInt(yyjson_val* value);
+
+// Returns `value` as Python's str(value) writes it: strings as they are,
+// numbers like repr(), true as "True", null as "None", and arrays and
+// objects as JSON.
+std::string JsonToStr(yyjson_val* value);
+// Returns the member `key` of the object `value` (Python: value[key]), or
+// an error with the text of the exception Python raises: "KeyError: 'key'"
+// if it is missing, a TypeError if `value` is not an object.
+Result<yyjson_val*> JsonSubscript(yyjson_val* value, std::string_view key);
+
+// Returns int(value[key]) (see JsonToInt()), or an error with the text of
+// Python's exception.
+Result<int64_t> JsonSubscriptInt(yyjson_val* value, std::string_view key);
+
 
 }  // namespace cc::util
 

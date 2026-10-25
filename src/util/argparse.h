@@ -12,10 +12,12 @@
 //   if (!args.ok()) return args.error().exit_code;
 //   Print(args.value().Get("output_format"));
 //
-// Supported so far: options that take one value, -h/--help, choices,
-// defaults (including argparse.SUPPRESS), set_defaults(), one level of
-// subcommands, allow_abbrev, and the HelpFormatter,
-// RawDescriptionHelpFormatter and ArgumentDefaultsHelpFormatter layouts.
+// Supported so far: options and positional arguments with nargs None, '*'
+// and '+', store_true, required options, metavars, custom actions,
+// -h/--help, choices, defaults (including argparse.SUPPRESS and None),
+// set_defaults(), one level of subcommands, allow_abbrev, the error exit
+// code, and the HelpFormatter, RawDescriptionHelpFormatter and
+// ArgumentDefaultsHelpFormatter layouts.
 
 #ifndef CC_UTIL_ARGPARSE_H_
 #define CC_UTIL_ARGPARSE_H_
@@ -42,22 +44,56 @@ enum class HelpFormat {
                       // the epilog are printed as they are written.
   kArgumentDefaults,  // ArgumentDefaultsHelpFormatter: option help ends with
                       // "(default: <value>)".
+  kRawDescriptionArgumentDefaults,  // Both of the above.
 };
 
-// An option that takes one value, like add_argument(*flags, dest=dest,
-// choices=choices, default=default_value, help=help).
+// How many command line arguments an argument takes (Python: nargs).
+enum class Nargs {
+  kOne,         // nargs=None: one value.
+  kZeroOrMore,  // nargs='*': a list of values.
+  kOneOrMore,   // nargs='+': a list of at least one value.
+};
+
+// What an argument does when it is given (Python: action).
+enum class ArgumentAction {
+  kStore,      // Stores its value or values.
+  kStoreTrue,  // Takes no value and stores "True"; its default is "False".
+};
+
+// The values of an argument given by a custom action, or the error that
+// ends the parse with the error's exit code (Python: an argparse.Action
+// subclass, which can also print and exit).
+using CustomAction = std::function<Result<std::vector<std::string>>(
+    const std::vector<std::string>& values)>;
+
+// An argument, like add_argument(*flags, dest=dest, nargs=nargs,
+// action=action, metavar=metavar, choices=choices, default=default_value,
+// required=required, help=help). A positional argument has no flags; its
+// name is `dest`.
 struct Argument {
-  std::vector<std::string> flags;  // For example "-o", "--output".
-  std::string dest;                // The name of the value in the Namespace.
-  std::vector<std::string> choices;  // The allowed values; empty: any value.
-  // The value if the option is not given. nullopt is argparse.SUPPRESS: then
-  // the Namespace has no value for `dest`.
-  std::optional<std::string> default_value;
-  std::string help;
+  std::vector<std::string> flags = {};  // For example "-o", "--output".
+  std::string dest = {};  // The name of the value in the Namespace.
+  Nargs nargs = Nargs::kOne;
+  ArgumentAction action = ArgumentAction::kStore;
+  // The name of the value in usage and help; empty: from the choices or
+  // `dest`.
+  std::string metavar = {};
+  std::vector<std::string> choices = {};  // The allowed values; empty: any.
+  // The value if the argument is not given. nullopt is argparse.SUPPRESS:
+  // then the Namespace has no value for `dest`.
+  std::optional<std::string> default_value = {};
+  // The default is Python's None: the Namespace has no value for `dest`,
+  // but the help says "(default: None)".
+  bool default_none = false;
+  bool required = false;
+  std::string help = {};
+  // Runs instead of storing the values, and returns what to store.
+  CustomAction custom_action = {};
 };
 
 // The values of a parsed command line by their destination names (Python:
-// argparse.Namespace).
+// argparse.Namespace). Arguments with nargs '*' or '+' have a list of
+// values, the others one value.
 class Namespace {
  public:
   Namespace() = default;
@@ -66,28 +102,36 @@ class Namespace {
 
   // Returns whether `dest` has a value (Python: `dest in args`).
   bool Has(std::string_view dest) const;
-  // Returns the value of `dest`, which must be present.
+  // Returns the value of `dest`, which must have one value.
   const std::string& Get(std::string_view dest) const;
+  // Returns the list of values of `dest`, which must be present.
+  const std::vector<std::string>& GetList(std::string_view dest) const;
   void Set(std::string_view dest, std::string value);
+  void SetList(std::string_view dest, std::vector<std::string> values);
   // Sets every value of `other` here.
   void Update(const Namespace& other);
 
  private:
-  std::map<std::string, std::string, std::less<>> values_;
+  std::map<std::string, std::vector<std::string>, std::less<>> values_;
 };
 
 namespace internal_argparse {
 
 // One argument of a parser (Python: argparse.Action).
 struct Action {
-  enum class Kind { kStore, kHelp, kSubparsers };
+  enum class Kind { kStore, kStoreTrue, kHelp, kSubparsers };
 
   Kind kind = Kind::kStore;
   std::vector<std::string> option_strings = {};  // Empty for positionals.
   std::string dest = {};  // Empty means argparse.SUPPRESS.
+  Nargs nargs = Nargs::kOne;  // kStore only.
+  std::string metavar = {};
   std::vector<std::string> choices = {};
   std::optional<std::string> default_value = {};
+  bool default_none = false;
+  bool required = false;
   std::string help = {};
+  CustomAction custom_action = {};
   // kSubparsers only: one help entry per subcommand, listed under it.
   std::vector<Action> subactions = {};
 };
@@ -95,8 +139,8 @@ struct Action {
 }  // namespace internal_argparse
 
 // A command line parser (Python: argparse.ArgumentParser). It always has
-// -h/--help. Parse errors exit with code 1, as in CodeChecker, not with
-// argparse's 2.
+// -h/--help. Parse errors exit with code 1, as in CodeChecker, unless
+// set_error_exit_code() says otherwise.
 class Parser {
  public:
   explicit Parser(std::string prog);
@@ -112,6 +156,9 @@ class Parser {
   void set_epilog(std::string epilog) { epilog_ = std::move(epilog); }
   void set_help_format(HelpFormat help_format) { help_format_ = help_format; }
   void set_allow_abbrev(bool allow_abbrev) { allow_abbrev_ = allow_abbrev; }
+  // Sets the exit code of parse errors; plain argparse uses 2. Subcommand
+  // parsers added later get the same code.
+  void set_error_exit_code(int exit_code) { error_exit_code_ = exit_code; }
 
   void AddArgument(Argument argument);
 
@@ -130,8 +177,9 @@ class Parser {
   // Parses `args`, the command line without the program name (Python:
   // parse_args()). For -h, prints the help on stdout and returns an error
   // with exit code 0. For a parse error, prints the usage and the error on
-  // stderr and returns an error with exit code 1. Errors have no message:
-  // they are already printed.
+  // stderr and returns an error with the error exit code. Errors have no
+  // message: they are already printed. A custom action's error is returned
+  // as it is.
   Result<Namespace> ParseArgs(const std::vector<std::string>& args) const;
 
   std::string FormatUsage() const;
@@ -150,8 +198,12 @@ class Parser {
       const std::string& arg) const;
   std::vector<OptionTuple> OptionTuples(const std::string& arg) const;
   const Action* FindOption(std::string_view option_string) const;
+  // Returns how many of the arguments at the start of `pattern` `action`
+  // takes, or the error that ends the parse (Python: _match_argument()).
+  Result<size_t> MatchArgument(const Action& action,
+                               std::string_view pattern) const;
   // Runs `action` with its argument strings; `known` receives the values.
-  // Returns the error that ends the parse, if any.
+  // Returns the error that ends the parse, if any (Python: take_action()).
   std::optional<Error> TakeAction(const Action& action,
                                   const std::vector<std::string>& values,
                                   KnownArgs* known) const;
@@ -164,6 +216,7 @@ class Parser {
   std::string epilog_;
   HelpFormat help_format_ = HelpFormat::kDefault;
   bool allow_abbrev_ = true;
+  int error_exit_code_ = 1;
   std::vector<Action> actions_;
   std::vector<std::pair<std::string, std::string>> defaults_;
   // The index of the subcommand argument in `actions_`, if there is one.

@@ -4,6 +4,8 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -202,6 +204,104 @@ TEST_F(ArgparseTest, HelpExitsWithZero) {
   EXPECT_EQ(output,
             "usage: prog [-h]\n\noptions:\n"
             "  -h, --help  show this help message and exit\n");
+}
+
+// A parser with the argument kinds of report-converter.
+void SetUpListParser(Parser& parser) {
+  parser.set_help_format(HelpFormat::kArgumentDefaults);
+  parser.set_error_exit_code(2);
+  parser.AddArgument(
+      {.dest = "input", .nargs = Nargs::kOneOrMore, .help = "Inputs."});
+  parser.AddArgument({.flags = {"-o"},
+                      .dest = "out",
+                      .default_none = true,
+                      .required = true,
+                      .help = "Output."});
+  parser.AddArgument({.flags = {"--meta"},
+                      .dest = "meta",
+                      .nargs = Nargs::kZeroOrMore,
+                      .metavar = "META",
+                      .default_none = true,
+                      .help = "Meta."});
+  parser.AddArgument({.flags = {"-c"},
+                      .dest = "clean",
+                      .action = ArgumentAction::kStoreTrue,
+                      .help = "Clean."});
+}
+
+TEST_F(ArgparseTest, ListArgumentsHelp) {
+  Parser parser("prog");
+  SetUpListParser(parser);
+  EXPECT_EQ(parser.FormatHelp(),
+            "usage: prog [-h] -o OUT [--meta [META ...]] [-c] input "
+            "[input ...]\n"
+            "\n"
+            "positional arguments:\n"
+            "  input              Inputs.\n"
+            "\n"
+            "options:\n"
+            "  -h, --help         show this help message and exit\n"
+            "  -o OUT             Output. (default: None)\n"
+            "  --meta [META ...]  Meta. (default: None)\n"
+            "  -c                 Clean. (default: False)\n");
+}
+
+TEST_F(ArgparseTest, ParsesListArguments) {
+  Parser parser("prog");
+  SetUpListParser(parser);
+  const Result<Namespace> all =
+      parser.ParseArgs({"a", "b", "-o", "x", "--meta", "k=v", "-c"});
+  ASSERT_TRUE(all.ok());
+  EXPECT_EQ(all.value().GetList("input"),
+            (std::vector<std::string>{"a", "b"}));
+  EXPECT_EQ(all.value().Get("out"), "x");
+  EXPECT_EQ(all.value().GetList("meta"), std::vector<std::string>{"k=v"});
+  EXPECT_EQ(all.value().Get("clean"), "True");
+
+  const Result<Namespace> empty_meta =
+      parser.ParseArgs({"-o", "x", "a", "--meta"});
+  ASSERT_TRUE(empty_meta.ok());
+  EXPECT_TRUE(empty_meta.value().GetList("meta").empty());
+  EXPECT_EQ(empty_meta.value().Get("clean"), "False");
+}
+
+TEST_F(ArgparseTest, ListArgumentErrors) {
+  constexpr std::string_view kUsage =
+      "usage: prog [-h] -o OUT [--meta [META ...]] [-c] input [input ...]\n";
+  const std::vector<std::pair<std::vector<std::string>, std::string>> cases =
+      {
+          // --meta takes the input too.
+          {{"-o", "x", "--meta", "k"},
+           "prog: error: the following arguments are required: input\n"},
+          {{"a"}, "prog: error: the following arguments are required: -o\n"},
+          {{"-c=1", "a", "-o", "x"},
+           "prog: error: argument -c: ignored explicit argument '1'\n"},
+          {{"a", "-o"}, "prog: error: argument -o: expected one argument\n"},
+      };
+  for (const auto& [args, message] : cases) {
+    Parser parser("prog");
+    SetUpListParser(parser);
+    testing::internal::CaptureStderr();
+    const Result<Namespace> result = parser.ParseArgs(args);
+    const std::string output = testing::internal::GetCapturedStderr();
+    ASSERT_FALSE(result.ok());
+    EXPECT_EQ(result.error().exit_code, 2);
+    EXPECT_EQ(output, std::string(kUsage) + message);
+  }
+}
+
+TEST_F(ArgparseTest, CustomActionReplacesTheValues) {
+  Parser parser("prog");
+  parser.AddArgument(
+      {.dest = "input",
+       .nargs = Nargs::kOneOrMore,
+       .custom_action = [](const std::vector<std::string>& values) {
+         return Result<std::vector<std::string>>(
+             std::vector<std::string>{values.back()});
+       }});
+  const Result<Namespace> result = parser.ParseArgs({"a", "b"});
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.value().GetList("input"), std::vector<std::string>{"b"});
 }
 
 }  // namespace

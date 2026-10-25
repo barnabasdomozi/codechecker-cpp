@@ -8,12 +8,14 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "util/print.h"
+#include "util/pyre.h"
 #include "util/result.h"
 #include "util/strings.h"
 #include "util/terminal.h"
@@ -88,16 +90,84 @@ std::string ExpandPercent(
   return result;
 }
 
-// Returns the metavar argparse shows for `action`: its choices in braces,
-// else `default_metavar` (Python: _metavar_formatter()).
+// The number of arguments an action takes, in the terms of Python's nargs.
+enum class NargsKind { kZero, kOne, kZeroOrMore, kOneOrMore, kParser };
+
+NargsKind NargsOf(const Action& action) {
+  switch (action.kind) {
+    case Action::Kind::kHelp:
+    case Action::Kind::kStoreTrue:
+      return NargsKind::kZero;
+    case Action::Kind::kSubparsers:
+      return NargsKind::kParser;
+    case Action::Kind::kStore:
+      break;
+  }
+  switch (action.nargs) {
+    case Nargs::kZeroOrMore:
+      return NargsKind::kZeroOrMore;
+    case Nargs::kOneOrMore:
+      return NargsKind::kOneOrMore;
+    case Nargs::kOne:
+      break;
+  }
+  return NargsKind::kOne;
+}
+
+// Python: _get_nargs_pattern().
+std::string_view NargsPattern(const Action& action) {
+  const bool option = !action.option_strings.empty();
+  switch (NargsOf(action)) {
+    case NargsKind::kZero:
+      return option ? "([AO]{0})" : "((?:-*A){0}-*)";
+    case NargsKind::kOne:
+      return option ? "([A])" : "(-*A-*)";
+    case NargsKind::kZeroOrMore:
+      return option ? "(A*)" : "(-*[A-]*)";
+    case NargsKind::kOneOrMore:
+      return option ? "(A+)" : "(-*A[A-]*)";
+    case NargsKind::kParser:
+      return option ? "(A[AO]*)" : "(-*A[-AO]*)";
+  }
+  return "";
+}
+
+// Returns the metavar argparse shows for `action`: its metavar, else its
+// choices in braces, else `default_metavar` (Python: _metavar_formatter()).
 std::string Metavar(const Action& action, std::string_view default_metavar) {
+  if (!action.metavar.empty()) return action.metavar;
   if (!action.choices.empty()) return "{" + Join(action.choices, ",") + "}";
   return std::string(default_metavar);
+}
+
+// Python: _format_args().
+std::string FormatArgs(const Action& action, std::string_view default_metavar) {
+  const std::string metavar = Metavar(action, default_metavar);
+  switch (NargsOf(action)) {
+    case NargsKind::kZero:
+      return "";
+    case NargsKind::kOne:
+      return metavar;
+    case NargsKind::kZeroOrMore:
+      return "[" + metavar + " ...]";
+    case NargsKind::kOneOrMore:
+      return metavar + " [" + metavar + " ...]";
+    case NargsKind::kParser:
+      return metavar + " ...";
+  }
+  return metavar;
+}
+
+// The default shown in help texts: nullopt for argparse.SUPPRESS.
+std::optional<std::string> HelpDefault(const Action& action) {
+  if (action.default_none) return "None";
+  return action.default_value;
 }
 
 // The name of `action` in error messages (Python: _get_action_name()).
 std::string ActionName(const Action& action) {
   if (!action.option_strings.empty()) return Join(action.option_strings, "/");
+  if (!action.metavar.empty()) return action.metavar;
   if (!action.dest.empty()) return action.dest;
   return Metavar(action, "");
 }
@@ -130,6 +200,14 @@ class HelpFormatter {
   static std::string Finish(const std::string& help);
 
  private:
+  bool RawText() const {
+    return format_ == HelpFormat::kRawDescription ||
+           format_ == HelpFormat::kRawDescriptionArgumentDefaults;
+  }
+  bool ShowDefaults() const {
+    return format_ == HelpFormat::kArgumentDefaults ||
+           format_ == HelpFormat::kRawDescriptionArgumentDefaults;
+  }
   std::vector<std::string> UsageParts(bool positional) const;
   std::string Invocation(const Action& action) const;
   std::string ExpandHelp(const Action& action) const;
@@ -168,14 +246,14 @@ std::vector<std::string> HelpFormatter::UsageParts(bool positional) const {
   for (const Action& action : *actions_) {
     if (action.option_strings.empty() != positional) continue;
     if (positional) {
-      // Only the subcommand argument is positional (nargs=PARSER).
-      parts.push_back(Metavar(action, action.dest) + " ...");
-    } else if (action.kind == Action::Kind::kHelp) {
-      parts.push_back("[" + action.option_strings[0] + "]");
-    } else {
-      parts.push_back("[" + action.option_strings[0] + " " +
-                      Metavar(action, Upper(action.dest)) + "]");
+      parts.push_back(FormatArgs(action, action.dest));
+      continue;
     }
+    std::string part = action.option_strings[0];
+    if (NargsOf(action) != NargsKind::kZero) {
+      part += " " + FormatArgs(action, Upper(action.dest));
+    }
+    parts.push_back(action.required ? part : "[" + part + "]");
   }
   return parts;
 }
@@ -250,7 +328,7 @@ std::string HelpFormatter::Text(std::string_view text) const {
   if (expanded.find("%(prog)") != std::string::npos) {
     expanded = ExpandPercent(expanded, {{"prog", std::string(prog_)}});
   }
-  if (format_ == HelpFormat::kRawDescription) return expanded + "\n\n";
+  if (RawText()) return expanded + "\n\n";
   const int text_width = std::max(width_, 11);
   return Join(Wrap(NormalizeWhitespace(expanded), text_width), "\n") +
          "\n\n";
@@ -271,23 +349,24 @@ std::string HelpFormatter::Section(std::string_view heading,
 std::string HelpFormatter::Invocation(const Action& action) const {
   if (action.option_strings.empty()) return Metavar(action, action.dest);
   const std::string options = Join(action.option_strings, ", ");
-  if (action.kind == Action::Kind::kHelp) return options;
-  return options + " " + Metavar(action, Upper(action.dest));
+  if (NargsOf(action) == NargsKind::kZero) return options;
+  return options + " " + FormatArgs(action, Upper(action.dest));
 }
 
 std::string HelpFormatter::ExpandHelp(const Action& action) const {
   std::string help = action.help;
-  if (format_ == HelpFormat::kArgumentDefaults &&
-      help.find("%(default)") == std::string::npos &&
-      action.default_value && !action.option_strings.empty()) {
+  const std::optional<std::string> default_value = HelpDefault(action);
+  const NargsKind nargs = NargsOf(action);
+  if (ShowDefaults() && help.find("%(default)") == std::string::npos &&
+      default_value &&
+      (!action.option_strings.empty() || nargs == NargsKind::kZeroOrMore)) {
     help += " (default: %(default)s)";
   }
   std::vector<std::pair<std::string_view, std::string>> params = {
       {"prog", std::string(prog_)}};
   if (!action.dest.empty()) params.emplace_back("dest", action.dest);
-  if (action.default_value) {
-    params.emplace_back("default", *action.default_value);
-  }
+  if (default_value) params.emplace_back("default", *default_value);
+  if (!action.metavar.empty()) params.emplace_back("metavar", action.metavar);
   if (!action.choices.empty()) {
     params.emplace_back("choices", Join(action.choices, ", "));
   }
@@ -352,6 +431,30 @@ bool IsNegativeNumber(std::string_view arg) {
          is_digits(arg.substr(point + 1));
 }
 
+// Returns how many of the arguments at the start of `pattern` each of the
+// first positionals takes, matching as many positionals as possible
+// (Python: _match_arguments_partial()).
+std::vector<size_t> MatchArgumentsPartial(
+    const std::vector<const Action*>& actions, std::string_view pattern) {
+  for (size_t count = actions.size(); count > 0; --count) {
+    std::string regex;
+    for (size_t i = 0; i < count; ++i) regex += NargsPattern(*actions[i]);
+    const Result<Regex> compiled = Regex::Compile(regex);
+    if (!compiled.ok()) std::terminate();
+    const std::optional<RegexMatch> match = compiled.value().Match(pattern);
+    if (!match) continue;
+    std::vector<size_t> result;
+    for (int group = 1; group <= match->GroupCount(); ++group) {
+      result.push_back(match->Group(group).value_or("").size());
+    }
+    if (match->End() < pattern.size() && pattern[match->End()] == 'O') {
+      while (!result.empty() && result.back() == 0) result.pop_back();
+    }
+    return result;
+  }
+  return {};
+}
+
 }  // namespace
 
 bool Namespace::Has(std::string_view dest) const {
@@ -359,13 +462,25 @@ bool Namespace::Has(std::string_view dest) const {
 }
 
 const std::string& Namespace::Get(std::string_view dest) const {
+  const std::vector<std::string>& values = GetList(dest);
+  if (values.size() != 1) std::terminate();
+  return values.front();
+}
+
+const std::vector<std::string>& Namespace::GetList(
+    std::string_view dest) const {
   const auto value = values_.find(dest);
   if (value == values_.end()) std::terminate();
   return value->second;
 }
 
 void Namespace::Set(std::string_view dest, std::string value) {
-  values_.insert_or_assign(std::string(dest), std::move(value));
+  SetList(dest, {std::move(value)});
+}
+
+void Namespace::SetList(std::string_view dest,
+                        std::vector<std::string> values) {
+  values_.insert_or_assign(std::string(dest), std::move(values));
 }
 
 void Namespace::Update(const Namespace& other) {
@@ -400,12 +515,24 @@ Parser::Parser(std::string prog) : prog_(std::move(prog)) {
 }
 
 void Parser::AddArgument(Argument argument) {
-  actions_.push_back({.kind = Action::Kind::kStore,
-                      .option_strings = std::move(argument.flags),
-                      .dest = std::move(argument.dest),
-                      .choices = std::move(argument.choices),
-                      .default_value = std::move(argument.default_value),
-                      .help = std::move(argument.help)});
+  const bool store_true = argument.action == ArgumentAction::kStoreTrue;
+  // Python makes positionals required unless nargs is '?' or '*'.
+  const bool required =
+      argument.required ||
+      (argument.flags.empty() && argument.nargs != Nargs::kZeroOrMore);
+  actions_.push_back(
+      {.kind = store_true ? Action::Kind::kStoreTrue : Action::Kind::kStore,
+       .option_strings = std::move(argument.flags),
+       .dest = std::move(argument.dest),
+       .nargs = argument.nargs,
+       .metavar = std::move(argument.metavar),
+       .choices = std::move(argument.choices),
+       .default_value =
+           store_true ? "False" : std::move(argument.default_value),
+       .default_none = argument.default_none,
+       .required = required,
+       .help = std::move(argument.help),
+       .custom_action = std::move(argument.custom_action)});
 }
 
 void Parser::SetDefault(std::string dest, std::string value) {
@@ -422,6 +549,7 @@ Parser& Parser::AddParser(std::string name, std::string help) {
   Action& action = actions_[subparsers_action_.value()];
   action.subactions.push_back({.dest = name, .help = std::move(help)});
   subparsers_.push_back(std::make_unique<Parser>(prog_ + " " + name));
+  subparsers_.back()->set_error_exit_code(error_exit_code_);
   action.choices.push_back(std::move(name));
   return *subparsers_.back();
 }
@@ -478,23 +606,41 @@ Result<Parser::KnownArgs> Parser::ParseKnownArgs(
     if (tuples) options.emplace(i, std::move(*tuples));
   }
 
-  // The subcommand argument is the only positional one. It takes everything
-  // from the first argument on (nargs=PARSER, pattern -*A[-AO]*).
-  bool positional_done = subparsers_action_ == std::nullopt;
+  std::set<const Action*> seen_actions;
+  const auto take_action =
+      [&](const Action& action,
+          const std::vector<std::string>& values) -> std::optional<Error> {
+    seen_actions.insert(&action);
+    return TakeAction(action, values, &known);
+  };
+
+  // The positionals not consumed yet.
+  std::vector<const Action*> positionals;
+  for (const Action& action : actions_) {
+    if (action.option_strings.empty()) positionals.push_back(&action);
+  }
+
+  // Python: consume_positionals().
   const auto consume_positionals = [&](size_t start) -> Result<size_t> {
-    const size_t first = pattern.find_first_not_of('-', start);
-    if (positional_done || first == std::string::npos ||
-        pattern[first] != 'A') {
-      return Result<size_t>(start);
+    const std::vector<size_t> counts = MatchArgumentsPartial(
+        positionals, std::string_view(pattern).substr(start));
+    for (size_t i = 0; i < counts.size(); ++i) {
+      const Action& action = *positionals[i];
+      std::vector<std::string> values(args.begin() + start,
+                                      args.begin() + start + counts[i]);
+      const bool has_dashes =
+          NargsOf(action) == NargsKind::kParser
+              ? pattern[start] == '-'
+              : std::string_view(pattern).substr(start, counts[i]).find('-') !=
+                    std::string_view::npos;
+      if (has_dashes) values.erase(std::ranges::find(values, "--"));
+      start += counts[i];
+      if (std::optional<Error> error = take_action(action, values)) {
+        return Result<size_t>(*error);
+      }
     }
-    positional_done = true;
-    std::vector<std::string> values(args.begin() + start, args.end());
-    if (pattern[start] == '-') values.erase(values.begin());
-    if (std::optional<Error> error =
-            TakeAction(actions_[*subparsers_action_], values, &known)) {
-      return Result<size_t>(*error);
-    }
-    return Result<size_t>(args.size());
+    positionals.erase(positionals.begin(), positionals.begin() + counts.size());
+    return Result<size_t>(start);
   };
 
   // Python: consume_optional().
@@ -517,10 +663,11 @@ Result<Parser::KnownArgs> Parser::ParseKnownArgs(
         known.extras.push_back(args[start]);
         return Result<size_t>(start + 1);
       }
-      const bool takes_value = tuple.action->kind != Action::Kind::kHelp;
       if (tuple.explicit_arg) {
         const std::string explicit_arg = *tuple.explicit_arg;
-        if (!takes_value && tuple.option_string[1] != '-' &&
+        const Result<size_t> count = MatchArgument(*tuple.action, "A");
+        if (!count.ok()) return count;
+        if (count.value() == 0 && tuple.option_string[1] != '-' &&
             !explicit_arg.empty()) {
           // A flag with more single-dash flags after it, as in -xyz.
           if (tuple.equals_sign || explicit_arg[0] == '-') {
@@ -545,7 +692,7 @@ Result<Parser::KnownArgs> Parser::ParseKnownArgs(
                                : tuple.equals_sign
                                    ? std::optional<std::string>(rest.substr(1))
                                    : std::optional<std::string>(rest);
-        } else if (takes_value) {
+        } else if (count.value() == 1) {
           stop = start + 1;
           calls.push_back({tuple.action, {explicit_arg}});
           break;
@@ -556,11 +703,10 @@ Result<Parser::KnownArgs> Parser::ParseKnownArgs(
         }
       } else {
         const size_t begin = start + 1;
-        if (takes_value && (begin >= pattern.size() || pattern[begin] != 'A')) {
-          return Result<size_t>(
-              Fail(ArgumentError(*tuple.action, "expected one argument")));
-        }
-        stop = begin + (takes_value ? 1 : 0);
+        const Result<size_t> count = MatchArgument(
+            *tuple.action, std::string_view(pattern).substr(begin));
+        if (!count.ok()) return count;
+        stop = begin + count.value();
         calls.push_back({tuple.action, std::vector<std::string>(
                                            args.begin() + begin,
                                            args.begin() + stop)});
@@ -568,7 +714,7 @@ Result<Parser::KnownArgs> Parser::ParseKnownArgs(
       }
     }
     for (const auto& [action, values] : calls) {
-      if (std::optional<Error> error = TakeAction(*action, values, &known)) {
+      if (std::optional<Error> error = take_action(*action, values)) {
         return Result<size_t>(*error);
       }
     }
@@ -603,6 +749,17 @@ Result<Parser::KnownArgs> Parser::ParseKnownArgs(
   if (!stop.ok()) return Result<KnownArgs>(stop.error());
   known.extras.insert(known.extras.end(), args.begin() + stop.value(),
                       args.end());
+
+  std::vector<std::string> missing;
+  for (const Action& action : actions_) {
+    if (action.required && !seen_actions.contains(&action)) {
+      missing.push_back(ActionName(action));
+    }
+  }
+  if (!missing.empty()) {
+    return Result<KnownArgs>(Fail("the following arguments are required: " +
+                                  Join(missing, ", ")));
+  }
   known.extras.insert(known.extras.end(), known.unrecognized.begin(),
                       known.unrecognized.end());
   known.unrecognized.clear();
@@ -667,6 +824,20 @@ const internal_argparse::Action* Parser::FindOption(
   return nullptr;
 }
 
+Result<size_t> Parser::MatchArgument(const Action& action,
+                                     std::string_view pattern) const {
+  const Result<Regex> regex = Regex::Compile(NargsPattern(action));
+  if (!regex.ok()) std::terminate();
+  if (const std::optional<RegexMatch> match = regex.value().Match(pattern)) {
+    return Result<size_t>(match->Group(1).value_or("").size());
+  }
+  std::string_view message = "expected one argument";
+  if (NargsOf(action) == NargsKind::kOneOrMore) {
+    message = "expected at least one argument";
+  }
+  return Result<size_t>(Fail(ArgumentError(action, message)));
+}
+
 std::optional<Error> Parser::TakeAction(const Action& action,
                                         const std::vector<std::string>& values,
                                         KnownArgs* known) const {
@@ -674,18 +845,36 @@ std::optional<Error> Parser::TakeAction(const Action& action,
     Write(Stream::kStdout, FormatHelp());
     return Error{.exit_code = 0};
   }
-  const std::string& value = values.front();
-  if (!action.choices.empty() &&
-      std::ranges::find(action.choices, value) == action.choices.end()) {
-    return Fail(ArgumentError(
-        action, std::format("invalid choice: {} (choose from {})", Repr(value),
-                            Join(action.choices, ", "))));
-  }
-  if (action.kind == Action::Kind::kStore) {
-    known->values.Set(action.dest, value);
+  if (action.kind == Action::Kind::kStoreTrue) {
+    known->values.Set(action.dest, "True");
     return std::nullopt;
   }
-  const size_t index = std::ranges::find(action.choices, value) -
+  // Python's _get_values(): PARSER checks only the subcommand name.
+  const size_t checked =
+      action.kind == Action::Kind::kSubparsers ? 1 : values.size();
+  for (size_t i = 0; i < checked; ++i) {
+    if (!action.choices.empty() &&
+        std::ranges::find(action.choices, values[i]) == action.choices.end()) {
+      return Fail(ArgumentError(
+          action, std::format("invalid choice: {} (choose from {})",
+                              Repr(values[i]), Join(action.choices, ", "))));
+    }
+  }
+  if (action.kind == Action::Kind::kStore) {
+    std::vector<std::string> stored = values;
+    if (action.custom_action) {
+      Result<std::vector<std::string>> result = action.custom_action(values);
+      if (!result.ok()) return result.error();
+      stored = std::move(result).value();
+    }
+    if (NargsOf(action) == NargsKind::kOne && !action.custom_action) {
+      known->values.Set(action.dest, stored.front());
+    } else {
+      known->values.SetList(action.dest, std::move(stored));
+    }
+    return std::nullopt;
+  }
+  const size_t index = std::ranges::find(action.choices, values.front()) -
                        action.choices.begin();
   const Result<KnownArgs> sub = subparsers_[index]->ParseKnownArgs(
       std::vector<std::string>(values.begin() + 1, values.end()));
@@ -700,7 +889,7 @@ std::optional<Error> Parser::TakeAction(const Action& action,
 Error Parser::Fail(std::string_view message) const {
   Write(Stream::kStderr, FormatUsage());
   Write(Stream::kStderr, std::format("{}: error: {}\n", prog_, message));
-  return Error{.exit_code = 1};
+  return Error{.exit_code = error_exit_code_};
 }
 
 }  // namespace cc::util::argparse

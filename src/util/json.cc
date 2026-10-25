@@ -5,7 +5,6 @@
 #include <yyjson.h>
 
 #include <algorithm>
-#include <charconv>
 #include <cmath>
 #include <exception>
 #include <format>
@@ -66,49 +65,15 @@ void AppendString(std::string_view text, std::string* out) {
   *out += '"';
 }
 
-// Appends `value` as Python's float.__repr__() writes it: the shortest
-// digits that read back to the same value, in positional notation if the
-// decimal point is at most 16 digits right or 4 digits left of the first
-// digit, else in exponent notation. json.dumps() spells the special values
-// NaN, Infinity and -Infinity.
+// Appends `value` as json.dumps() writes a float: like repr(), but with the
+// special values spelled NaN, Infinity and -Infinity.
 void AppendReal(double value, std::string* out) {
   if (std::isnan(value)) {
     *out += "NaN";
-    return;
-  }
-  if (std::isinf(value)) {
+  } else if (std::isinf(value)) {
     *out += value < 0 ? "-Infinity" : "Infinity";
-    return;
-  }
-  if (std::signbit(value)) *out += '-';
-  if (value == 0) {
-    *out += "0.0";
-    return;
-  }
-  char buffer[64];
-  const std::to_chars_result result =
-      std::to_chars(buffer, buffer + sizeof(buffer), std::abs(value),
-                    std::chars_format::scientific);
-  const std::string_view scientific(buffer, result.ptr - buffer);
-  const size_t e = scientific.find('e');
-  std::string digits;
-  for (const char c : scientific.substr(0, e)) {
-    if (c != '.') digits += c;
-  }
-  const int digit_count = static_cast<int>(digits.size());
-  // The position of the decimal point relative to the first digit.
-  const int point =
-      static_cast<int>(ParseInt(scientific.substr(e + 1)).value_or(0)) + 1;
-  if (point <= -4 || point > 16) {
-    *out += digits[0];
-    if (digit_count > 1) *out += "." + digits.substr(1);
-    *out += std::format("e{}{:02}", point > 0 ? '+' : '-', std::abs(point - 1));
-  } else if (point <= 0) {
-    *out += "0." + std::string(-point, '0') + digits;
-  } else if (point >= digit_count) {
-    *out += digits + std::string(point - digit_count, '0') + ".0";
   } else {
-    *out += digits.substr(0, point) + "." + digits.substr(point);
+    *out += FloatRepr(value);
   }
 }
 
@@ -198,6 +163,86 @@ std::string DumpJson(yyjson_mut_val* value) {
   std::string out;
   AppendValue(value, &out);
   return out;
+}
+
+yyjson_val* JsonGet(yyjson_val* value, std::string_view key) {
+  if (!yyjson_is_obj(value)) return nullptr;
+  yyjson_val* found = nullptr;
+  yyjson_obj_iter iter = yyjson_obj_iter_with(value);
+  while (yyjson_val* name = yyjson_obj_iter_next(&iter)) {
+    if (std::string_view(yyjson_get_str(name), yyjson_get_len(name)) == key) {
+      found = yyjson_obj_iter_get_val(name);
+    }
+  }
+  return found;
+}
+
+std::optional<int64_t> JsonToInt(yyjson_val* value) {
+  switch (yyjson_get_type(value)) {
+    case YYJSON_TYPE_BOOL:
+      return yyjson_get_bool(value) ? 1 : 0;
+    case YYJSON_TYPE_NUM:
+      if (yyjson_is_real(value)) {
+        const double real = yyjson_get_real(value);
+        if (!std::isfinite(real)) return std::nullopt;
+        return static_cast<int64_t>(real);
+      }
+      return yyjson_get_int(value);
+    case YYJSON_TYPE_STR:
+      return ParseInt(
+          std::string_view(yyjson_get_str(value), yyjson_get_len(value)));
+    default:
+      return std::nullopt;
+  }
+}
+
+std::string JsonToStr(yyjson_val* value) {
+  if (value == nullptr) return "None";
+  switch (yyjson_get_type(value)) {
+    case YYJSON_TYPE_STR:
+      return std::string(yyjson_get_str(value), yyjson_get_len(value));
+    case YYJSON_TYPE_NULL:
+      return "None";
+    case YYJSON_TYPE_BOOL:
+      return yyjson_get_bool(value) ? "True" : "False";
+    case YYJSON_TYPE_NUM:
+      if (yyjson_is_real(value)) return FloatRepr(yyjson_get_real(value));
+      if (yyjson_is_uint(value)) return std::to_string(yyjson_get_uint(value));
+      return std::to_string(yyjson_get_sint(value));
+    case YYJSON_TYPE_RAW:
+      return std::string(yyjson_get_raw(value), yyjson_get_len(value));
+    default: {
+      const MutableJsonDocument copy = NewJsonDocument();
+      return DumpJson(yyjson_val_mut_copy(copy.get(), value));
+    }
+  }
+}
+
+Result<yyjson_val*> JsonSubscript(yyjson_val* value, std::string_view key) {
+  if (!yyjson_is_obj(value)) {
+    return Result<yyjson_val*>(Error{
+        .message = value == nullptr || yyjson_is_null(value)
+                       ? "TypeError: 'NoneType' object is not subscriptable"
+                       : "TypeError: indices must be integers or slices, not "
+                         "str"});
+  }
+  yyjson_val* member = JsonGet(value, key);
+  if (member == nullptr) {
+    return Result<yyjson_val*>(Error{.message = "KeyError: " + Repr(key)});
+  }
+  return Result<yyjson_val*>(member);
+}
+
+Result<int64_t> JsonSubscriptInt(yyjson_val* value, std::string_view key) {
+  const Result<yyjson_val*> member = JsonSubscript(value, key);
+  if (!member.ok()) return Result<int64_t>(member.error());
+  const std::optional<int64_t> number = JsonToInt(member.value());
+  if (!number) {
+    return Result<int64_t>(Error{
+        .message = "ValueError: invalid literal for int() with base 10: " +
+                   Repr(JsonToStr(member.value()))});
+  }
+  return Result<int64_t>(*number);
 }
 
 }  // namespace cc::util

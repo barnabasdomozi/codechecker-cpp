@@ -23,6 +23,15 @@ std::optional<uint32_t> NextCodePoint(std::string_view text, size_t* pos);
 // invalid bytes are dropped.
 std::string DecodeUtf8Ignore(std::string_view bytes);
 
+// Returns `bytes` decoded like Python's bytes.decode('utf-8', 'replace'):
+// each invalid sequence (the longest start of a valid sequence, or one byte)
+// becomes U+FFFD.
+std::string DecodeUtf8Replace(std::string_view bytes);
+
+// Returns whether Python's str.isspace() is true for `code_point`: the
+// characters str.split() and str.strip() treat as whitespace.
+bool IsSpace(uint32_t code_point);
+
 // Returns the number of code points in UTF-8 `text` (Python: len()).
 size_t CodePointCount(std::string_view text);
 

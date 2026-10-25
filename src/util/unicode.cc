@@ -71,6 +71,69 @@ std::string DecodeUtf8Ignore(std::string_view bytes) {
   return text;
 }
 
+namespace {
+
+// Returns the length of the invalid sequence at byte `pos` of `text`: the
+// bytes that start a valid sequence but do not finish it, or one byte (the
+// "maximal subpart" that Python's decoder replaces as one).
+size_t InvalidSequenceSize(std::string_view text, size_t pos) {
+  const uint32_t first = static_cast<unsigned char>(text[pos]);
+  size_t length = 0;
+  uint32_t min_second = 0x80;
+  uint32_t max_second = 0xBF;
+  if (first >= 0xC2 && first <= 0xDF) {
+    length = 2;
+  } else if (first >= 0xE0 && first <= 0xEF) {
+    length = 3;
+    if (first == 0xE0) min_second = 0xA0;
+    if (first == 0xED) max_second = 0x9F;
+  } else if (first >= 0xF0 && first <= 0xF4) {
+    length = 4;
+    if (first == 0xF0) min_second = 0x90;
+    if (first == 0xF4) max_second = 0x8F;
+  } else {
+    return 1;
+  }
+  size_t size = 1;
+  while (size < length && pos + size < text.size()) {
+    const uint32_t byte = static_cast<unsigned char>(text[pos + size]);
+    const bool valid = size == 1 ? byte >= min_second && byte <= max_second
+                                 : IsContinuation(byte);
+    if (!valid) break;
+    ++size;
+  }
+  return size;
+}
+
+}  // namespace
+
+std::string DecodeUtf8Replace(std::string_view bytes) {
+  std::string text;
+  text.reserve(bytes.size());
+  size_t pos = 0;
+  while (pos < bytes.size()) {
+    const size_t start = pos;
+    if (NextCodePoint(bytes, &pos)) {
+      text.append(bytes.substr(start, pos - start));
+    } else {
+      text += "\xEF\xBF\xBD";  // U+FFFD.
+      pos = start + InvalidSequenceSize(bytes, start);
+    }
+  }
+  return text;
+}
+
+bool IsSpace(uint32_t code_point) {
+  // The code points of the Unicode database of Python 3.13 for which
+  // str.isspace() is true.
+  return (code_point >= 0x09 && code_point <= 0x0D) ||
+         (code_point >= 0x1C && code_point <= 0x20) || code_point == 0x85 ||
+         code_point == 0xA0 || code_point == 0x1680 ||
+         (code_point >= 0x2000 && code_point <= 0x200A) ||
+         code_point == 0x2028 || code_point == 0x2029 ||
+         code_point == 0x202F || code_point == 0x205F || code_point == 0x3000;
+}
+
 size_t CodePointCount(std::string_view text) {
   size_t count = 0;
   for (size_t pos = 0; pos < text.size(); ++count) NextCodePoint(text, &pos);

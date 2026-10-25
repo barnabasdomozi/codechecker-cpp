@@ -3,6 +3,7 @@
 #ifndef CC_UTIL_RESULT_H_
 #define CC_UTIL_RESULT_H_
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -47,6 +48,27 @@ class [[nodiscard]] Result {
 
  private:
   std::variant<T, Error> content_;
+};
+
+// The result of an operation that has no value: success, or an Error.
+template <>
+class [[nodiscard]] Result<void> {
+ public:
+  Result() = default;
+  explicit Result(Error error) : error_(std::move(error)) {}
+
+  Result(const Result& other) = default;
+  Result& operator=(const Result& other) = default;
+  Result(Result&& other) = default;
+  Result& operator=(Result&& other) = default;
+
+  bool ok() const { return !error_.has_value(); }
+
+  // The error; only valid if !ok().
+  const Error& error() const { return *error_; }
+
+ private:
+  std::optional<Error> error_;
 };
 
 }  // namespace cc

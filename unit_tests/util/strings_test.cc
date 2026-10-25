@@ -2,6 +2,8 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include "gtest/gtest.h"
 #include "util/unicode.h"
@@ -39,6 +41,26 @@ TEST(UnicodeTest, DecodeIgnoreDropsInvalidBytes) {
 TEST(UnicodeTest, CodePoints) {
   EXPECT_EQ(CodePointCount("árvíz"), 5u);
   EXPECT_EQ(CodePointPrefixSize("árvíz", 2), 3u);
+}
+
+TEST(StringsTest, PythonWhitespace) {
+  EXPECT_EQ(Strip("  a\u3000b \x1c\n"), "a\u3000b");
+  EXPECT_EQ(RightStrip(" a \t"), " a");
+  EXPECT_EQ(RemoveWhitespace("a\x1c" "b\u00a0c\u2003d \t"), "abcd");
+}
+
+TEST(StringsTest, Lines) {
+  EXPECT_EQ(TranslateNewlines("a\r\nb\rc\n"), "a\nb\nc\n");
+  EXPECT_EQ(SplitLines("a\r\nb\rc\nd"),
+            (std::vector<std::string_view>{"a\r\n", "b\r", "c\n", "d"}));
+}
+
+TEST(StringsTest, FloatRepr) {
+  EXPECT_EQ(FloatRepr(1.0), "1.0");
+  EXPECT_EQ(FloatRepr(1e-05), "1e-05");
+  EXPECT_EQ(FloatRepr(123456789012345680.0), "1.2345678901234568e+17");
+  EXPECT_EQ(FloatRepr(0.1), "0.1");
+  EXPECT_EQ(FloatRepr(1e16), "1e+16");
 }
 
 }  // namespace

@@ -126,7 +126,8 @@ add_custom_target(blackbox
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/blackbox_tests
   USES_TERMINAL
   VERBATIM)
-add_dependencies(blackbox codechecker-cpp version_files ldlogger ldlogger_64)
+add_dependencies(blackbox codechecker-cpp report-converter version_files ldlogger
+  ldlogger_64)
 if(CC_LDLOGGER_32BIT)
   add_dependencies(blackbox ldlogger_32)
 endif()
@@ -135,9 +136,11 @@ if(CC_BUILD_TESTS)
   enable_testing()
   add_subdirectory(unit_tests/third_party)
   add_subdirectory(unit_tests/util)
+  add_subdirectory(unit_tests/report)
   # Programs need no shared library but glibc, libstdc++ and libgcc_s.
   string(CONCAT programs
     "$<TARGET_FILE:ldlogger>;$<TARGET_FILE:codechecker-cpp>;"
+    "$<TARGET_FILE:report-converter>;"
     "$<TARGET_FILE:third_party_test>")
   add_test(NAME run_time_dependencies
     COMMAND ${CMAKE_COMMAND} "-DFILES=${programs}"

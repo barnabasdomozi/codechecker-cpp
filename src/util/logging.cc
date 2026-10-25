@@ -21,15 +21,24 @@ namespace {
 // The configuration shared by all loggers. Python's logging also has a level
 // per handler, but setup_logger() always sets it to the loggers' level.
 struct LogConfig {
+  // The line formats of common-infrastructure.md §6, and the one of the
+  // standalone tools.
+  enum class Format {
+    kBrief,    // [INFO 2026-10-25 09:57:50] - message
+    kPrecise,  // The debug format, with logger, process, file and line.
+    kTool,     // [INFO] - message
+  };
+
   LogLevel level;
-  // The "precise" format of debug levels, instead of the "brief" one.
-  bool precise;
+  Format format;
   Stream stream;
 };
 
-// Changed only by SetupLogger(), before other threads start.
-constinit LogConfig log_config = {
-    .level = LogLevel::kInfo, .precise = false, .stream = Stream::kStdout};
+// Changed only by SetupLogger() and SetupToolLogger(), before other threads
+// start.
+constinit LogConfig log_config = {.level = LogLevel::kInfo,
+                                  .format = LogConfig::Format::kBrief,
+                                  .stream = Stream::kStdout};
 
 std::string_view LevelName(LogLevel level) {
   switch (level) {
@@ -90,14 +99,26 @@ std::string_view FileName(std::string_view path) {
 
 void SetupLogger(std::optional<std::string_view> verbose, Stream stream) {
   const LogLevel level = verbose ? VerboseLevel(*verbose) : LogLevel::kInfo;
-  log_config = {
-      .level = level,
-      .precise =
-          level == LogLevel::kDebug || level == LogLevel::kDebugAnalyzer,
-      .stream = stream};
+  const bool precise =
+      level == LogLevel::kDebug || level == LogLevel::kDebugAnalyzer;
+  log_config = {.level = level,
+                .format = precise ? LogConfig::Format::kPrecise
+                                  : LogConfig::Format::kBrief,
+                .stream = stream};
+}
+
+void SetupToolLogger(LogLevel level) {
+  log_config = {.level = level,
+                .format = LogConfig::Format::kTool,
+                .stream = Stream::kStdout};
 }
 
 LogLevel CurrentLogLevel() { return log_config.level; }
+
+void Logger::Debug(std::string_view message,
+                   std::source_location location) const {
+  Log(LogLevel::kDebug, message, location);
+}
 
 void Logger::Info(std::string_view message,
                   std::source_location location) const {
@@ -109,18 +130,30 @@ void Logger::Warning(std::string_view message,
   Log(LogLevel::kWarning, message, location);
 }
 
+void Logger::Error(std::string_view message,
+                   std::source_location location) const {
+  Log(LogLevel::kError, message, location);
+}
+
 void Logger::Log(LogLevel level, std::string_view message,
                  const std::source_location& location) const {
   if (level < log_config.level) return;
   std::string line;
-  if (log_config.precise) {
-    line = std::format("[{}] [{}] {{{}}} [{}] <{}> - {}:{} {}() - {}\n",
-                       LevelName(level), AscTime(), name_,
-                       platform::ProcessId(), platform::ThreadId(),
-                       FileName(location.file_name()), location.line(),
-                       FunctionName(location.function_name()), message);
-  } else {
-    line = std::format("[{} {}] - {}\n", LevelName(level), AscTime(), message);
+  switch (log_config.format) {
+    case LogConfig::Format::kPrecise:
+      line = std::format("[{}] [{}] {{{}}} [{}] <{}> - {}:{} {}() - {}\n",
+                         LevelName(level), AscTime(), name_,
+                         platform::ProcessId(), platform::ThreadId(),
+                         FileName(location.file_name()), location.line(),
+                         FunctionName(location.function_name()), message);
+      break;
+    case LogConfig::Format::kBrief:
+      line =
+          std::format("[{} {}] - {}\n", LevelName(level), AscTime(), message);
+      break;
+    case LogConfig::Format::kTool:
+      line = std::format("[{}] - {}\n", LevelName(level), message);
+      break;
   }
   static std::mutex& mutex = *new std::mutex;
   const std::lock_guard<std::mutex> lock(mutex);

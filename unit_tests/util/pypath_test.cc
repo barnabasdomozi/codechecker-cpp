@@ -23,5 +23,21 @@ TEST(PypathTest, Join) {
   EXPECT_EQ(Join({"", "b"}), "b");
 }
 
+TEST(PypathTest, Normpath) {
+  EXPECT_EQ(Normpath(""), ".");
+  EXPECT_EQ(Normpath("a/b/"), "a/b");
+  EXPECT_EQ(Normpath("//a/b"), "//a/b");
+  EXPECT_EQ(Normpath("///a/../b"), "/b");
+  EXPECT_EQ(Normpath("a/../../c"), "../c");
+  EXPECT_EQ(Normpath("/.."), "/");
+  EXPECT_EQ(Normpath("./a/./b//c/"), "a/b/c");
+}
+
+TEST(PypathTest, Basename) {
+  EXPECT_EQ(Basename("/a/b.c"), "b.c");
+  EXPECT_EQ(Basename("a/"), "");
+  EXPECT_EQ(Basename("b"), "b");
+}
+
 }  // namespace
 }  // namespace cc::util::pypath

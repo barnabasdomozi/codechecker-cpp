@@ -17,7 +17,13 @@ The main program is `codechecker-cpp` (the Python version's `CodeChecker`).
 Ported so far: the version commands of
 [docs/usage/version.md](docs/usage/version.md), `codechecker-cpp version`,
 `analyzer-version` and `web-version`, with the building blocks they need
-(argument parsing, logging, tables, JSON). The launcher's second process and
+(argument parsing, logging, tables, JSON). `report-converter`
+([docs/usage/report-converter.md](docs/usage/report-converter.md)) is ported
+with all 28 input types, on the `cc_report` library (report model, report
+hashes, plist and SARIF reading and writing). Its black-box tests that read
+the results back need `codechecker-cpp parse`, which comes later; until then
+they pass with the C++ `report-converter` next to the Python `CodeChecker`.
+The launcher's second process and
 its saved build environment (architecture.md §5.1) come with `log` and
 `analyze`, the first commands that use them.
 

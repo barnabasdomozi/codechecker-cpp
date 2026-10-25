@@ -34,6 +34,11 @@ enum class LogLevel {
 // other threads start.
 void SetupLogger(std::optional<std::string_view> verbose, Stream stream);
 
+// Configures every logger like the standalone tools (report-converter, ...)
+// set up their own logger: `level` and above go to stdout as
+// "[<LEVEL>] - <message>" lines.
+void SetupToolLogger(LogLevel level);
+
 // Returns the level of the loggers (Python: LOG.getEffectiveLevel()).
 LogLevel CurrentLogLevel();
 
@@ -47,12 +52,18 @@ class Logger {
 
   // These functions log `message` at their level. `location` is the caller,
   // shown in the debug line format; leave it to its default.
+  void Debug(std::string_view message,
+             std::source_location location =
+                 std::source_location::current()) const;
   void Info(std::string_view message,
             std::source_location location =
                 std::source_location::current()) const;
   void Warning(std::string_view message,
                std::source_location location =
                    std::source_location::current()) const;
+  void Error(std::string_view message,
+             std::source_location location =
+                 std::source_location::current()) const;
 
  private:
   void Log(LogLevel level, std::string_view message,
