@@ -7,9 +7,12 @@ is **proposed** (under discussion) or **accepted**.
 
 These are **accepted** and apply to every page below.
 
-- **C++ version: C++20.** No C++23 features (`std::print`, `std::expected`,
-  `std::ranges::to`, `std::stacktrace`, ...), even where the compiler has
-  them.
+- **Coding guideline: [cppguide.md](cppguide.md).** All C++ code must follow
+  it at all times. It is the only coding guideline of the project: the
+  language version (C++20), naming, formatting, which language features may
+  be used, and the project's waivers (exceptions only at the Thrift boundary,
+  `std::filesystem` allowed, namespace `cc`) are all defined there, and no
+  other document adds or changes coding rules.
 - **Build system: CMake.**
 - **Platform: Linux only.** No macOS or other systems.
 - **No Python code in this repository.** Nothing is written in Python, and
@@ -42,5 +45,6 @@ These are **accepted** and apply to every page below.
 
 | Page | Status | Topic |
 |---|---|---|
+| [cppguide.md](cppguide.md) | accepted | The C++ coding guideline (Google C++ Style Guide with the project's waivers); mandatory for all C++ code |
 | [libraries.md](libraries.md) | accepted | What the C++ standard library covers, what we write ourselves, and which third-party libraries we use |
 | [architecture.md](architecture.md) | proposed | How the port is structured: source tree, libraries, programs, processes, and how each part works |

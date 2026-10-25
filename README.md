@@ -46,6 +46,16 @@ version must support the same commands, options, outputs and exit codes.
 [docs/usage/known-issues.md](docs/usage/known-issues.md) lists bugs found in
 the Python version while testing.
 
+[docs/implementation/](docs/implementation/README.md) holds the decisions
+for the C++ port: libraries, architecture and the coding guideline.
+
+## Coding guideline
+
+All C++ code in this repository **must** follow
+[docs/implementation/cppguide.md](docs/implementation/cppguide.md) at all
+times. It is the only coding guideline of the project; no other document adds
+or changes coding rules.
+
 ## Layout
 
 Not decided yet. It will be documented here once the first component is

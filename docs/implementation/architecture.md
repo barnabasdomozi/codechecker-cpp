@@ -94,7 +94,7 @@ codechecker-cpp/
 │   ├── client/                  codechecker_client
 │   ├── server/                  codechecker_server
 │   ├── launcher/                the CodeChecker program: launcher, subcommand table
-│   └── tools/                   one folder per standalone tool (main.cpp)
+│   └── tools/                   one folder per standalone tool (main.cc)
 ├── tests/unit/                  GoogleTest unit tests, one folder per library
 ├── testing/                     the black-box suite (already exists)
 └── docs/
@@ -118,8 +118,9 @@ must be checked for `.py` files and leave them out.
 `analyzer_version.json` and `web_version.json` are not copied. The build
 writes them (see [Open questions](#open-questions)).
 
-Inside `src/`, a C++ file that ports a Python module starts with a comment
-naming it (for example `// Port of codechecker_common/skiplist_handler.py`).
+Inside `src/`, the file comment of a C++ file that ports a Python module
+names that module (for example `// Port of codechecker_common/skiplist_handler.py`).
+All C++ code follows the coding guideline [cppguide.md](cppguide.md).
 Folder names inside each library follow the Python package where that
 helps.
 
@@ -197,7 +198,7 @@ because the test suite and users rely on it:
   inside its packages are installed under `lib/codechecker/`.
 - `gerrit_changed_files_to_skipfile.py` keeps its name, `.py` included, so
   scripts that call it keep working.
-- Every standalone tool is its own executable: `src/tools/<tool>/main.cpp`
+- Every standalone tool is its own executable: `src/tools/<tool>/main.cc`
   linking the libraries it needs. These tools use plain `argparse` rules
   (parse errors exit 2); the `argparse` clone takes the error exit code as a
   parser setting.
@@ -250,19 +251,23 @@ The child:
    parser is built. Without a subcommand, it prints the top-level help.
 5. Runs the subcommand and returns its exit code.
 
-Uncaught exceptions print a stack trace on stdout and exit 1;
-`Interrupted by user...` is printed for `SIGINT` as in the reference.
+Where the Python version prints a stack trace for an uncaught exception, the
+port has internal errors instead (a failed check of an invariant, or a
+standard library exception that nothing catches). A `std::set_terminate`
+handler prints a stack trace on stdout and exits 1. `Interrupted by user...`
+is printed for `SIGINT` as in the reference.
 
 ### 5.3 Subcommand table
 
-A static table in `src/launcher/` lists every subcommand:
+A `constexpr` table in `src/launcher/` lists every subcommand:
 
 ```cpp
+// One CodeChecker subcommand: its parser and its entry point.
 struct Subcommand {
-    std::string_view name;            // "analyze"
-    std::string_view help;            // one-line help for the top-level list
-    void (*add_arguments)(argparse::Parser&);
-    int (*main)(const argparse::Namespace&);
+  std::string_view name;  // For example "analyze".
+  std::string_view help;  // One-line help for the top-level list.
+  void (*add_arguments)(argparse::Parser& parser);
+  int (*run)(const argparse::Namespace& args);  // Returns the exit code.
 };
 ```
 
@@ -275,17 +280,26 @@ struct Subcommand {
 | `cc_client` | `cmd`, `store` |
 
 Each subcommand lives in a `cli/` folder of its library, like the Python
-`cli/` packages (`src/analyzer/cli/analyze.cpp` ↔
+`cli/` packages (`src/analyzer/cli/analyze.cc` ↔
 `codechecker_analyzer/cli/analyze.py`).
 
 ### 5.4 Exit codes and errors
 
-The Python code calls `sys.exit(n)` deep inside many functions. The port
-throws `cc::Exit{n}` instead and catches it in the entry point, so
-destructors run and temporary files are cleaned up. Other errors are normal
-exceptions; expected failures that the caller handles are returned as
-`std::optional` or `cc::Result<T>`
-([libraries.md](libraries.md#errors-and-stack-traces)).
+The port does not use exceptions (outside the Thrift boundary, see
+[cppguide.md](cppguide.md#project-waivers) W1). The Python code calls
+`sys.exit(n)` deep inside many functions; the port returns instead:
+
+- A function that can fail returns `cc::Result<T>`: either the value, or an
+  error with its message and the exit code the command should end with.
+  Functions without a value to return use `cc::Result<void>`.
+- Callers pass errors up until the subcommand's `run` function, which logs
+  the message (if the reference logs one) and returns the exit code to the
+  entry point.
+- Because every exit is a normal return, destructors run and temporary files
+  and folders are removed on the way out.
+- `std::optional` is used where "no value" is not an error.
+
+See also [libraries.md](libraries.md#errors-and-stack-traces).
 
 ## 6. Building blocks (`cc_platform`, `cc_util`)
 
@@ -352,16 +366,29 @@ Each analyzer is one class behind a common interface, as in
 `analyzer_base.py` ([analyzer-drivers.md](../reference/analyzer-drivers.md)):
 
 ```cpp
+// One analyzer (clangsa, clang-tidy, ...): how to query it, how to build its
+// command line and how to turn its output into a result file.
 class AnalyzerDriver {
-public:
-    virtual std::string_view name() const = 0;               // "clangsa"
-    virtual std::optional<std::string> version() const = 0;
-    virtual CheckerList checkers() const = 0;                // with descriptions
-    virtual OptionList analyzer_config_options() const = 0;
-    virtual std::vector<std::string> build_command(const BuildAction&,
-                                                   const AnalysisConfig&) const = 0;
-    virtual void post_analyze(const AnalysisResult&) const {}
-    virtual ResultHandler& result_handler() = 0;             // output → plist
+ public:
+  AnalyzerDriver(const AnalyzerDriver&) = delete;
+  AnalyzerDriver& operator=(const AnalyzerDriver&) = delete;
+  virtual ~AnalyzerDriver() = default;
+
+  // Returns the analyzer's name, for example "clangsa".
+  virtual std::string_view name() const = 0;
+  // Runs the analyzer binary to find its version; empty if it cannot run.
+  virtual std::optional<std::string> Version() const = 0;
+  // Returns the checkers with their descriptions.
+  virtual CheckerList Checkers() const = 0;
+  virtual OptionList AnalyzerConfigOptions() const = 0;
+  virtual std::vector<std::string> BuildCommand(
+      const BuildAction& action, const AnalysisConfig& config) const = 0;
+  virtual void PostAnalyze(const AnalysisResult& /*result*/) const {}
+  // Returns the handler that turns the analyzer output into a plist file.
+  virtual ResultHandler& result_handler() = 0;
+
+ protected:
+  AnalyzerDriver() = default;
 };
 ```
 
@@ -425,7 +452,10 @@ small `main()` on top of it.
 - **Errors.** API handlers report errors by throwing the generated
   `RequestFailed`. Routing, authentication and unexpected errors become a
   `TApplicationException` of type `INTERNAL_ERROR` with the reference's
-  messages (§1.2 there).
+  messages (§1.2 there). This is the only place where the port uses
+  exceptions ([cppguide.md](cppguide.md#project-waivers) W1): handlers call
+  ordinary project code that returns `cc::Result<T>`, and convert its errors
+  into `RequestFailed`.
 
 Because the IDL files are unchanged, field ids, types and enum values are
 the same as in the Python version and the web UI.
@@ -649,10 +679,16 @@ is a CodeChecker server: the reference checks that `argv[1]` ends with
 `argv[0]` ending with `CodeChecker`, so each version recognizes the other's
 servers ([server.md](../reference/server.md) §3).
 
-## 12. Conventions for all code
+## 12. Rules for matching Python behavior
 
-- **Namespaces.** `cc::platform`, `cc::util`, `cc::report`, `cc::common`,
-  `cc::analyzer`, `cc::api`, `cc::web`, `cc::client`, `cc::server`.
+Coding rules (naming, formatting, language features, error handling) are in
+[cppguide.md](cppguide.md), the project's only coding guideline. This section
+lists only what the code must do so that its results match the Python
+version.
+
+- **Namespaces per library.** Each library of §3 has its own namespace:
+  `cc::platform`, `cc::util`, `cc::report`, `cc::common`, `cc::analyzer`,
+  `cc::api`, `cc::web`, `cc::client`, `cc::server`.
 - **Text.** All strings are UTF-8 in `std::string`. Text read from outside
   (files, process output) is decoded with the Python error handler the
   reference uses at that place (`ignore`, `replace`), so the rest of the code
@@ -663,20 +699,14 @@ servers ([server.md](../reference/server.md) §3).
   passing through a `std::filesystem::path`.
 - **Output.** stdout and stderr are written only through `cc::out` (UTF-8
   with backslash escapes, Python's buffering and flush points) and the
-  logger. Nothing writes to `std::cout` directly.
+  logger, never through `std::cout` directly.
 - **Logging.** Named loggers (`system`, `analyzer`, `analyzer.clangsa`,
   ...) with the reference's levels and formats. Each line is written whole,
   so threads do not mix lines.
 - **Order.** Where Python output follows `dict` insertion order, the code
   uses `OrderedMap`. `std::unordered_map` is only used where the order is
   never visible.
-- **Threads.** Shared state is behind a mutex or atomic, documented next to
-  it. Processes that fork (the launcher, the server supervisor) stay
-  single-threaded at the point of `fork()`.
 - **Sorting.** `std::ranges::stable_sort`, like Python's `sorted`.
-- **Errors.** `cc::Exit{n}` to end a command with an exit code; exceptions for
-  errors; `std::optional` / `cc::Result<T>` for expected failures. No
-  exception may leave a callback passed to a C library.
 
 ## 13. Testing
 

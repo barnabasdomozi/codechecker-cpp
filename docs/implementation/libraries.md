@@ -10,11 +10,10 @@ Everything here was checked against the Python sources in `codechecker/`
 
 ## Assumptions
 
-- **Language level: C++20** (see [README](README.md)). The development
-  machine has GCC 14.2 and Clang 19.1, which support everything below
-  (`std::format`, `std::jthread`, `std::source_location`, chrono time zones).
-  C++23 features (`std::print`, `std::expected`, `std::ranges::to`,
-  `std::stacktrace`) are not used.
+- **Language level: C++20**, as the coding guideline
+  [cppguide.md](cppguide.md) requires. The development machine has GCC 14.2
+  and Clang 19.1, which support everything below (`std::format`,
+  `std::jthread`, `std::source_location`, chrono time zones).
 - **Platform: Linux only** (see [README](README.md)). The Python version
   also runs on macOS; the port does not. All OS calls still go into one
   platform layer (`src/platform/`), which may use Linux-only APIs (`/proc`,
@@ -166,11 +165,16 @@ One in-house helper adds the remaining Python details (`1.0` instead of `1`,
 
 ### Errors and stack traces
 
-The port uses exceptions inside a command. Where a failure is expected and
-handled locally, functions return `std::optional` or a small in-house
-`Result<T>` type (`std::expected` is C++23).
+The coding guideline does not allow exceptions outside the Thrift boundary
+([cppguide.md](cppguide.md#project-waivers) W1). Functions that can fail
+return a small in-house `Result<T>` type (the value, or an error with a
+message and an exit code); `std::expected` would fit but is C++23. See
+[architecture.md](architecture.md#54-exit-codes-and-errors) for how errors
+reach the exit code.
 
-The Python entry point prints a stack trace on stdout for uncaught exceptions ([common-infrastructure.md](../reference/common-infrastructure.md) §2).
+The Python entry point prints a stack trace on stdout for uncaught exceptions
+([common-infrastructure.md](../reference/common-infrastructure.md) §2). The
+port prints one for internal errors, from a `std::set_terminate` handler.
 `std::stacktrace` is C++23, so the platform layer uses glibc's `backtrace()`
 and `backtrace_symbols_fd()` instead (function names need linking with
 `-rdynamic`). The text will not look like a Python traceback, and it does not
