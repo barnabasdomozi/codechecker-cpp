@@ -4,7 +4,7 @@ import { describe, expect, test } from '@jest/globals';
 import { cc } from '../../src/run';
 import { useSandbox } from '../../src/sandbox';
 import { projectReadme, sharedAnalysis } from '../../src/projects';
-import { expectRowsToMatchTable, markdownTable, reportRows } from '../../src/reports';
+import { expectRowsToMatchTable, fixitNames, markdownTable, reportRows } from '../../src/reports';
 import { isAvailable } from '../../src/requirements';
 
 useSandbox();
@@ -13,7 +13,7 @@ const readme = () => projectReadme('analyzer-features');
 const fixits = async (reports: string, cwd: string) => {
   const result = await cc(['fixit', reports], { cwd });
   expect(result).toExitWith(0);
-  return [...result.stdout.matchAll(/DiagnosticName: (\S+)/g)].map((m) => m[1]).sort();
+  return fixitNames(result.stdout).sort();
 };
 
 describe('project analyzer-features', () => {

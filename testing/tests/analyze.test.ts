@@ -7,7 +7,7 @@ import { cc } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
 import { logMessages } from '../src/normalize';
-import { DOC_ANALYZERS, logProject, projectCopy, sharedAnalysis, writeCompileDb } from '../src/projects';
+import { DOC_ANALYZERS, loggedProject, projectCopy, sharedAnalysis, writeCompileDb } from '../src/projects';
 import { parseJson, reportRows } from '../src/reports';
 import { findOnPath } from '../src/requirements';
 
@@ -26,11 +26,6 @@ function resultKinds(dir: string): string[] {
     .sort();
 }
 
-async function loggedDemo(): Promise<string> {
-  const root = await projectCopy(box, 'demo');
-  await logProject('demo', root);
-  return root;
-}
 
 /** The demo with two compile commands for main.c, as in usage/analyze.md. */
 function duplicateDb(root: string): string {
@@ -43,7 +38,7 @@ function duplicateDb(root: string): string {
 
 describe('usage/analyze.md', () => {
   useCase('analyze.md', 'Analyze a compilation database', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const result = await cc(['analyze', 'compile_commands.json', '-o', './reports', ...DOC_ANALYZERS], { cwd: root });
     expect(result).toExitWith(0);
     const info = logMessages(result.output, 'INFO');
@@ -93,7 +88,7 @@ describe('usage/analyze.md', () => {
   }, { name: 'the report folder' });
 
   useCase('analyze.md', 'Analyze a compilation database', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'a', ...DOC_ANALYZERS], { cwd: root })).toExitWith(0);
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'b', ...DOC_ANALYZERS], { cwd: root })).toExitWith(0);
     // The result file names depend only on the compile commands.
@@ -105,7 +100,7 @@ describe('usage/analyze.md', () => {
   }, { name: 'result file names are stable and overwritten' });
 
   useCase('analyze.md', 'Analyze one source file', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const result = await cc(['analyze', 'main.c', '-o', './reports', ...DOC_ANALYZERS], { cwd: root });
     expect(result).toExitWith(0);
     expect(resultKinds(path.join(root, 'reports'))).toEqual(['main.c_clang-tidy', 'main.c_clangsa', 'main.c_cppcheck']);
@@ -126,14 +121,14 @@ describe('usage/analyze.md', () => {
   }, { name: 'no compile_commands.json in a parent folder', knownIssue: 14 });
 
   useCase('analyze.md', 'Analyze a folder', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const result = await cc(['analyze', 'lib', '-o', './reports', ...DOC_ANALYZERS], { cwd: root });
     expect(result).toExitWith(0);
     expect(resultKinds(path.join(root, 'reports'))).toEqual(['util.c_clang-tidy', 'util.c_clangsa', 'util.c_cppcheck']);
   });
 
   useCase('analyze.md', 'Run only some analyzers', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'sa', '--analyzers', 'clangsa'], { cwd: root })).toExitWith(0);
     expect(resultKinds(path.join(root, 'sa'))).toEqual(['main.c_clangsa', 'style.cpp_clangsa', 'util.c_clangsa']);
 
@@ -145,7 +140,7 @@ describe('usage/analyze.md', () => {
   });
 
   useCase('analyze.md', 'Run only some analyzers', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const result = await cc(['analyze', 'compile_commands.json', '-o', 'cppcheck', '--analyzers', 'cppcheck'], { cwd: root });
     expect(result).toExitWith(0);
     expect(resultKinds(path.join(root, 'cppcheck'))).toEqual(['main.c_cppcheck', 'style.cpp_cppcheck', 'util.c_cppcheck']);
@@ -155,7 +150,7 @@ describe('usage/analyze.md', () => {
   }, { name: 'cppcheck', requires: ['command:cppcheck'] });
 
   useCase('analyze.md', 'Run only some analyzers', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const result = await cc(['analyze', 'compile_commands.json', '-o', 'missing', '--analyzers', 'infer', 'clangsa'], { cwd: root });
     expect(result).toExitWith(1);
     expect(logMessages(result.output, 'ERROR')).toContain('Failed to run command because the given analyzer(s) cannot be found on your machine!');
@@ -163,7 +158,7 @@ describe('usage/analyze.md', () => {
   }, { name: 'naming an analyzer that is not installed is an error' });
 
   useCase('analyze.md', 'Run only some analyzers', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'infer', '--analyzers', 'infer'], { cwd: root })).toExitWith(0);
     expect(resultKinds(path.join(root, 'infer')).every((k) => k.endsWith('_infer'))).toBe(true);
   }, { name: 'infer', requires: ['command:infer'] });
@@ -173,14 +168,14 @@ describe('usage/analyze.md', () => {
     // checkers runs. GCC has none by default.
     const info = JSON.parse((await cc(['analyzers', '-o', 'json'], { cwd: box.dir })).stdout) as Array<{ name: string; path: string | null }>;
     const expected = info.filter((a) => a.path !== null && a.name !== 'gcc').map((a) => a.name);
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'all'], { cwd: root })).toExitWith(0);
     const ran = [...new Set(resultKinds(path.join(root, 'all')).map((k) => k.replace(/^.*_/, '')))].sort();
     expect(ran).toEqual(expected.sort());
   }, { name: 'every analyzer that is found runs' });
 
   useCase('analyze.md', 'Number of parallel jobs', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const result = await cc(['analyze', 'compile_commands.json', '-o', 'reports', ...DOC_ANALYZERS, '-j', '1'], { cwd: root });
     expect(result).toExitWith(0);
     const demo = await sharedAnalysis('demo');
@@ -188,8 +183,7 @@ describe('usage/analyze.md', () => {
   });
 
   useCase('analyze.md', 'Hide analyzer output', async () => {
-    const root = await projectCopy(box, 'build-failures');
-    await logProject('build-failures', root);
+    const root = await loggedProject(box, 'build-failures');
     const loud = await cc(['analyze', 'compile_commands.json', '-o', 'a', '--analyzers', 'clangsa'], { cwd: root });
     expect(loud).toExitWith(3);
     expect(loud.output).toContain("error: expected ';' at end of declaration");
@@ -199,7 +193,7 @@ describe('usage/analyze.md', () => {
   });
 
   useCase('analyze.md', 'Clean the output folder first', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'reports', ...DOC_ANALYZERS], { cwd: root })).toExitWith(0);
     expect(plistFiles(path.join(root, 'reports'))).toHaveLength(9);
 
@@ -214,7 +208,7 @@ describe('usage/analyze.md', () => {
   });
 
   useCase('analyze.md', 'Name the run', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'reports', ...DOC_ANALYZERS, '-n', 'my_run'], { cwd: root })).toExitWith(0);
     const metadata = JSON.parse(readFileSync(path.join(root, 'reports', 'metadata.json'), 'utf8')) as {
       version: number;
@@ -258,7 +252,7 @@ describe('usage/analyze.md', () => {
   }, { name: 'none (default) analyzes every entry' });
 
   useCase('analyze.md', 'Report hash method', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const hashes: Record<string, string> = {};
     for (const method of ['default', 'context-free', 'context-free-v2', 'diagnostic-message']) {
       const args = ['analyze', 'compile_commands.json', '-o', method, '--analyzers', 'clangsa'];
@@ -276,12 +270,11 @@ describe('usage/analyze.md', () => {
   });
 
   useCase('analyze.md', 'Exit codes', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'ok', ...DOC_ANALYZERS], { cwd: root })).toExitWith(0);
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'bad', ...DOC_ANALYZERS, '-e', 'no-such-checker'], { cwd: root })).toExitWith(1);
     expect(await cc(['analyze', 'no-such-file.json', '-o', 'missing'], { cwd: root })).toExitWith(1);
-    const failing = await projectCopy(box, 'build-failures');
-    await logProject('build-failures', failing);
+    const failing = await loggedProject(box, 'build-failures');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'reports', ...DOC_ANALYZERS], { cwd: failing })).toExitWith(3);
   });
 });

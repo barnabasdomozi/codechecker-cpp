@@ -7,22 +7,17 @@ import { cc } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
 import { logMessages } from '../src/normalize';
-import { DOC_ANALYZERS, logProject, projectCopy } from '../src/projects';
+import { DOC_ANALYZERS, loggedProject } from '../src/projects';
 
 const box = useSandbox();
 
-async function loggedDemo(): Promise<string> {
-  const root = await projectCopy(box, 'demo');
-  await logProject('demo', root);
-  return root;
-}
 
 const files = (dir: string) => (existsSync(dir) ? readdirSync(dir).sort() : []);
 const kinds = (names: string[], suffix: RegExp) => names.map((n) => n.replace(suffix, '')).sort();
 
 describe('usage/analysis-debugging.md', () => {
   useCase('analysis-debugging.md', 'Keep the analyzers\' output for successful runs', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'reports', ...DOC_ANALYZERS, '--capture-analysis-output'], { cwd: root })).toExitWith(0);
     const success = files(path.join(root, 'reports', 'success'));
     expect(success.filter((f) => /^main\.c_clangsa_[0-9a-f]{32}\.plist\.stderr\.txt$/.test(f))).toHaveLength(1);
@@ -31,7 +26,7 @@ describe('usage/analysis-debugging.md', () => {
   });
 
   useCase('analysis-debugging.md', 'Generate reproducers', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'reports', ...DOC_ANALYZERS, '--generate-reproducer'], { cwd: root })).toExitWith(0);
     const zips = files(path.join(root, 'reports', 'reproducer'));
     expect(kinds(zips, /_[0-9a-f]{32}\.plist\.zip$/)).toEqual(
@@ -58,13 +53,13 @@ describe('usage/analysis-debugging.md', () => {
   });
 
   useCase('analysis-debugging.md', 'Time limit per analysis', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'reports', ...DOC_ANALYZERS, '--timeout', '60'], { cwd: root })).toExitWith(0);
     expect(readdirSync(path.join(root, 'reports')).filter((f) => f.endsWith('.plist'))).toHaveLength(9);
   });
 
   useCase('analysis-debugging.md', 'Debug logging', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const debug = await cc(['analyze', 'compile_commands.json', '-o', 'a', '--verbose', 'debug', '--analyzers', 'clangsa'], { cwd: root });
     expect(debug).toExitWith(0);
     // Debug lines show the source file and line of CodeChecker itself.

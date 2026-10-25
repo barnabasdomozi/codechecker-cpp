@@ -8,9 +8,8 @@ import { cc, run, tool } from '../../src/run';
 import { useSandbox } from '../../src/sandbox';
 import { useCase } from '../../src/usecase';
 import { lines, logMessages } from '../../src/normalize';
-import { analyzeProject, copyProject, mustRun, sharedAnalysis, type Analysis } from '../../src/projects';
+import { analyzeProject, builtExternalTools, sharedAnalysis, type Analysis } from '../../src/projects';
 import { ALL_RESULTS_FILTER, results, runState, runs, store, useServer, privateReports } from '../../src/server';
-import { shared } from '../../src/shared';
 
 const box = useSandbox();
 const server = useServer(box);
@@ -159,11 +158,7 @@ describe('usage/store.md', () => {
   }, { name: 'products (HTTPS is in server.test.ts)' });
 
   useCase('store.md', 'Store results from other tools', async () => {
-    const { value: root } = await shared('external-tools-output', async (dir) => {
-      const copy = await copyProject('external-tools', dir);
-      await mustRun(run('make', [], { cwd: copy }));
-      return copy;
-    });
+    const root = await builtExternalTools();
     const out = path.join(box.newDir('asan'), 'asan_results');
     expect(await tool('report-converter', ['-t', 'asan', '-o', out, path.join(root, 'out/heap_overflow.asan.out')], { cwd: root })).toExitWith(0);
     await store(server(), [out], 'asan_run');

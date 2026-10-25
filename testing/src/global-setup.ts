@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { config, ENV_SESSION_DIR } from './config';
-import { findOnPath } from './which';
+import { findOnPath } from './requirements';
 
 export default async function globalSetup(): Promise<void> {
   // Fails early, with a clear message, if CODECHECKER_BIN is wrong.

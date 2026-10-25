@@ -8,9 +8,8 @@ import { chain } from '../../src/chain';
 import { cc, run, tool } from '../../src/run';
 import { useSandbox } from '../../src/sandbox';
 import { lines } from '../../src/normalize';
-import { DOC_ANALYZERS, copyProject, projectReadme } from '../../src/projects';
+import { DOC_ANALYZERS, copyProject, demoProjectDoc, projectReadme } from '../../src/projects';
 import { expectRowsToMatchTable, markdownTable, plainLocations, plainReports, reportRows, type JsonReportFile } from '../../src/reports';
-import { config } from '../../src/config';
 
 const box = useSandbox();
 
@@ -46,7 +45,7 @@ describe('chain: log → analyze → parse', () => {
     const json = JSON.parse(result.stdout) as JsonReportFile;
     expect(json.reports).toHaveLength(9);
     // The exact results of docs/reference/demo-project.md §1.
-    const table = markdownTable(path.join(config().docsDir, 'reference', 'demo-project.md'), '1. `demo`');
+    const table = markdownTable(demoProjectDoc(), '1. `demo`');
     expectRowsToMatchTable(await reportRows(path.join(root, 'reports'), root), table);
   });
 

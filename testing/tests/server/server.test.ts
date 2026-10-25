@@ -3,7 +3,6 @@
 
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect } from '@jest/globals';
 import { cc, run } from '../../src/run';
 import { useSandbox } from '../../src/sandbox';
@@ -24,12 +23,13 @@ async function withServer(options: Parameters<typeof Server.start>[1], body: (se
   }
 }
 
-async function waitForOutput(server: Server, text: string, timeoutMs = 20_000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!server.output.includes(text)) {
-    if (Date.now() > deadline) throw new Error(`'${text}' did not appear in the server output:\n${server.output}`);
-    await sleep(200);
-  }
+/** A workspace with a self-signed key.pem and cert.pem; returns the certificate. */
+async function httpsWorkspace(ws: string): Promise<string> {
+  mkdirSync(ws, { recursive: true });
+  const cert = path.join(ws, 'cert.pem');
+  const args = ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(ws, 'key.pem'), '-out', cert, '-days', '365', '-subj', '/CN=localhost'];
+  expect(await run('openssl', args, { cwd: path.dirname(ws) })).toExitWith(0);
+  return cert;
 }
 
 const productsList = (server: Server, url: string, env?: Record<string, string | undefined>) =>
@@ -38,7 +38,7 @@ const productsList = (server: Server, url: string, env?: Record<string, string |
 describe('usage/server.md', () => {
   useCase('server.md', 'Start a server', async () => {
     await withServer({}, async (server) => {
-      await waitForOutput(server, 'Server waiting for client requests on');
+      await server.waitForOutput('Server waiting for client requests on');
       const info = logMessages(server.output, 'INFO');
       const ws = server.workspace;
       expect(info).toContain(`Workspace directory: ${ws}`);
@@ -66,7 +66,7 @@ describe('usage/server.md', () => {
       }
       expect(config.store).toEqual({ analysis_statistics_dir: null, limit: { failure_zip_size: 52428800, compilation_database_size: 104857600 } });
       expect(config.keepalive).toEqual({ enabled: false, idle: 600, interval: 30, max_probe: 10 });
-      await waitForOutput(server, 'Server waiting for client requests on');
+      await server.waitForOutput('Server waiting for client requests on');
       expect(logMessages(server.output, 'WARNING').join('\n')).toContain(`'${server.workspace}/server_config.json' is readable by users other than you!`);
       expect(logMessages(server.output, 'WARNING').some((w) => w.startsWith('Number of worker processes can not be negative!'))).toBe(true);
     });
@@ -74,18 +74,18 @@ describe('usage/server.md', () => {
 
   useCase('server.md', 'Listen on other addresses', async () => {
     await withServer({ args: ['--host', '127.0.0.1'] }, async (server) => {
-      await waitForOutput(server, `Server waiting for client requests on [127.0.0.1:${server.port}]`);
+      await server.waitForOutput(`Server waiting for client requests on [127.0.0.1:${server.port}]`);
       expect(await productsList(server, `127.0.0.1:${server.port}`)).toExitWith(0);
     });
     await withServer({ args: ['--not-host-only'] }, async (server) => {
-      await waitForOutput(server, `Server waiting for client requests on [[::]:${server.port}]`);
+      await server.waitForOutput(`Server waiting for client requests on [[::]:${server.port}]`);
       expect(await productsList(server, server.serverUrl)).toExitWith(0);
     });
   });
 
   useCase('server.md', 'Listen on other addresses', async () => {
     await withServer({ args: ['--host', '::1'], waitHost: '::1' }, async (server) => {
-      await waitForOutput(server, `Server waiting for client requests on [[::1]:${server.port}]`);
+      await server.waitForOutput(`Server waiting for client requests on [[::1]:${server.port}]`);
     });
   }, { name: 'IPv6' });
 
@@ -105,7 +105,7 @@ describe('usage/server.md', () => {
   useCase('server.md', 'Process counts and machine ID', async () => {
     const demo = await sharedAnalysis('demo');
     await withServer({ args: ['--machine-id', 'test-machine'] }, async (server) => {
-      await waitForOutput(server, 'Server waiting for client requests on');
+      await server.waitForOutput('Server waiting for client requests on');
       const info = logMessages(server.output, 'INFO');
       expect(info).toContain('Using 2 API request handler processes ...');
       expect(info).toContain('Using 1 Task worker processes ...');
@@ -127,18 +127,10 @@ describe('usage/server.md', () => {
   });
 
   useCase('server.md', 'HTTPS', async () => {
-    const dir = box.newDir('https');
-    const ws = path.join(dir, 'ws4');
-    mkdirSync(ws, { recursive: true });
-    const ssl = await run(
-      'openssl',
-      ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(ws, 'key.pem'), '-out', path.join(ws, 'cert.pem'), '-days', '365', '-subj', '/CN=localhost'],
-      { cwd: dir },
-    );
-    expect(ssl).toExitWith(0);
-    const cert = path.join(ws, 'cert.pem');
+    const ws = path.join(box.newDir('https'), 'ws');
+    const cert = await httpsWorkspace(ws);
     await withServer({ workspace: ws }, async (server) => {
-      await waitForOutput(server, 'Server waiting for client requests on');
+      await server.waitForOutput('Server waiting for client requests on');
       expect(logMessages(server.output, 'INFO')).toContain('Initiating SSL. Server listening on secure socket.');
       const https = `https://localhost:${server.port}`;
       expect(await productsList(server, https, { SSL_CERT_FILE: cert })).toExitWith(0);
@@ -156,15 +148,11 @@ describe('usage/server.md', () => {
 
   useCase('store.md', 'Different products and HTTPS', async () => {
     const demo = await sharedAnalysis('demo');
-    const dir = box.newDir('https-store');
-    const ws = path.join(dir, 'ws');
-    mkdirSync(ws, { recursive: true });
-    expect(
-      await run('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(ws, 'key.pem'), '-out', path.join(ws, 'cert.pem'), '-days', '365', '-subj', '/CN=localhost'], { cwd: dir }),
-    ).toExitWith(0);
+    const ws = path.join(box.newDir('https-store'), 'ws');
+    const cert = await httpsWorkspace(ws);
     await withServer({ workspace: ws }, async (server) => {
       const stored = await server.cc(['store', privateReports(demo.reports), '-n', 'tlsrun', '--url', `https://localhost:${server.port}/Default`], {
-        env: { SSL_CERT_FILE: path.join(ws, 'cert.pem') },
+        env: { SSL_CERT_FILE: cert },
       });
       expect(stored).toExitWith(0);
     });
@@ -173,7 +161,7 @@ describe('usage/server.md', () => {
   useCase('server.md', 'Options from a file', async () => {
     const config = box.write('server.yaml', 'server:\n  - --skip-db-cleanup\n');
     await withServer({ args: ['--config', config] }, async (server) => {
-      await waitForOutput(server, 'Server waiting for client requests on');
+      await server.waitForOutput('Server waiting for client requests on');
       expect(logMessages(server.output, 'INFO')).toContain(
         `Extending command line options with server options from '${config}' file: --skip-db-cleanup`,
       );
@@ -183,7 +171,7 @@ describe('usage/server.md', () => {
   useCase('config-file.md', 'Server settings', async () => {
     const config = box.write('server2.yaml', 'server:\n  - --skip-db-cleanup\n');
     await withServer({ args: ['--config', config] }, async (server) => {
-      await waitForOutput(server, 'Server waiting for client requests on');
+      await server.waitForOutput('Server waiting for client requests on');
       const info = logMessages(server.output, 'INFO');
       expect(info.some((l) => l.startsWith('Full extended command: ') && l.includes('--skip-db-cleanup'))).toBe(true);
     });
@@ -205,7 +193,7 @@ describe('usage/server.md', () => {
     await withServer({}, async (server) => {
       const result = await cc(['server', '-w', server.workspace, '-v', String(server.port), '-r'], { cwd: box.dir });
       expect(result).toExitWith(0);
-      await waitForOutput(server, 'Server configuration reload: Done.');
+      await server.waitForOutput('Server configuration reload: Done.');
       expect(server.running).toBe(true);
     });
   });
@@ -236,12 +224,9 @@ describe('usage/server.md', () => {
 
     // Port in use: a second server on the same port fails to start.
     const first = await Server.start(box);
-    try {
-      const second = await cc(['server', '-w', path.join(box.newDir('second'), 'ws'), '-v', String(first.port)], { cwd: box.dir, timeoutMs: 60_000 });
-      expect(second).toExitWith(1);
-    } finally {
-      await first.stop();
-    }
+    const second = await cc(['server', '-w', path.join(box.newDir('second'), 'ws'), '-v', String(first.port)], { cwd: box.dir, timeoutMs: 60_000 });
+    expect(second).toExitWith(1);
+    await first.stop();
   });
 
   useCase('server.md', 'Start a server', async () => {

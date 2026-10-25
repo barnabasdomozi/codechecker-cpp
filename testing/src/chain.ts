@@ -12,28 +12,21 @@
 
 import { test } from '@jest/globals';
 
-export interface Chain {
-  step(name: string, fn: () => Promise<void>, timeout?: number): void;
-}
-
-export function chain(name: string): Chain {
+export function chain(name: string) {
   let failedStep: string | undefined;
   let index = 0;
   return {
-    step(stepName, fn, timeout) {
+    step(stepName: string, fn: () => Promise<void>): void {
       index += 1;
-      const title = `${name} — step ${index}: ${stepName}`;
-      test(title, async () => {
-        if (failedStep) {
-          throw new Error(`NOT RUN: the earlier step '${failedStep}' failed.`);
-        }
+      test(`${name} — step ${index}: ${stepName}`, async () => {
+        if (failedStep) throw new Error(`NOT RUN: the earlier step '${failedStep}' failed.`);
         try {
           await fn();
         } catch (error) {
           failedStep = stepName;
           throw error;
         }
-      }, timeout);
+      });
     },
   };
 }

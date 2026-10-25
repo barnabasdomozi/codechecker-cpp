@@ -6,7 +6,7 @@ import { beforeAll, describe, expect } from '@jest/globals';
 import { cc } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
-import { DOC_ANALYZERS, logProject, projectCopy } from '../src/projects';
+import { DOC_ANALYZERS, loggedProject } from '../src/projects';
 import { checkerCounts, parseJson, plainReports } from '../src/reports';
 import { readdirSync } from 'node:fs';
 
@@ -33,8 +33,7 @@ const STEPS = [
 ].join('\n');
 
 beforeAll(async () => {
-  root = await projectCopy(box, 'demo');
-  await logProject('demo', root);
+  root = await loggedProject(box, 'demo');
 });
 
 function out(): string {

@@ -8,9 +8,8 @@ import { cc, run, tool } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
 import { logMessages } from '../src/normalize';
-import { copyProject, mustRun, projectReadme } from '../src/projects';
+import { builtExternalTools, copyProject, projectReadme } from '../src/projects';
 import { markdownTable, plainReports, reportRows, type TableRow } from '../src/reports';
-import { shared } from '../src/shared';
 
 const box = useSandbox();
 let root = '';
@@ -18,12 +17,7 @@ let expected: TableRow[] = [];
 let counter = 0;
 
 beforeAll(async () => {
-  const { value } = await shared('external-tools-output', async (dir) => {
-    const copy = await copyProject('external-tools', dir);
-    await mustRun(run('make', [], { cwd: copy }));
-    return copy;
-  });
-  root = value;
+  root = await builtExternalTools();
   expected = markdownTable(projectReadme('external-tools'), 'Expected results');
 });
 

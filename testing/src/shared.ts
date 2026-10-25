@@ -12,11 +12,11 @@ import { sessionDir } from './config';
 const WAIT_LIMIT_MS = 20 * 60_000;
 
 /**
- * Returns the folder for `key`, calling `create(folder)` first if no worker
+ * Returns the value of `key`, calling `create(folder)` first if no worker
  * has created it yet. `create` gets an empty folder and must fill it.
  * The value it returns is saved and returned to every caller.
  */
-export async function shared<T>(key: string, create: (dir: string) => Promise<T>): Promise<{ dir: string; value: T }> {
+export async function shared<T>(key: string, create: (dir: string) => Promise<T>): Promise<T> {
   const root = path.join(sessionDir(), 'shared');
   mkdirSync(root, { recursive: true });
   const safe = key.replace(/[^\w.-]+/g, '_');
@@ -41,7 +41,7 @@ export async function shared<T>(key: string, create: (dir: string) => Promise<T>
     try {
       const value = await create(dir);
       writeFileSync(done, JSON.stringify({ value }));
-      return { dir, value };
+      return value;
     } catch (error) {
       writeFileSync(failed, error instanceof Error ? (error.stack ?? error.message) : String(error));
       throw error;
@@ -51,7 +51,7 @@ export async function shared<T>(key: string, create: (dir: string) => Promise<T>
   const start = Date.now();
   for (;;) {
     if (existsSync(done)) {
-      return { dir, value: (JSON.parse(readFileSync(done, 'utf8')) as { value: T }).value };
+      return (JSON.parse(readFileSync(done, 'utf8')) as { value: T }).value;
     }
     if (existsSync(failed)) {
       throw new Error(`Creating the shared result '${key}' failed in another test file:\n${readFileSync(failed, 'utf8')}`);

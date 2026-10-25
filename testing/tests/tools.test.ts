@@ -9,7 +9,7 @@ import { cc, run, tool } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
 import { lines, logMessages } from '../src/normalize';
-import { logProject, projectCopy, sharedAnalysis } from '../src/projects';
+import { loggedProject, sharedAnalysis } from '../src/projects';
 import { isAvailable } from '../src/requirements';
 import { zipEntry, zipNames } from '../src/zip';
 
@@ -17,8 +17,7 @@ const box = useSandbox();
 let root = '';
 
 beforeAll(async () => {
-  root = await projectCopy(box, 'demo');
-  await logProject('demo', root);
+  root = await loggedProject(box, 'demo');
 });
 
 /** The project's own files in a tu_collector zip, relative to the project. */

@@ -8,7 +8,7 @@ import { cc } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
 import { lines, normalize } from '../src/normalize';
-import { DOC_ANALYZERS, logProject, projectCopy, sharedAnalysis, writeCompileDb } from '../src/projects';
+import { DOC_ANALYZERS, loggedProject, sharedAnalysis, writeCompileDb } from '../src/projects';
 import { plainLocations, plainReports, reportRows } from '../src/reports';
 import { findOnPath } from '../src/requirements';
 
@@ -17,8 +17,7 @@ let root = '';
 let counter = 0;
 
 beforeAll(async () => {
-  root = await projectCopy(box, 'demo');
-  await logProject('demo', root);
+  root = await loggedProject(box, 'demo');
 });
 
 async function analyze(args: string[], cwd = root): Promise<string> {

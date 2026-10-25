@@ -10,7 +10,7 @@ import { cc, type RunResult } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
 import { logMessages } from '../src/normalize';
-import { DOC_ANALYZERS, logProject, projectCopy } from '../src/projects';
+import { DOC_ANALYZERS, loggedProject } from '../src/projects';
 import { checkerCounts, parseJson } from '../src/reports';
 
 const box = useSandbox();
@@ -18,8 +18,7 @@ let root = '';
 let counter = 0;
 
 beforeAll(async () => {
-  root = await projectCopy(box, 'demo');
-  await logProject('demo', root);
+  root = await loggedProject(box, 'demo');
 });
 
 /** Analyzes the demo with the given options; returns the result and per-checker counts. */

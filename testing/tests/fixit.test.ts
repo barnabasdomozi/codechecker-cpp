@@ -7,7 +7,8 @@ import { cc, run } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
 import { lines, logMessages } from '../src/normalize';
-import { logProject, projectCopy } from '../src/projects';
+import { loggedProject } from '../src/projects';
+import { fixitNames } from '../src/reports';
 import { findOnPath } from '../src/requirements';
 
 const box = useSandbox();
@@ -15,8 +16,7 @@ const NEEDS = { requires: ['command:clang-apply-replacements' as const] };
 
 /** The demo, analyzed as in the docs' setup. */
 async function setup(extra: string[] = []): Promise<string> {
-  const root = await projectCopy(box, 'demo');
-  await logProject('demo', root);
+  const root = await loggedProject(box, 'demo');
   const result = await cc(
     ['analyze', 'compile_commands.json', '-o', 'reports', '--analyzers', 'clang-tidy', '-e', 'modernize-use-nullptr', '-e', 'modernize-use-trailing-return-type', ...extra],
     { cwd: root },
@@ -27,16 +27,12 @@ async function setup(extra: string[] = []): Promise<string> {
 
 const line4 = (root: string) => lines(readFileSync(path.join(root, 'style.cpp'), 'utf8'))[3];
 
-function diagnosticNames(yaml: string): string[] {
-  return [...yaml.matchAll(/DiagnosticName: (\S+)/g)].map((m) => m[1]);
-}
-
 describe('usage/fixit.md', () => {
   useCase('fixit.md', 'List all fixes', async () => {
     const root = await setup();
     const result = await cc(['fixit', 'reports'], { cwd: root });
     expect(result).toExitWith(0);
-    const names = diagnosticNames(result.stdout);
+    const names = fixitNames(result.stdout);
     expect(names).toContain('modernize-use-nullptr');
     expect(names).toContain('modernize-use-trailing-return-type');
     expect(result.stdout).toContain(`MainSourceFile: ${root}/style.cpp`);
@@ -50,15 +46,15 @@ describe('usage/fixit.md', () => {
     const root = await setup();
     const result = await cc(['fixit', 'reports', '--checker-name', '*nullptr', '--file', '*/style.cpp'], { cwd: root });
     expect(result).toExitWith(0);
-    expect(diagnosticNames(result.stdout)).toEqual(['modernize-use-nullptr']);
+    expect(fixitNames(result.stdout)).toEqual(['modernize-use-nullptr']);
     expect(result.stdout).toContain(
       [`    - FilePath: ${root}/style.cpp`, "      Length: '1'", "      Offset: '49'", '      ReplacementText: nullptr'].join('\n'),
     );
     const none = await cc(['fixit', 'reports', '--checker-name', '*nullptr', '--file', '*/main.c'], { cwd: root });
     expect(none).toExitWith(0);
-    expect(diagnosticNames(none.stdout)).toEqual([]);
+    expect(fixitNames(none.stdout)).toEqual([]);
     const several = await cc(['fixit', 'reports', '--checker-name', '*nullptr', '*trailing*'], { cwd: root });
-    expect(new Set(diagnosticNames(several.stdout))).toEqual(new Set(['modernize-use-nullptr', 'modernize-use-trailing-return-type']));
+    expect(new Set(fixitNames(several.stdout))).toEqual(new Set(['modernize-use-nullptr', 'modernize-use-trailing-return-type']));
   }, NEEDS);
 
   useCase('fixit.md', 'Apply fixes', async () => {
@@ -99,8 +95,7 @@ describe('usage/fixit.md', () => {
 
   useCase('fixit.md', 'Fix only selected reports (pipe a report list)', async () => {
     const root = await setup();
-    const root2 = await projectCopy(box, 'demo2');
-    await logProject('demo2', root2);
+    const root2 = await loggedProject(box, 'demo2');
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'reports', '--analyzers', 'clang-tidy', '-e', 'modernize-use-nullptr'], { cwd: root2 })).toExitWith(0);
     // The new report in demo2 is the nullptr one on style.cpp:4.
     const diff = await cc(['cmd', 'diff', '-b', path.join(root, 'reports'), '-n', path.join(root2, 'reports'), '-o', 'json', '--new'], { cwd: root2 });
@@ -117,7 +112,7 @@ describe('usage/fixit.md', () => {
     expect(diff).toExitWith(0);
     const fix = await cc(['fixit', 'reports'], { cwd: root, input: diff.stdout });
     expect(fix).toExitWith(0);
-    expect(new Set(diagnosticNames(fix.stdout))).toEqual(new Set(['modernize-use-nullptr', 'modernize-use-trailing-return-type']));
+    expect(new Set(fixitNames(fix.stdout))).toEqual(new Set(['modernize-use-nullptr', 'modernize-use-trailing-return-type']));
   }, { ...NEEDS, name: 'an empty diff applies no filtering', knownIssue: 2 });
 
   useCase('fixit.md', 'Exit codes', async () => {

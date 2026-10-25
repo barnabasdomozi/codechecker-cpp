@@ -4,7 +4,7 @@ import { describe, expect } from '@jest/globals';
 import { cc } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
-import { lines, logMessages } from '../src/normalize';
+import { escapeRegExp, lines, logMessages } from '../src/normalize';
 
 const box = useSandbox();
 
@@ -18,7 +18,7 @@ describe('usage/version.md', () => {
     const info = logMessages(result.output, 'INFO');
     expect(info).toContain('CodeChecker analyzer version:');
     expect(info).toContain('CodeChecker web version:');
-    for (const row of WEB_ROWS) expect(result.stdout).toMatch(new RegExp(`│ ${escape(row)} +│ \\S`));
+    for (const row of WEB_ROWS) expect(result.stdout).toMatch(new RegExp(`│ ${escapeRegExp(row)} +│ \\S`));
     expect(result.stdout).toContain('│ Kind ');
   });
 
@@ -76,7 +76,3 @@ describe('usage/version.md', () => {
     }
   }, { name: 'every output format exits 0' });
 });
-
-function escape(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}

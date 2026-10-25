@@ -7,7 +7,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { beforeAll, describe, expect } from '@jest/globals';
 import { useSandbox } from '../../src/sandbox';
 import { useCase } from '../../src/usecase';
-import { lines, logMessages, withoutLogLines } from '../../src/normalize';
+import { lines, logMessages, tableRows, withoutLogLines } from '../../src/normalize';
 import { sharedAnalysis, type Analysis } from '../../src/projects';
 import { results, runs, store, useServer } from '../../src/server';
 
@@ -27,13 +27,6 @@ beforeAll(async () => {
 
 const url = () => server().url();
 const cmd = (args: string[]) => server().cc(['cmd', ...args]);
-
-/** The data rows of a box-drawn table, as arrays of trimmed cells. */
-function tableRows(text: string): string[][] {
-  return lines(text)
-    .filter((l) => l.startsWith('│'))
-    .map((l) => l.split('│').slice(1, -1).map((c) => c.trim()));
-}
 
 describe('usage/cmd-runs-history.md', () => {
   useCase('cmd-runs-history.md', 'List runs', async () => {

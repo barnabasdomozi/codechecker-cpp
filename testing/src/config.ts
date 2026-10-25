@@ -6,15 +6,13 @@
 import { accessSync, constants, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-export interface SuiteConfig {
+interface SuiteConfig {
   /** Absolute path of the `CodeChecker` executable under test. */
   codechecker: string;
   /** Folder that holds `CodeChecker` and the standalone tools. */
   binDir: string;
   /** Optional second build, for the comparison tests. */
   compareCodechecker?: string;
-  /** Root of this repository's `testing/` folder. */
-  testingDir: string;
   /** `testing/analyze-targets`. */
   projectsDir: string;
   /** `docs/` of the repository. */
@@ -23,14 +21,14 @@ export interface SuiteConfig {
   keepTemp: boolean;
 }
 
-export const ENV_BIN = 'CODECHECKER_BIN';
-export const ENV_COMPARE_BIN = 'CODECHECKER_COMPARE_BIN';
+const ENV_BIN = 'CODECHECKER_BIN';
+const ENV_COMPARE_BIN = 'CODECHECKER_COMPARE_BIN';
 export const ENV_KEEP = 'CODECHECKER_TEST_KEEP';
 /** Set by the global setup: the folder for this test session. */
 export const ENV_SESSION_DIR = 'CODECHECKER_TEST_SESSION_DIR';
 
 /** Checks that a path is an absolute path to an executable file. */
-export function checkExecutable(variable: string, value: string | undefined): string {
+function checkExecutable(variable: string, value: string | undefined): string {
   if (!value) {
     throw new Error(
       `${variable} is not set. Set it to the absolute path of the CodeChecker ` +
@@ -64,7 +62,6 @@ export function config(): SuiteConfig {
     codechecker,
     binDir: path.dirname(codechecker),
     compareCodechecker: compare,
-    testingDir,
     projectsDir: path.join(testingDir, 'analyze-targets'),
     docsDir: path.resolve(testingDir, '..', 'docs'),
     keepTemp: process.env[ENV_KEEP] === '1',

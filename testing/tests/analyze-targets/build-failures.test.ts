@@ -16,7 +16,7 @@ const failedKinds = (dir: string) =>
 
 describe('project build-failures', () => {
   test('make -k: the README table', async () => {
-    const p = await sharedAnalysis('build-failures', [], { expectExit: [3] });
+    const p = await sharedAnalysis('build-failures', [], 3);
     expect(p.analyzeExitCode).toBe(3);
     expectRowsToMatchTable(await reportRows(p.reports, p.root), table());
     expect(failedKinds(p.reports)).toEqual(

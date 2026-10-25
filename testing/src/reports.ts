@@ -7,7 +7,7 @@ import { expect } from '@jest/globals';
 import { cc, describeResult, type RunResult } from './run';
 import { lines } from './normalize';
 
-export const ALL_REVIEW_STATUSES = ['confirmed', 'false_positive', 'intentional', 'unreviewed'];
+const ALL_REVIEW_STATUSES = ['confirmed', 'false_positive', 'intentional', 'unreviewed'];
 
 /** One report of `parse -e json` (only the fields the tests use). */
 export interface JsonReport {
@@ -149,6 +149,11 @@ export function checkerCounts(reports: Array<{ checker?: string; checker_name?: 
     counts[name] = (counts[name] ?? 0) + 1;
   }
   return counts;
+}
+
+/** The `DiagnosticName`s in the YAML output of `CodeChecker fixit`, in order. */
+export function fixitNames(yaml: string): string[] {
+  return [...yaml.matchAll(/DiagnosticName: (\S+)/g)].map((m) => m[1]);
 }
 
 /** `<base name>:<line>:<col>` of plain reports, sorted, for compact checks. */

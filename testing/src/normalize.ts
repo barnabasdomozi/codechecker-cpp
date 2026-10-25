@@ -52,6 +52,13 @@ export function lines(text: string): string[] {
   return all;
 }
 
+/** The rows of a box-drawn table (`│ a │ b │`), as arrays of trimmed cells. */
+export function tableRows(text: string): string[][] {
+  return lines(text)
+    .filter((l) => l.startsWith('│'))
+    .map((l) => l.split('│').slice(1, -1).map((c) => c.trim()));
+}
+
 /** Removes CodeChecker log lines ("[INFO] - ..."), keeping the other output. */
 export function withoutLogLines(text: string): string {
   return lines(text)

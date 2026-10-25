@@ -7,7 +7,7 @@ import { cc } from '../../src/run';
 import { useSandbox } from '../../src/sandbox';
 import { useCase } from '../../src/usecase';
 import { analyzeProject, sharedAnalysis, type Analysis } from '../../src/projects';
-import { plainLocations, plainReports } from '../../src/reports';
+import { fixitNames, plainLocations, plainReports } from '../../src/reports';
 import { store, useServer } from '../../src/server';
 import { readFileSync } from 'node:fs';
 
@@ -75,7 +75,7 @@ describe('usage/cmd-diff.md', () => {
     expect(selected).toExitWith(0);
     const fix = await cc(['fixit', own.reports], { cwd: own.root, input: selected.stdout });
     expect(fix).toExitWith(0);
-    expect([...fix.stdout.matchAll(/DiagnosticName: (\S+)/g)].map((m) => m[1])).toEqual(['modernize-use-nullptr']);
+    expect(fixitNames(fix.stdout)).toEqual(['modernize-use-nullptr']);
   }, { name: 'cmd results -o json works', requires: ['command:clang-apply-replacements'] });
 
   useCase('gerrit-integration.md', 'Gerrit review JSON for new reports only', async () => {

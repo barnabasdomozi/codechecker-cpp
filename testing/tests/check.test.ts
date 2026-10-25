@@ -7,7 +7,7 @@ import { cc } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
 import { logMessages, normalize } from '../src/normalize';
-import { DOC_ANALYZERS, logProject, projectCopy, writeCompileDb } from '../src/projects';
+import { DOC_ANALYZERS, loggedProject, projectCopy, writeCompileDb } from '../src/projects';
 import { plainLocations, plainReports } from '../src/reports';
 import { findOnPath } from '../src/requirements';
 
@@ -16,11 +16,6 @@ const box = useSandbox();
 /** The reports plain parse shows for the demo (docs/reference/demo-project.md). */
 const DEMO_SHOWN = ['main.c:11:12', 'main.c:11:12', 'main.c:21:7', 'main.c:25:10', 'main.c:25:10', 'style.cpp:11:12'];
 
-async function loggedDemo(): Promise<string> {
-  const root = await projectCopy(box, 'demo');
-  await logProject('demo', root);
-  return root;
-}
 
 describe('usage/check.md', () => {
   useCase('check.md', 'Build and analyze', async () => {
@@ -46,14 +41,14 @@ describe('usage/check.md', () => {
   }, { name: '-q and --use-absolute-ldpreload-path apply to the log step' });
 
   useCase('check.md', 'Use an existing compilation database', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const result = await cc(['check', '-l', 'compile_commands.json', ...DOC_ANALYZERS], { cwd: root });
     expect(result).toExitWith(2);
     expect(plainLocations(plainReports(result.stdout))).toEqual(DEMO_SHOWN);
   });
 
   useCase('check.md', 'Keep the results', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const result = await cc(['check', '-l', 'compile_commands.json', '-o', './reports', ...DOC_ANALYZERS], { cwd: root });
     expect(result).toExitWith(2);
     expect(readdirSync(path.join(root, 'reports')).filter((f) => f.endsWith('.plist'))).toHaveLength(9);
@@ -61,7 +56,7 @@ describe('usage/check.md', () => {
   });
 
   useCase('check.md', 'Keep the results', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const before = readdirSync(box.tmp);
     const result = await cc(['check', '-l', 'compile_commands.json', ...DOC_ANALYZERS], { cwd: root });
     expect(result).toExitWith(2);
@@ -71,7 +66,7 @@ describe('usage/check.md', () => {
   }, { name: 'without -o, a temporary folder is used and deleted' });
 
   useCase('check.md', 'Combine analyze and parse options', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const steps = await cc(['check', '-l', 'compile_commands.json', '-o', './reports', ...DOC_ANALYZERS, '--print-steps'], { cwd: root });
     expect(steps).toExitWith(2);
     expect(steps.stdout).toContain("    1, main.c:22:18: Calling 'local_div'");
@@ -88,7 +83,7 @@ describe('usage/check.md', () => {
   });
 
   useCase('check.md', 'Combine analyze and parse options', async () => {
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     const result = await cc(
       [
         'check',
@@ -136,7 +131,7 @@ describe('usage/check.md', () => {
     const clean = await projectCopy(box, 'clean');
     expect(await cc(['check', '-b', 'make', ...DOC_ANALYZERS], { cwd: clean })).toExitWith(0);
 
-    const root = await loggedDemo();
+    const root = await loggedProject(box, 'demo');
     expect(await cc(['check', '-l', 'compile_commands.json', ...DOC_ANALYZERS], { cwd: root })).toExitWith(2);
     expect(await cc(['check', '-l', 'no-such.json'], { cwd: root })).toExitWith(1);
     expect(await cc(['check', '-l', 'compile_commands.json', ...DOC_ANALYZERS, '-e', 'no-such-checker'], { cwd: root })).toExitWith(1);

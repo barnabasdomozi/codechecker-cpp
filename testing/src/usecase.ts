@@ -17,7 +17,7 @@
 //                      `npx jest -t '^(?!.*\[fixed: known-issues)'`.
 
 import { test } from '@jest/globals';
-import { missingRequirements, type Requirement } from './requirements';
+import { isAvailable, type Requirement } from './requirements';
 
 export interface UseCaseOptions {
   /** Distinguishes several tests for the same use case. */
@@ -28,36 +28,15 @@ export interface UseCaseOptions {
   fixed?: boolean;
   /** Optional tools the test needs; without them it is skipped. */
   requires?: Requirement[];
-  timeout?: number;
 }
 
-/** Pages of docs/usage that have use cases. */
-export type UsagePage = `${string}.md`;
-
-export function useCaseTitle(heading: string, options: UseCaseOptions = {}): string {
+export function useCase(_page: string, heading: string, fn: () => Promise<void>, options: UseCaseOptions = {}): void {
   let title = heading;
   if (options.name) title += ` — ${options.name}`;
   if (options.knownIssue !== undefined) {
-    title += options.fixed ? ` [fixed: known-issues #${options.knownIssue}]` : ` [known-issues #${options.knownIssue}]`;
+    title += ` [${options.fixed ? 'fixed: ' : ''}known-issues #${options.knownIssue}]`;
   }
-  return title;
-}
-
-export function useCase(
-  _page: UsagePage,
-  heading: string,
-  fn: () => Promise<void> | void,
-  options: UseCaseOptions = {},
-): void {
-  const title = useCaseTitle(heading, options);
-  const missing = missingRequirements(options.requires ?? []);
-  if (missing.length > 0) {
-    test.skip(`${title} (skipped: needs ${missing.join(', ')})`, async () => {
-      await fn();
-    });
-  } else {
-    test(title, async () => {
-      await fn();
-    }, options.timeout);
-  }
+  const missing = (options.requires ?? []).filter((r) => !isAvailable(r)).map((r) => r.replace(/^(command|tool):/, ''));
+  if (missing.length > 0) test.skip(`${title} (skipped: needs ${missing.join(', ')})`, fn);
+  else test(title, fn);
 }

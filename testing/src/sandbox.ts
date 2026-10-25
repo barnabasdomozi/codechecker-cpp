@@ -8,38 +8,17 @@ import { afterAll, beforeAll, expect } from '@jest/globals';
 import { config, sessionDir } from './config';
 import { setBaseEnv } from './run';
 
-export interface Sandbox {
-  /** The sandbox root. */
-  readonly dir: string;
+export class Sandbox {
+  /** The sandbox root. Set in beforeAll. */
+  dir = '';
   /** HOME of every command run from this test file. */
-  readonly home: string;
+  home = '';
   /** TMPDIR of every command run from this test file. */
-  readonly tmp: string;
-  /** A new, empty folder inside the sandbox. */
-  newDir(label: string): string;
-  /** Writes a file inside the sandbox (or at an absolute path) and returns its path. */
-  write(relativeOrAbsolute: string, content: string): string;
-  /**
-   * Runs `fn` at the end of the test file, before the sandbox folder is
-   * removed (e.g. to stop servers whose data is in the sandbox). Callbacks
-   * run in reverse order of registration.
-   */
-  onCleanup(fn: () => Promise<void> | void): void;
-}
-
-class SandboxImpl implements Sandbox {
+  tmp = '';
   private counter = 0;
-  readonly cleanups: Array<() => Promise<void> | void> = [];
+  private readonly cleanups: Array<() => Promise<unknown> | void> = [];
 
-  onCleanup(fn: () => Promise<void> | void): void {
-    this.cleanups.push(fn);
-  }
-  constructor(
-    readonly dir: string,
-    readonly home: string,
-    readonly tmp: string,
-  ) {}
-
+  /** A new, empty folder inside the sandbox. */
   newDir(label: string): string {
     this.counter += 1;
     const safe = label.replace(/[^\w.-]+/g, '_').slice(0, 40);
@@ -48,74 +27,61 @@ class SandboxImpl implements Sandbox {
     return dir;
   }
 
+  /** Writes a file inside the sandbox (or at an absolute path) and returns its path. */
   write(relativeOrAbsolute: string, content: string): string {
-    const target = path.isAbsolute(relativeOrAbsolute)
-      ? relativeOrAbsolute
-      : path.join(this.dir, relativeOrAbsolute);
+    const target = path.resolve(this.dir, relativeOrAbsolute);
     mkdirSync(path.dirname(target), { recursive: true });
     writeFileSync(target, content);
     return target;
   }
-}
 
-let current: SandboxImpl | undefined;
+  /**
+   * Runs `fn` at the end of the test file, before the sandbox folder is
+   * removed (e.g. to stop servers whose data is in the sandbox). Callbacks
+   * run in reverse order of registration.
+   */
+  onCleanup(fn: () => Promise<unknown> | void): void {
+    this.cleanups.push(fn);
+  }
 
-/** Creates a sandbox folder (normally called through useSandbox). */
-export function createSandbox(label: string): Sandbox {
-  // Short names: Python's multiprocessing puts Unix sockets under TMPDIR,
-  // and socket paths are limited to about 108 characters.
-  const safe = label.replace(/[^\w.-]+/g, '_').slice(0, 16);
-  const dir = mkdtempSync(path.join(sessionDir(), 'f', `${safe}-`));
-  const home = path.join(dir, 'home');
-  const tmp = path.join(dir, 't');
-  mkdirSync(home, { recursive: true });
-  mkdirSync(tmp, { recursive: true });
-  current = new SandboxImpl(dir, home, tmp);
-  setBaseEnv({
-    HOME: home,
-    TMPDIR: tmp,
-    // Wide tables, so that they are not wrapped.
-    COLUMNS: '250',
-    // Never let a test talk to a real user's server by accident.
-    CC_PASS_FILE: undefined,
-    CC_SESSION_FILE: undefined,
-    CC_PASSWORD: undefined,
-  });
-  return current;
-}
-
-/**
- * Registers the sandbox of the current test file. Call it once at the top of
- * a test file:
- *
- *     const box = useSandbox();
- *
- * The returned object can be used inside tests and hooks.
- */
-export function useSandbox(): Sandbox {
-  const proxy = new Proxy({} as Sandbox, {
-    get(_target, property) {
-      if (!current) throw new Error('The sandbox is used before beforeAll ran.');
-      const value = (current as unknown as Record<string | symbol, unknown>)[property];
-      return typeof value === 'function' ? value.bind(current) : value;
-    },
-  });
-  beforeAll(() => {
-    const testPath = expect.getState().testPath ?? 'tests';
-    createSandbox(path.basename(testPath).replace(/\.test\.ts$/, ''));
-  });
-  afterAll(async () => {
-    if (!current) return;
-    for (const fn of [...current.cleanups].reverse()) {
+  async cleanUp(): Promise<void> {
+    for (const fn of this.cleanups.reverse()) {
       try {
         await fn();
       } catch (error) {
         process.stderr.write(`Cleanup failed: ${String(error)}\n`);
       }
     }
-    if (!config().keepTemp) {
-      rmSync(current.dir, { recursive: true, force: true });
-    }
+    if (this.dir && !config().keepTemp) rmSync(this.dir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * The sandbox of the current test file. Call it once at the top of a test
+ * file (`const box = useSandbox();`); its folders exist from beforeAll on.
+ */
+export function useSandbox(): Sandbox {
+  const box = new Sandbox();
+  beforeAll(() => {
+    // Short names: Python's multiprocessing puts Unix sockets under TMPDIR,
+    // and socket paths are limited to about 108 characters.
+    const label = path.basename(expect.getState().testPath ?? 'tests').replace(/\.test\.ts$/, '');
+    box.dir = mkdtempSync(path.join(sessionDir(), 'f', `${label.replace(/[^\w.-]+/g, '_').slice(0, 16)}-`));
+    box.home = path.join(box.dir, 'home');
+    box.tmp = path.join(box.dir, 't');
+    mkdirSync(box.home);
+    mkdirSync(box.tmp);
+    setBaseEnv({
+      HOME: box.home,
+      TMPDIR: box.tmp,
+      // Wide tables, so that they are not wrapped.
+      COLUMNS: '250',
+      // Never let a test talk to a real user's server by accident.
+      CC_PASS_FILE: undefined,
+      CC_SESSION_FILE: undefined,
+      CC_PASSWORD: undefined,
+    });
   });
-  return proxy;
+  afterAll(() => box.cleanUp());
+  return box;
 }

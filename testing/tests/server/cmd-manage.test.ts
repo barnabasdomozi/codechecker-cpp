@@ -8,7 +8,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { beforeAll, describe, expect } from '@jest/globals';
 import { useSandbox } from '../../src/sandbox';
 import { useCase } from '../../src/usecase';
-import { lines, logMessages } from '../../src/normalize';
+import { lines, logMessages, tableRows } from '../../src/normalize';
 import { sharedAnalysis, type Analysis } from '../../src/projects';
 import { ALL_RESULTS_FILTER, REVIEW_STATUS, results, runs, store, useServer, privateReports } from '../../src/server';
 
@@ -23,12 +23,6 @@ beforeAll(async () => {
 
 const url = () => server().url();
 const cmd = (args: string[], input?: string) => server().cc(['cmd', ...args], { input });
-
-function tableRows(text: string): string[][] {
-  return lines(text)
-    .filter((l) => l.startsWith('│'))
-    .map((l) => l.split('│').slice(1, -1).map((c) => c.trim()));
-}
 
 async function reviewStatusOf(run: string, hashPrefix: string, product = 'Default'): Promise<string> {
   const report = (await results(server(), [run], ALL_RESULTS_FILTER, product)).find((r) => r.bugHash.startsWith(hashPrefix));

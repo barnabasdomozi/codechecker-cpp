@@ -6,7 +6,7 @@ import { beforeAll, describe, expect } from '@jest/globals';
 import { cc, type RunResult } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
-import { DOC_ANALYZERS, logProject, projectCopy, sharedAnalysis, writeCompileDb } from '../src/projects';
+import { DOC_ANALYZERS, loggedProject, sharedAnalysis, writeCompileDb } from '../src/projects';
 import { checkerCounts, parseJson, plainReports, reportRows } from '../src/reports';
 import { findOnPath } from '../src/requirements';
 
@@ -22,8 +22,7 @@ let small = '';
 let counter = 0;
 
 beforeAll(async () => {
-  demo = await projectCopy(box, 'demo');
-  await logProject('demo', demo);
+  demo = await loggedProject(box, 'demo');
 
   // Small sources whose reports depend on an analyzer option.
   small = box.newDir('small');
@@ -177,8 +176,7 @@ describe('usage/analyzer-configuration.md', () => {
   }, { name: '--cppcheckargs', requires: ['command:cppcheck'] });
 
   useCase('analyzer-configuration.md', 'Use a .clang-tidy file', async () => {
-    const root = await projectCopy(box, 'demo');
-    await logProject('demo', root);
+    const root = await loggedProject(box, 'demo');
     box.write(path.join(root, '.clang-tidy'), 'Checks: "-*,modernize-use-nullptr"\n');
     const { result, counts } = await analyze(root, [
       '--analyzers',
@@ -206,8 +204,7 @@ describe('usage/analyzer-configuration.md', () => {
   });
 
   useCase('analyzer-configuration.md', 'Use a .clang-tidy file', async () => {
-    const root = await projectCopy(box, 'demo');
-    await logProject('demo', root);
+    const root = await loggedProject(box, 'demo');
     const dump = await cc(['analyzers', '--dump-config', 'clang-tidy'], { cwd: root });
     box.write(path.join(root, '.clang-tidy'), dump.stdout);
     const { result } = await analyze(root, ['--analyzers', 'clang-tidy', '--analyzer-config', 'clang-tidy:take-config-from-directory=true']);
@@ -216,8 +213,7 @@ describe('usage/analyzer-configuration.md', () => {
 
   useCase('analyzer-configuration.md', 'Z3 refutation', async () => {
     const shared = await sharedAnalysis('demo');
-    const root = await projectCopy(box, 'demo');
-    await logProject('demo', root);
+    const root = await loggedProject(box, 'demo');
     const result = await cc(['analyze', 'compile_commands.json', '-o', 'reports', ...DOC_ANALYZERS, '--z3-refutation', 'off'], { cwd: root });
     expect(result).toExitWith(0);
     const strip = (rows: Awaited<ReturnType<typeof reportRows>>) => rows.map((r) => `${r.location} ${r.checker} ${r.hash}`);

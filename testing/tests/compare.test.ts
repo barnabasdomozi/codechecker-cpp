@@ -8,7 +8,7 @@ import path from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { config } from '../src/config';
 import { normalize } from '../src/normalize';
-import { copyProject, type ProjectName, PROJECTS } from '../src/projects';
+import { PROJECTS, copyProject, type ProjectName } from '../src/projects';
 import { toRows, type JsonReportFile } from '../src/reports';
 import { run, type RunResult } from '../src/run';
 import { useSandbox } from '../src/sandbox';

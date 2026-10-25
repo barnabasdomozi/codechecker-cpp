@@ -7,7 +7,7 @@ import { cc, tool } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
 import { logMessages } from '../src/normalize';
-import { DOC_ANALYZERS, logProject, projectCopy, sharedAnalysis } from '../src/projects';
+import { DOC_ANALYZERS, loggedProject, sharedAnalysis } from '../src/projects';
 import { parseJson, plainLocations, plainReports } from '../src/reports';
 
 const box = useSandbox();
@@ -15,8 +15,7 @@ let root = '';
 let counter = 0;
 
 beforeAll(async () => {
-  root = await projectCopy(box, 'demo');
-  await logProject('demo', root);
+  root = await loggedProject(box, 'demo');
 });
 
 async function analyze(args: string[], cwd = root) {
@@ -68,8 +67,7 @@ describe('usage/skip-and-file-filters.md', () => {
   }, { name: 'the first matching line wins' });
 
   useCase('skip-and-file-filters.md', 'Drop reports from skipped files', async () => {
-    const app = await projectCopy(box, 'cmake-app');
-    await logProject('cmake-app', app);
+    const app = await loggedProject(box, 'cmake-app');
     const skip = box.write(path.join(app, 'skip-header.txt'), '-*/inventory/item.h\n');
     const kept = await analyze(['-i', skip], app);
     expect(kept.result).toExitWith(0);

@@ -7,14 +7,13 @@ import { cc, run } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
 import { logMessages } from '../src/normalize';
-import { DOC_ANALYZERS, logProject, projectCopy } from '../src/projects';
+import { DOC_ANALYZERS, loggedProject } from '../src/projects';
 import { plainReports } from '../src/reports';
 
 const box = useSandbox();
 
 async function makefileProject(): Promise<string> {
-  const root = await projectCopy(box, 'demo');
-  await logProject('demo', root);
+  const root = await loggedProject(box, 'demo');
   const result = await cc(['analyze', 'compile_commands.json', '-o', 'reports', ...DOC_ANALYZERS, '--makefile'], { cwd: root });
   expect(result).toExitWith(0);
   expect(logMessages(result.output, 'INFO')).toContain('Done.');

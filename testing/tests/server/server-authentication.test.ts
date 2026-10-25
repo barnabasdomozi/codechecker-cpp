@@ -2,8 +2,7 @@
 
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
-import { afterAll, beforeAll, describe, expect } from '@jest/globals';
+import { beforeAll, describe, expect } from '@jest/globals';
 import { cc } from '../../src/run';
 import { useSandbox } from '../../src/sandbox';
 import { useCase } from '../../src/usecase';
@@ -12,8 +11,8 @@ import { sharedAnalysis } from '../../src/projects';
 import { Server, privateReports } from '../../src/server';
 
 const box = useSandbox();
-let authServer: Server | undefined;
-const server = () => authServer!;
+let authServer: Server;
+const server = () => authServer;
 
 const AUTH = {
   enabled: true,
@@ -45,10 +44,6 @@ beforeAll(async () => {
   authServer = await Server.start(box, { workspace: first.workspace });
 });
 
-afterAll(async () => {
-  await authServer?.stop();
-});
-
 /** Each user gets its own session file. */
 function sessionEnv(user: string, extra: Record<string, string | undefined> = {}): Record<string, string | undefined> {
   return { CC_SESSION_FILE: path.join(box.dir, `session-${user}.json`), ...extra };
@@ -74,30 +69,22 @@ describe('usage/server-authentication.md', () => {
     // The reload succeeds, but authentication stays off until the server is
     // restarted (usage/server-authentication.md).
     const open = await Server.start(box);
-    try {
-      enableAuthentication(open.workspace);
-      expect(await cc(['server', '-w', open.workspace, '-v', String(open.port), '-r'], { cwd: box.dir })).toExitWith(0);
-      const deadline = Date.now() + 20_000;
-      while (!open.output.includes('Server configuration reload: Done.') && Date.now() < deadline) await sleep(200);
-      expect(await open.cc(['cmd', 'runs', '--url', open.url()], { env: sessionEnv('reloaded') })).toExitWith(0);
-    } finally {
-      await open.stop();
-    }
+    enableAuthentication(open.workspace);
+    expect(await cc(['server', '-w', open.workspace, '-v', String(open.port), '-r'], { cwd: box.dir })).toExitWith(0);
+    await open.waitForOutput('Server configuration reload: Done.');
+    expect(await open.cc(['cmd', 'runs', '--url', open.url()], { env: sessionEnv('reloaded') })).toExitWith(0);
+    await open.stop();
   }, { name: 'a reload does not turn it on' });
 
   useCase('server-authentication.md', 'Force authentication from the command line', async () => {
     const forced = await Server.start(box, { args: ['--force-authentication'] });
-    try {
-      const deadline = Date.now() + 20_000;
-      while (!forced.output.includes('Server waiting for client requests') && Date.now() < deadline) await sleep(200);
-      expect(logMessages(forced.output, 'INFO')).toContain(
-        "'--force-authentication' was passed as a command-line option. The server will ask for users to authenticate!",
-      );
-      expect(logMessages(forced.output, 'WARNING').some((w) => w.startsWith('Authentication was manually enabled, but no valid authentication backends are configured'))).toBe(true);
-      expect(await forced.cc(['cmd', 'runs', '--url', forced.url()], { env: sessionEnv('forced') })).toExitWith(1);
-    } finally {
-      await forced.stop();
-    }
+    await forced.waitForOutput('Server waiting for client requests');
+    expect(logMessages(forced.output, 'INFO')).toContain(
+      "'--force-authentication' was passed as a command-line option. The server will ask for users to authenticate!",
+    );
+    expect(logMessages(forced.output, 'WARNING').some((w) => w.startsWith('Authentication was manually enabled, but no valid authentication backends are configured'))).toBe(true);
+    expect(await forced.cc(['cmd', 'runs', '--url', forced.url()], { env: sessionEnv('forced') })).toExitWith(1);
+    await forced.stop();
   });
 
   useCase('server-authentication.md', 'Log in', async () => {
@@ -231,14 +218,11 @@ describe('usage/server-authentication.md', () => {
 
   useCase('server-authentication.md', 'Permissions', async () => {
     const open = await Server.start(box);
-    try {
-      const result = await open.cc(['cmd', 'permissions', '--url', open.serverUrl], { env: sessionEnv('open') });
-      expect(result).toExitWith(0);
-      expect(result.output).toContain(`No valid token or session was found for localhost:${open.port}`);
-      const perms = JSON.parse(result.stdout.slice(result.stdout.indexOf('{'))) as { global_permissions: { user_permissions: Record<string, unknown> } };
-      expect(perms.global_permissions.user_permissions).toEqual({});
-    } finally {
-      await open.stop();
-    }
+    const result = await open.cc(['cmd', 'permissions', '--url', open.serverUrl], { env: sessionEnv('open') });
+    expect(result).toExitWith(0);
+    expect(result.output).toContain(`No valid token or session was found for localhost:${open.port}`);
+    const perms = JSON.parse(result.stdout.slice(result.stdout.indexOf('{'))) as { global_permissions: { user_permissions: Record<string, unknown> } };
+    expect(perms.global_permissions.user_permissions).toEqual({});
+    await open.stop();
   }, { name: 'a server without authentication' });
 });

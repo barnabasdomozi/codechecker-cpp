@@ -11,12 +11,9 @@ import { chmodSync, existsSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { beforeAll } from '@jest/globals';
 import { describeResult, run } from './run';
-import { postgresBinDir } from './which';
-
-export { postgresBinDir };
+import { postgresBinDir } from './requirements';
 import type { Sandbox } from './sandbox';
 import { freePort } from './server';
-
 
 export class TempPostgres {
   private constructor(

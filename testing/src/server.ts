@@ -143,6 +143,15 @@ export class Server {
     return this.exitInfo === undefined;
   }
 
+  /** Waits until the server has printed `text`. */
+  async waitForOutput(text: string, timeoutMs = 30_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!this.output.includes(text)) {
+      if (Date.now() > deadline) throw new Error(`'${text}' did not appear in the server output:\n${this.output}`);
+      await sleep(200);
+    }
+  }
+
   /** Waits until the process exits; returns its exit status. */
   async waitForExit(timeoutMs = 60_000): Promise<{ code: number | null; signal: NodeJS.Signals | null }> {
     const timer = new AbortController();

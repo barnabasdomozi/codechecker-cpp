@@ -10,65 +10,42 @@ import { Server } from '../../src/server';
 
 const box = useSandbox();
 
-async function waitForOutput(server: Server, text: string): Promise<void> {
-  const deadline = Date.now() + 30_000;
-  while (!server.output.includes(text)) {
-    if (Date.now() > deadline) throw new Error(`'${text}' did not appear:\n${server.output}`);
-    await sleep(200);
-  }
+/** The option is ignored and a normal server starts (known issue #1). */
+async function startsNormally(args: string[]): Promise<void> {
+  const server = await Server.start(box, { args });
+  await server.waitForOutput('Server waiting for client requests on');
+  await sleep(2000);
+  expect(server.running).toBe(true);
+  await server.stop();
 }
 
 describe('usage/server-database.md', () => {
   useCase('server-database.md', 'Automatic check at start', async () => {
     const server = await Server.start(box);
-    try {
-      await waitForOutput(server, 'Server waiting for client requests on');
-      const info = logMessages(server.output, 'INFO');
-      expect(info).toContain('Checking configuration database ...');
-      // A new workspace: the databases are created first.
-      expect(info).toContain('Database schema is missing.');
-    } finally {
-      await server.stop();
-    }
+    await server.waitForOutput('Server waiting for client requests on');
+    const info = logMessages(server.output, 'INFO');
+    expect(info).toContain('Checking configuration database ...');
+    // A new workspace: the databases are created first.
+    expect(info).toContain('Database schema is missing.');
+    await server.stop();
+
     // The next start finds the databases up to date.
     const again = await Server.start(box, { workspace: server.workspace });
-    try {
-      await waitForOutput(again, 'Server waiting for client requests on');
-      expect(logMessages(again.output, 'INFO')).toContain('Database is up to date.');
-      expect(again.output).toMatch(
-        /│ Product endpoint +│ Database status +│ Database location +│ Schema version in the database +│ Schema version in the package +│/,
-      );
-      expect(again.output).toMatch(/│ Default +│ Database is up to date\. +│/);
-    } finally {
-      await again.stop();
-    }
+    await again.waitForOutput('Server waiting for client requests on');
+    expect(logMessages(again.output, 'INFO')).toContain('Database is up to date.');
+    expect(again.output).toMatch(
+      /│ Product endpoint +│ Database status +│ Database location +│ Schema version in the database +│ Schema version in the package +│/,
+    );
+    expect(again.output).toMatch(/│ Default +│ Database is up to date\. +│/);
+    await again.stop();
   });
 
   for (const args of [['--db-status', 'all'], ['--db-status', 'Default']]) {
-    useCase('server-database.md', 'Show the database status', async () => {
-      // The option is ignored and a normal server starts.
-      const server = await Server.start(box, { args });
-      try {
-        await waitForOutput(server, 'Server waiting for client requests on');
-        await sleep(2000);
-        expect(server.running).toBe(true);
-      } finally {
-        await server.stop();
-      }
-    }, { name: args.join(' '), knownIssue: 1 });
+    useCase('server-database.md', 'Show the database status', () => startsNormally(args), { name: args.join(' '), knownIssue: 1 });
   }
 
   for (const args of [['--db-upgrade-schema', 'all'], ['--db-upgrade-schema', 'Default'], ['--db-force-upgrade']]) {
-    useCase('server-database.md', 'Upgrade product databases', async () => {
-      const server = await Server.start(box, { args });
-      try {
-        await waitForOutput(server, 'Server waiting for client requests on');
-        await sleep(2000);
-        expect(server.running).toBe(true);
-      } finally {
-        await server.stop();
-      }
-    }, { name: args.join(' '), knownIssue: 1 });
+    useCase('server-database.md', 'Upgrade product databases', () => startsNormally(args), { name: args.join(' '), knownIssue: 1 });
   }
 
   useCase('server-database.md', 'Upgrade product databases', async () => {
