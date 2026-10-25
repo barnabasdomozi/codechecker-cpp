@@ -4,7 +4,11 @@
 #   cmake --preset dev && cmake --build --preset dev && ctest --preset dev
 
 cmake_minimum_required(VERSION 3.28)
-project(CodeChecker LANGUAGES C CXX)
+# The version the port reports is the reference's (architecture.md, open
+# question 1). An empty CC_VERSION_RC means a release, not a release
+# candidate.
+project(CodeChecker VERSION 6.30.0 LANGUAGES C CXX)
+set(CC_VERSION_RC "")
 
 option(CC_BUILD_WEB "Build the web side (store, cmd, server)" ON)
 option(CC_BUILD_TESTS "Build the unit tests" ON)
@@ -53,6 +57,8 @@ set(ldlogger_flags -std=c99 -pedantic -Wall -Wextra -O2)
 add_executable(ldlogger ${ldlogger_sources})
 target_compile_definitions(ldlogger PRIVATE _GNU_SOURCE __LOGGER_MAIN__)
 target_compile_options(ldlogger PRIVATE ${ldlogger_flags})
+set_target_properties(ldlogger PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 install(TARGETS ldlogger RUNTIME DESTINATION bin)
 
 # Adds ldlogger.so for one word size, 64 or 32.
@@ -89,12 +95,51 @@ if(CC_LDLOGGER_32BIT)
   cc_add_ldlogger_library(32)
 endif()
 
+add_subdirectory(src)
+
+# The license of every third-party library that is linked into the programs
+# (build-system.md §5). GoogleTest is only linked into the unit tests.
+set(licenses
+  pcre2/LICENCE.md yyjson/LICENSE libyaml/License libxml2/Copyright
+  zlib/LICENSE libzip/LICENSE openssl/LICENSE.txt)
+if(CC_BUILD_WEB)
+  list(APPEND licenses
+    curl/COPYING cpp-httplib/LICENSE thrift/LICENSE thrift/NOTICE
+    boost/LICENSE_1_0.txt sqlite/LICENSE.md postgres/COPYRIGHT
+    jwt-cpp/LICENSE openldap/LICENSE)
+endif()
+foreach(license IN LISTS licenses)
+  cmake_path(GET license PARENT_PATH library)
+  install(FILES third_party/${license}
+          DESTINATION lib/codechecker/licenses/${library})
+endforeach()
+
+# The black-box suite on an install of this build (architecture.md §13).
+set(blackbox_root ${PROJECT_BINARY_DIR}/blackbox-root)
+add_custom_target(blackbox
+  COMMAND ${CMAKE_COMMAND} -E rm -rf ${blackbox_root}
+  COMMAND ${CMAKE_COMMAND} --install ${PROJECT_BINARY_DIR}
+          --prefix ${blackbox_root}
+  COMMAND ${CMAKE_COMMAND} -E env
+          CODECHECKER_BIN=${blackbox_root}/bin/codechecker-cpp
+          npm test
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/blackbox_tests
+  USES_TERMINAL
+  VERBATIM)
+add_dependencies(blackbox codechecker-cpp version_files ldlogger ldlogger_64)
+if(CC_LDLOGGER_32BIT)
+  add_dependencies(blackbox ldlogger_32)
+endif()
+
 if(CC_BUILD_TESTS)
   enable_testing()
   add_subdirectory(unit_tests/third_party)
+  add_subdirectory(unit_tests/util)
   # Programs need no shared library but glibc, libstdc++ and libgcc_s.
+  string(CONCAT programs
+    "$<TARGET_FILE:ldlogger>;$<TARGET_FILE:codechecker-cpp>;"
+    "$<TARGET_FILE:third_party_test>")
   add_test(NAME run_time_dependencies
-    COMMAND ${CMAKE_COMMAND}
-            "-DFILES=$<TARGET_FILE:ldlogger>;$<TARGET_FILE:third_party_test>"
+    COMMAND ${CMAKE_COMMAND} "-DFILES=${programs}"
             -P ${PROJECT_SOURCE_DIR}/cmake/CheckNeeded.cmake)
 endif()

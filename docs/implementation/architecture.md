@@ -93,7 +93,7 @@ codechecker-cpp/
 │   ├── web/                     codechecker_web (client + server shared code)
 │   ├── client/                  codechecker_client
 │   ├── server/                  codechecker_server
-│   ├── launcher/                the CodeChecker program: launcher, subcommand table
+│   ├── launcher/                the codechecker-cpp program: launcher, subcommand table
 │   └── tools/                   one folder per standalone tool (main.cc)
 ├── unit_tests/                  GoogleTest unit tests, one folder per library
 ├── third_party/                 one git submodule per third-party library, and
@@ -118,7 +118,7 @@ None of these contain Python code, as the README requires. A future copy
 must be checked for `.py` files and leave them out.
 
 `analyzer_version.json` and `web_version.json` are not copied. The build
-writes them (see [Open questions](#open-questions)).
+writes them ([build-system.md](build-system.md#43-generated-files) §4.3).
 
 Inside `src/`, the file comment of a C++ file that ports a Python module
 names that module (for example `// Port of codechecker_common/skiplist_handler.py`).
@@ -165,7 +165,7 @@ parses the uploaded plist files.
 
 The CMake option `CC_BUILD_WEB` (default `ON`) builds the web side. With
 `OFF`, the web libraries are not built, their third-party libraries are not
-searched for, and `CodeChecker` has no `store`, `cmd`, `server` and
+searched for, and `codechecker-cpp` has no `store`, `cmd`, `server` and
 `web-version` subcommands. This is the same split as the Python
 `analyzer`-only package. A CI build with `CC_BUILD_WEB=OFF` keeps the
 analyzer side from picking up a web dependency by accident.
@@ -179,7 +179,7 @@ because the test suite and users rely on it:
 ```
 <root>/
 ├── bin/
-│   ├── CodeChecker                          launcher + all subcommands
+│   ├── codechecker-cpp                      launcher + all subcommands
 │   ├── report-converter
 │   ├── tu_collector
 │   ├── merge-clang-extdef-mappings
@@ -213,7 +213,12 @@ Installed programs find the package root from their own location
 (`/proc/self/exe`, then `..`), the same way `CC_DATA_FILES_DIR` is set in
 the Python version.
 
-## 5. The `CodeChecker` program
+## 5. The `codechecker-cpp` program
+
+The main program is named `codechecker-cpp` (decided 2026-10-25), not
+`CodeChecker`. It has the subcommands, options, output and exit codes of the
+Python `CodeChecker`; usage and help texts name it `codechecker-cpp`
+(`usage: codechecker-cpp version ...`). The other programs keep their names.
 
 ### 5.1 Launcher
 
@@ -682,7 +687,7 @@ decided with the known-issues list.
 this host is alive if its process exists, belongs to the current user and
 is a CodeChecker server: the reference checks that `argv[1]` ends with
 `CodeChecker` or `codechecker_common/cli.py`; the port also accepts
-`argv[0]` ending with `CodeChecker`, so each version recognizes the other's
+`argv[0]` ending with `codechecker-cpp`, so each version recognizes the other's
 servers ([server.md](../reference/server.md) §3).
 
 ## 12. Rules for matching Python behavior
@@ -721,7 +726,7 @@ ldlogger's) are not migrated (see [README](README.md)). The port is checked
 mainly by the black-box suite.
 
 - **Black-box tests** (`blackbox_tests/`) are the main check. They run on the
-  install tree: `CODECHECKER_BIN=<root>/bin/CodeChecker npm test`. A CMake
+  install tree: `CODECHECKER_BIN=<root>/bin/codechecker-cpp npm test`. A CMake
   target runs them after `install` into a temporary prefix. Each porting step
   (§14) is done when its part of the suite passes.
 - **The suite is extended as needed.** When a ported part has behavior the
@@ -764,10 +769,12 @@ and C++ never starts a Python one (see [README](README.md)).
 
 ## Open questions
 
-1. **Version numbers.** What do `CodeChecker version`, `analyzer_version.json`
-   and `web_version.json` report: the reference's `6.30.0` (with the port's
-   own git hash and build date), or a version of the port? `ServerInfo` and
-   the store metadata send this value to the server, and the web UI shows it.
+1. **Version numbers.** Decided 2026-10-25: `codechecker-cpp version`,
+   `analyzer_version.json` and `web_version.json` report the reference's
+   version, `6.30.0`, with the port's own git hash, git tag information and
+   build date, computed the way `scripts/build/extend_version_file.py` does.
+   `ServerInfo` and the store metadata send this value to the server, and the
+   web UI shows it.
 2. **Web UI build.** The web UI is built with `npm` from the copied sources.
    Does the CMake build run `npm ci && npm run build`, or does it take a
    prebuilt `www/` folder? Proposed in

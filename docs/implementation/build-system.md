@@ -14,11 +14,11 @@ Everything here was checked on the development machine (Debian 13, GCC 14.2,
 Clang 19.1, CMake 3.31.6) on 2026-10-25.
 
 **Implemented:** the submodules (§2), the deps build (§3), the imported
-targets, options and checks of §4.1–4.2, ldlogger (§4.4) and the presets
-(§5). The rest is built together with the parts that need it: Thrift code
-generation and the version files (§4.3) with `cc_api`, the web UI (§4.5)
-with the server, the `blackbox` target and the license files (§5) with the
-first program, and CI (§6) when CI is set up.
+targets, options and checks of §4.1–4.2, the version files and the API
+version header (§4.3), ldlogger (§4.4), the presets, the `blackbox` target
+and the license files (§5). The rest is built together with the parts that
+need it: Thrift code generation (§4.3) with the client and the server, the
+web UI (§4.5) with the server, and CI (§6) when CI is set up.
 
 ## Decisions
 
@@ -94,6 +94,7 @@ codechecker-cpp/
 │   ├── ThirdParty.cmake         imported targets for the deps prefix (§4.1)
 │   ├── DepsSources.cmake        the sources hash both builds compare (§3.1)
 │   ├── CheckNeeded.cmake        the run-time dependency check (§4.2)
+│   ├── VersionFiles.cmake       writes the version files (§4.3)
 │   └── ...                      later: Thrift code generation, web UI
 ├── third_party/
 │   ├── CMakeLists.txt           the deps build: one ExternalProject per library
@@ -445,10 +446,18 @@ ssl.
 - **API version.** `api/api_version.json` is read with `string(JSON)` at
   configure time and written into a header
   ([architecture.md](architecture.md#9-thrift-api-cc_api) §9).
-- **Version files.** `analyzer_version.json` and `web_version.json` are
-  written at build time, with the git hash and build date of the port. What
-  version number they hold is still open
-  ([architecture.md](architecture.md#open-questions), question 1).
+- **Version files.** `analyzer_version.json` (and, with the web side,
+  `web_version.json`) are written at build time into `build/<preset>/config/`
+  by `cmake/VersionFiles.cmake`, as the Python build's
+  `extend_version_file.py` writes them: the version number of the reference
+  (`project(... VERSION 6.30.0)` and `CC_VERSION_RC` in `CMakeLists.txt`;
+  [architecture.md](architecture.md#open-questions), question 1), the git
+  hash and git tag information of this repository, and the build date. A
+  file is rewritten only when its content changes.
+- **Build folder layout.** Programs are built into `build/<preset>/bin/` and
+  the version files into `build/<preset>/config/`, so the build folder has
+  the layout of the install tree and `build/dev/bin/codechecker-cpp` runs
+  without installing.
 
 ### 4.4 ldlogger
 
@@ -532,8 +541,9 @@ submodule is installed into `<root>/lib/codechecker/licenses/<library>/`.
 The BSD, MIT, Apache 2.0, PostgreSQL and OpenLDAP licenses all require the
 notice to come with binaries.
 
-**Black-box suite.** The `blackbox` target installs into a temporary
-prefix and runs `CODECHECKER_BIN=<prefix>/bin/CodeChecker npm test` in
+**Black-box suite.** The `blackbox` target installs into
+`build/<preset>/blackbox-root/` and runs
+`CODECHECKER_BIN=<prefix>/bin/codechecker-cpp npm test` in
 `blackbox_tests/`.
 
 ## 6. CI

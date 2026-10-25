@@ -164,7 +164,7 @@ apply to every change.
 
   ```sh
   cd blackbox_tests
-  CODECHECKER_BIN=<root>/bin/CodeChecker npx jest tests/analyze.test.ts
+  CODECHECKER_BIN=<root>/bin/codechecker-cpp npx jest tests/analyze.test.ts
   ```
 
   - Tests marked `[fixed: known-issues #N]` expect the fixed behavior and

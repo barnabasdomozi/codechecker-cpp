@@ -11,8 +11,15 @@ documentation here is based on package version 6.30.0, commit
 ## Status
 
 The build system is set up (see [Building](#building)): the third-party
-libraries, ldlogger and a test of the libraries build. No component has
-been ported yet.
+libraries, ldlogger and a test of the libraries build.
+
+The main program is `codechecker-cpp` (the Python version's `CodeChecker`).
+Ported so far: the version commands of
+[docs/usage/version.md](docs/usage/version.md), `codechecker-cpp version`,
+`analyzer-version` and `web-version`, with the building blocks they need
+(argument parsing, logging, tables, JSON). The launcher's second process and
+its saved build environment (architecture.md §5.1) come with `log` and
+`analyze`, the first commands that use them.
 
 ## Goals
 
@@ -70,6 +77,14 @@ cmake --build build/deps --parallel
 cmake --preset dev                       # the project
 cmake --build --preset dev --parallel
 ctest --preset dev
+build/dev/bin/codechecker-cpp version    # runs from the build folder
+```
+
+To run the black-box tests of a page on an installed build:
+
+```sh
+cmake --install build/dev --prefix /tmp/cc-root
+cd blackbox_tests && CODECHECKER_BIN=/tmp/cc-root/bin/codechecker-cpp npx jest tests/version.test.ts
 ```
 
 Other presets: `dev-clang`, `asan`, `release` and `analyzer` (the analyzer
