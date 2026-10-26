@@ -4,6 +4,8 @@
 #ifndef CC_ANALYZER_METADATA_METADATA_H_
 #define CC_ANALYZER_METADATA_METADATA_H_
 
+#include <yyjson.h>
+
 #include <optional>
 #include <string>
 #include <utility>
@@ -62,8 +64,13 @@ void SetResultSource(const std::string& result_file, const std::string& source,
 // there.
 void RemoveResultSource(const std::string& result_file, MetadataTool* tool);
 
-// Returns the "result_source_files" of the metadata.json at `path`, of the
-// version 1 or 2 layout (Python: __get_result_source_files()); nullopt if
+// Returns the "result_source_files" of the metadata.json document
+// `metadata`, of the version 1 layout or of every tool of the version 2
+// layout (Python: __get_result_source_files()).
+std::vector<std::pair<std::string, std::string>> ResultSourceFiles(
+    yyjson_val* metadata);
+
+// Returns ResultSourceFiles() of the metadata.json at `path`; nullopt if
 // the file cannot be read.
 std::optional<std::vector<std::pair<std::string, std::string>>>
 ReadResultSourceFiles(const std::string& path);

@@ -20,6 +20,11 @@ enum class HashType {
 // source lines from disk and logs the problems it finds.
 std::string GetReportHash(const Report& report, HashType type);
 
+// Returns the hash of the bug path of `report`, which is the same for
+// duplicates of a report (Python: get_report_path_hash()). It uses the
+// trimmed file paths.
+std::string GetReportPathHash(const Report& report);
+
 }  // namespace cc::report
 
 #endif  // CC_REPORT_HASH_REPORT_HASH_H_

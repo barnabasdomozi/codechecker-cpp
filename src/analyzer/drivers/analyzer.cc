@@ -175,33 +175,40 @@ Result<std::vector<std::string>> LoadVerbatimArgs(
   return Result<std::vector<std::string>>(std::move(args));
 }
 
-Result<AnalyzerRun> MakeAnalyzerRun(const BuildAction& action,
-                                    const AnalyzerConfig& config,
-                                    const std::string& workspace) {
-  // Python: util.analyzer_action_hash(). The -o arguments are left out,
-  // because make 4.3 logs commands with random output names.
-  Result<std::vector<std::string>> args =
-      util::ShlexSplit(action.original_command);
-  if (!args.ok()) return Result<AnalyzerRun>(args.error());
+Result<std::string> AnalyzerActionHash(const std::string& source,
+                                       const std::string& directory,
+                                       const std::string& command) {
+  Result<std::vector<std::string>> args = util::ShlexSplit(command);
+  if (!args.ok()) return Result<std::string>(args.error());
   std::vector<std::string> kept = std::move(args).value();
   for (size_t i = kept.size(); i-- > 0;) {
     if (i >= kept.size() || !kept[i].starts_with("-o")) continue;
     const size_t count = kept[i] == "-o" ? 2 : 1;
     if (i + count > kept.size()) {
-      return Result<AnalyzerRun>(
+      return Result<std::string>(
           Error{.message = "IndexError: list assignment index out of range"});
     }
     kept.erase(kept.begin() + static_cast<ptrdiff_t>(i),
                kept.begin() + static_cast<ptrdiff_t>(i + count));
   }
-  const std::string source = util::pypath::Normpath(
-      util::pypath::Join({action.directory, action.source}));
+  const std::string source_path =
+      util::pypath::Normpath(util::pypath::Join({directory, source}));
+  return Result<std::string>(
+      util::Md5Hex(source_path + "_" + util::Join(kept, " ")));
+}
+
+Result<AnalyzerRun> MakeAnalyzerRun(const BuildAction& action,
+                                    const AnalyzerConfig& config,
+                                    const std::string& workspace) {
+  Result<std::string> action_hash = AnalyzerActionHash(
+      action.source, action.directory, action.original_command);
+  if (!action_hash.ok()) return Result<AnalyzerRun>(action_hash.error());
   AnalyzerRun run;
   run.action = &action;
   run.config = &config;
   run.workspace = workspace;
   run.source_file = action.source;
-  run.action_hash = util::Md5Hex(source + "_" + util::Join(kept, " "));
+  run.action_hash = std::move(action_hash).value();
   run.action_str = util::pypath::Basename(action.source) + "_" +
                    action.analyzer_type + "_" + run.action_hash;
   run.result_file =

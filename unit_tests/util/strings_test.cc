@@ -34,6 +34,14 @@ TEST(StringsTest, Split) {
   EXPECT_EQ(Split("a::b:", ":"), (std::vector<std::string>{"a", "", "b", ""}));
 }
 
+TEST(StringsTest, Replace) {
+  EXPECT_EQ(Replace("// a // b", "//", ""), " a  b");
+  EXPECT_EQ(Replace("a\tb\t", "\t", "  "), "a  b  ");
+  EXPECT_EQ(Replace("aaa", "aa", "b"), "ba");
+  EXPECT_EQ(Replace("{x}-{x}", "{x}", "{x}{x}"), "{x}{x}-{x}{x}");
+  EXPECT_EQ(Replace("none", "x", "y"), "none");
+}
+
 TEST(StringsTest, ParseInt) {
   EXPECT_EQ(ParseInt("80"), 80);
   EXPECT_EQ(ParseInt(" -3\n"), -3);

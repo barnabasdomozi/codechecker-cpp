@@ -116,6 +116,37 @@ TEST_F(TwodimTest, TableWithLinesAndTabs) {
             "└───────────┴───────┘");
 }
 
+TEST_F(TwodimTest, TableWithoutHeaderWithSeparatedRows) {
+  SetColumns("120");
+  EXPECT_EQ(ToTable({{"Number of processed analyzer result files", "9"},
+                     {"Number of analyzer reports", "6"}},
+                    {.show_header = false, .rule_between_rows = true}),
+            "┌───────────────────────────────────────────┬───┐\n"
+            "│ Number of processed analyzer result files │ 9 │\n"
+            "├───────────────────────────────────────────┼───┤\n"
+            "│ Number of analyzer reports                │ 6 │\n"
+            "└───────────────────────────────────────────┴───┘");
+  // One row has nothing to separate.
+  EXPECT_EQ(ToTable({{"only row", "1"}},
+                    {.show_header = false, .rule_between_rows = true}),
+            "┌──────────┬───┐\n"
+            "│ only row │ 1 │\n"
+            "└──────────┴───┘");
+}
+
+TEST_F(TwodimTest, TableWithHeaderAndSeparatedRows) {
+  SetColumns("120");
+  EXPECT_EQ(ToTable({{"A", "B"}, {"x", "1"}, {"y", "2"}},
+                    {.show_header = true, .rule_between_rows = true}),
+            "┌───┬───┐\n"
+            "│ A │ B │\n"
+            "├───┼───┤\n"
+            "│ x │ 1 │\n"
+            "├───┼───┤\n"
+            "│ y │ 2 │\n"
+            "└───┴───┘");
+}
+
 TEST_F(TwodimTest, Rows) {
   const Rows rows(kVersionRows.begin(), kVersionRows.begin() + 2);
   EXPECT_EQ(ToString("rows", {"Kind", "Version"}, rows),

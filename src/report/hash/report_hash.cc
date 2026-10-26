@@ -1,8 +1,5 @@
 #include "report/hash/report_hash.h"
 
-#include <stddef.h>
-
-#include <algorithm>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -23,11 +20,7 @@ constexpr util::Logger kLog("report-converter");
 // whitespace in line[:column] (Python: _remove_whitespace()). The slice
 // counts code points, with Python's rules for negative columns.
 std::string RemoveWhitespace(const std::string& line, int* column) {
-  const int length = static_cast<int>(util::CodePointCount(line));
-  int end = *column < 0 ? std::max(length + *column, 0)
-                        : std::min(*column, length);
-  const std::string_view prefix(line.data(),
-                                util::CodePointPrefixSize(line, end));
+  const std::string_view prefix = util::CodePointSlicePrefix(line, *column);
   const int removed = static_cast<int>(
       util::CodePointCount(prefix) -
       util::CodePointCount(util::RemoveWhitespace(prefix)));
@@ -95,6 +88,23 @@ std::string GetReportHash(const Report& report, HashType type) {
       break;
   }
   return util::Md5Hex(util::Join(parts, "|||"));
+}
+
+std::string GetReportPathHash(const Report& report) {
+  std::string content;
+  for (const BugPathEvent& event : report.bug_path_events) {
+    content += std::to_string(event.line) + "|" +
+               std::to_string(event.column) + "|" + event.message + "|" +
+               event.file.path;
+  }
+  for (const auto& [key, value] : report.annotations) {
+    content += "|" + key + "|" + value;
+  }
+  content += report.checker_name + report.report_hash.value_or("");
+  if (content.empty()) {
+    kLog.Error("Failed to generate report path hash: " + ReportRepr(report));
+  }
+  return util::Md5Hex(content);
 }
 
 }  // namespace cc::report

@@ -15,11 +15,27 @@ namespace cc::platform {
 // system lists them (Python: os.listdir(path)). Empty on errors.
 std::vector<std::string> ListDirectory(const std::string& path);
 
-// Returns the files under the folder `path`, in the order os.walk(path)
-// visits them: the entries of a folder that are not folders (symbolic links
-// followed) as os.path.join(<folder>, <name>), then its subfolders, but not
-// subfolders that are symbolic links. Errors are ignored, as os.walk() does.
+// A folder that Walk() visits, and the files in it.
+struct WalkedFolder {
+  std::string path;
+  // The entries that are not folders (symbolic links followed), as
+  // os.path.join(path, <name>), in the order the system lists them.
+  std::vector<std::string> files;
+};
+
+// Returns `path` and the folders under it in the order os.walk(path) visits
+// them: a folder, then its subfolders, but not subfolders that are symbolic
+// links. A folder that cannot be listed is left out, with what is under
+// it, as os.walk() does.
+std::vector<WalkedFolder> Walk(const std::string& path);
+
+// Returns the files of every folder of Walk(path), in that order.
 std::vector<std::string> WalkFiles(const std::string& path);
+
+// Returns os.stat(path).st_mtime: the modification time of `path` in
+// seconds since the epoch, symbolic links followed; nullopt if stat()
+// fails.
+std::optional<double> ModificationTime(const std::string& path);
 
 // Creates the folder `path` and its missing parents (Python:
 // os.makedirs(path)). It is an error if `path` exists.

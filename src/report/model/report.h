@@ -12,6 +12,8 @@
 #include <utility>
 #include <vector>
 
+#include "util/pyre.h"
+
 namespace cc::report {
 
 // A source file of a report. Two files are equal if their ids are equal.
@@ -60,6 +62,17 @@ struct MacroExpansion {
   std::string name;
 };
 
+// The review status of a report (Python: SourceReviewStatus).
+struct ReviewStatus {
+  // unreviewed, confirmed, false_positive or intentional.
+  std::string status = "unreviewed";
+  std::string message = {};
+  // The source code comment that gives the status, as it is written in the
+  // file (its lines joined by spaces); empty if the status does not come
+  // from a source code comment.
+  std::string source_comment = {};
+};
+
 // One finding of an analyzer.
 struct Report {
   std::optional<std::string> analyzer_result_file_path = {};
@@ -81,6 +94,7 @@ struct Report {
   // The message used for hashing; converters may leave out parts that change
   // from run to run, such as addresses.
   std::string static_message = {};
+  ReviewStatus review_status = {};
 };
 
 // Returns a report like Python's Report(file, line, column, message,
@@ -95,8 +109,37 @@ Report MakeReport(File file, int line, int column, std::string message,
 // those of its events, positions, notes and macro expansions.
 std::set<std::string> OriginalFiles(const Report& report);
 
+// Returns the files `report` refers to, with repetitions, in the order
+// Python's Report.trim_path_prefixes() visits them: its own, then those of
+// its events, positions, notes and macro expansions.
+std::vector<File*> FilesOf(Report* report);
+
+// Returns the files of `report` (original paths) that changed or are
+// missing since its result file was written, and the result file itself if
+// it is missing (Python: Report.changed_files). A report without a result
+// file is logged and has none.
+std::set<std::string> ChangedFiles(const Report& report);
+
+// Logs a warning that lists `changed_files`, if there are any (Python:
+// reports.dump_changed_files()).
+void DumpChangedFiles(const std::set<std::string>& changed_files);
+
+// Returns the patterns that TrimPathPrefixes() removes, made from the shell
+// patterns `prefixes`; a "/" is added to those that do not end with one.
+std::vector<util::Regex> PathPrefixPatterns(
+    const std::vector<std::string>& prefixes);
+
+// Returns `path` without the longest prefix that one of `patterns` (from
+// PathPrefixPatterns()) matches (Python: util.trim_path_prefixes()). A
+// match of only "/" is not removed.
+std::string TrimPathPrefixes(const std::string& path,
+                             const std::vector<util::Regex>& patterns);
+
 // Returns `report` as Report.to_json() builds it, in `document`.
 yyjson_mut_val* ReportToJson(const Report& report, yyjson_mut_doc* document);
+
+// Returns repr(report): ReportToJson() written by json.dumps().
+std::string ReportRepr(const Report& report);
 
 // Returns line `line` of the file at `path`, with its line terminator, read
 // as UTF-8 with undecodable bytes dropped and universal newlines; "" if the

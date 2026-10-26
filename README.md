@@ -35,16 +35,16 @@ The porting order is in
 | Analysis | Checker selection | [checker-selection.md](docs/usage/checker-selection.md) | ✅ | |
 | Analysis | Analyzer configuration | [analyzer-configuration.md](docs/usage/analyzer-configuration.md) | ✅ | |
 | Analysis | Compiler info | [compiler-info.md](docs/usage/compiler-info.md) | ✅ | |
-| Analysis | `--config` files | [config-file.md](docs/usage/config-file.md) | 🟡 | `analyze` only; `parse`, `check`, `store` and `server` come with those commands |
-| Analysis | Skip and file filters | [skip-and-file-filters.md](docs/usage/skip-and-file-filters.md) | 🟡 | `analyze` only; `parse` filters come with `parse` |
+| Analysis | `--config` files | [config-file.md](docs/usage/config-file.md) | 🟡 | `analyze` and `parse`; `check`, `store` and `server` come with those commands |
+| Analysis | Skip and file filters | [skip-and-file-filters.md](docs/usage/skip-and-file-filters.md) | 🟡 | `analyze` and `parse`; `check` comes with `check` |
 | Analysis | CTU analysis | [ctu-analysis.md](docs/usage/ctu-analysis.md) | ✅ | |
 | Analysis | Statistical analysis | [statistical-analysis.md](docs/usage/statistical-analysis.md) | 🟡 | `analyze --stats` is ported; the `post-process-stats` program is not |
 | Analysis | Makefile mode | [makefile-mode.md](docs/usage/makefile-mode.md) | ✅ | |
 | Analysis | Analysis debugging | [analysis-debugging.md](docs/usage/analysis-debugging.md) | ✅ | |
 | Analysis | `check` | [check.md](docs/usage/check.md) | ❌ | |
-| Local results | `parse` | [parse.md](docs/usage/parse.md) | ❌ | |
+| Local results | `parse` | [parse.md](docs/usage/parse.md) | ✅ | Text output and `--status` (also with `-e json`); the other `-e` formats come with `parse --export` |
 | Local results | `parse --export` | [parse-export.md](docs/usage/parse-export.md) | ❌ | HTML, JSON, Code Climate, SARIF, Gerrit, baseline |
-| Local results | Review status and suppression | [review-status-and-suppression.md](docs/usage/review-status-and-suppression.md) | 🟡 | Review status handling is ported for `analyze` results; `parse`, `check` and suppress files are not |
+| Local results | Review status and suppression | [review-status-and-suppression.md](docs/usage/review-status-and-suppression.md) | 🟡 | Ported for `analyze` and `parse`: source code comments, `review_status.yaml`, suppress files and `--export-source-suppress`; `check` is not |
 | Local results | `fixit` | [fixit.md](docs/usage/fixit.md) | ❌ | |
 | Local results | Local diff (`cmd diff` on folders) | [local-diff.md](docs/usage/local-diff.md) | ❌ | |
 | Server | Thrift API (`cc_api`) | [server-api](docs/reference/server-api.md) | 🟡 | `api_version.json` only; no generated stubs yet |

@@ -49,10 +49,13 @@ add_library(cc_report STATIC
   report/hash/report_hash.cc
   report/model/report.cc
   report/output/error_file.cc
+  report/output/plaintext.cc
   report/output/plist.cc
   report/output/sarif.cc
+  report/output/statistics.cc
   report/output/tool_info.cc
   report/parser/plist.cc
+  report/parser/report_file.cc
   report/parser/sarif.cc)
 target_link_libraries(cc_report PUBLIC cc_util)
 
@@ -64,6 +67,7 @@ add_library(cc_common STATIC
   common/package.cc
   common/review_status_handler.cc
   common/skiplist_handler.cc
+  common/source_code_comment_handler.cc
   common/util.cc
   common/version.cc)
 target_link_libraries(cc_common PUBLIC cc_report)
@@ -81,6 +85,7 @@ add_library(cc_analyzer STATIC
   analyzer/cli/analyze.cc
   analyzer/cli/analyzer_version.cc
   analyzer/cli/log.cc
+  analyzer/cli/parse.cc
   analyzer/context/analyzer_context.cc
   analyzer/context/run_command.cc
   analyzer/ctu/ctu_manager.cc
@@ -95,7 +100,8 @@ add_library(cc_analyzer STATIC
   analyzer/drivers/result_handler.cc
   analyzer/host_check.cc
   analyzer/metadata/metadata.cc
-  analyzer/stats/statistics.cc)
+  analyzer/stats/statistics.cc
+  analyzer/suppress_handler.cc)
 target_link_libraries(cc_analyzer PUBLIC cc_common cc_tu_collector)
 
 if(CC_BUILD_WEB)

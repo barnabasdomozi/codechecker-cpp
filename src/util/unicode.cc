@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -182,6 +183,13 @@ size_t CodePointPrefixSize(std::string_view text, size_t count) {
     NextCodePoint(text, &pos);
   }
   return pos;
+}
+
+std::string_view CodePointSlicePrefix(std::string_view text, int end) {
+  const int64_t length = static_cast<int64_t>(CodePointCount(text));
+  const int64_t count = end < 0 ? std::max<int64_t>(length + end, 0)
+                                : std::min<int64_t>(end, length);
+  return text.substr(0, CodePointPrefixSize(text, static_cast<size_t>(count)));
 }
 
 }  // namespace cc::util

@@ -9,11 +9,14 @@
 #include <utility>
 #include <vector>
 
+#include "platform/filesystem.h"
 #include "util/file.h"
+#include "util/fnmatch.h"
+#include "util/json.h"
 #include "util/logging.h"
+#include "util/pyre.h"
 #include "util/result.h"
 #include "util/strings.h"
-#include "util/unicode.h"
 
 namespace cc::report {
 namespace {
@@ -125,7 +128,7 @@ yyjson_mut_val* ReportToJson(const Report& report, yyjson_mut_doc* doc) {
   add("analyzer_name", OptionalString(doc, report.analyzer_name));
   add("category", OptionalString(doc, report.category));
   add("type", yyjson_mut_null(doc));
-  add("review_status", String(doc, "unreviewed"));
+  add("review_status", String(doc, report.review_status.status));
   yyjson_mut_val* events = yyjson_mut_arr(doc);
   for (const BugPathEvent& event : report.bug_path_events) {
     yyjson_mut_arr_append(events, EventToJson(event, doc));
@@ -158,16 +161,93 @@ yyjson_mut_val* ReportToJson(const Report& report, yyjson_mut_doc* doc) {
   return object;
 }
 
+std::string ReportRepr(const Report& report) {
+  const util::MutableJsonDocument document = util::NewJsonDocument();
+  return util::DumpJson(ReportToJson(report, document.get()));
+}
+
+std::vector<File*> FilesOf(Report* report) {
+  std::vector<File*> files = {&report->file};
+  for (BugPathEvent& event : report->bug_path_events) {
+    files.push_back(&event.file);
+  }
+  for (BugPathPosition& position : report->bug_path_positions) {
+    files.push_back(&position.file);
+  }
+  for (BugPathEvent& note : report->notes) files.push_back(&note.file);
+  for (MacroExpansion& macro : report->macro_expansions) {
+    files.push_back(&macro.event.file);
+  }
+  return files;
+}
+
+std::set<std::string> ChangedFiles(const Report& report) {
+  std::set<std::string> changed;
+  if (!report.analyzer_result_file_path) {
+    kLog.Warning("No analyzer result file path is set for report: " +
+                 ReportRepr(report));
+    return changed;
+  }
+  const std::string& result_file = *report.analyzer_result_file_path;
+  // A modification time of 0 counts as unknown, as in Python.
+  const std::optional<double> result_time =
+      platform::ModificationTime(result_file);
+  if (!result_time) changed.insert(result_file);
+  for (const std::string& path : OriginalFiles(report)) {
+    const std::optional<double> time = platform::ModificationTime(path);
+    if (!time || *time == 0 || !result_time || *result_time == 0 ||
+        *time > *result_time) {
+      changed.insert(path);
+    }
+  }
+  return changed;
+}
+
+void DumpChangedFiles(const std::set<std::string>& changed_files) {
+  if (changed_files.empty()) return;
+  std::vector<std::string> items;
+  for (const std::string& path : changed_files) items.push_back(" - " + path);
+  kLog.Warning(
+      "The following source file contents changed or missing since the "
+      "latest analysis:\n" +
+      util::Join(items, "\n") +
+      "\nPlease re-analyze your project to update the reports!");
+}
+
+std::vector<util::Regex> PathPrefixPatterns(
+    const std::vector<std::string>& prefixes) {
+  std::vector<util::Regex> patterns;
+  for (std::string prefix : prefixes) {
+    if (!prefix.ends_with('/')) prefix += '/';
+    // fnmatch's "\Z" end is dropped, so the pattern matches a prefix.
+    std::string pattern = util::FnmatchTranslate(prefix);
+    pattern.resize(pattern.size() - 2);
+    patterns.emplace_back(pattern);
+  }
+  return patterns;
+}
+
+std::string TrimPathPrefixes(const std::string& path,
+                             const std::vector<util::Regex>& patterns) {
+  std::string_view longest;
+  for (const util::Regex& pattern : patterns) {
+    if (const std::optional<util::RegexMatch> match = pattern.Match(path)) {
+      const std::string_view matched = *match->Group(0);
+      if (longest.size() < matched.size()) longest = matched;
+    }
+  }
+  if (longest.empty() || longest == "/") return path;
+  return path.substr(longest.size());
+}
+
 std::string GetLine(const std::string& path, int line) {
-  const Result<std::string> content = util::ReadFile(path);
-  if (!content.ok()) {
+  const Result<std::string> text = util::ReadTextFile(path);
+  if (!text.ok()) {
     kLog.Error("Failed to open file " + path);
     return "";
   }
   if (line <= 0) return "";
-  const std::string text =
-      util::TranslateNewlines(util::DecodeUtf8Ignore(content.value()));
-  const std::vector<std::string_view> lines = util::SplitLines(text);
+  const std::vector<std::string_view> lines = util::SplitLines(text.value());
   if (static_cast<size_t>(line) > lines.size()) return "";
   return std::string(lines[line - 1]);
 }

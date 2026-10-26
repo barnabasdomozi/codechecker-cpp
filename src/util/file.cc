@@ -12,6 +12,7 @@
 
 #include "util/result.h"
 #include "util/strings.h"
+#include "util/unicode.h"
 
 namespace cc::util {
 
@@ -37,8 +38,19 @@ Result<std::string> ReadFile(const std::string& path) {
   return Result<std::string>(std::move(content));
 }
 
-Result<void> WriteFile(const std::string& path, std::string_view content) {
-  std::FILE* file = std::fopen(path.c_str(), "wb");
+Result<std::string> ReadTextFile(const std::string& path) {
+  const Result<std::string> content = ReadFile(path);
+  if (!content.ok()) return content;
+  return Result<std::string>(
+      TranslateNewlines(DecodeUtf8Ignore(content.value())));
+}
+
+namespace {
+
+// Writes `content` to the file at `path`, opened with fopen() `mode`.
+Result<void> WriteWithMode(const std::string& path, std::string_view content,
+                           const char* mode) {
+  std::FILE* file = std::fopen(path.c_str(), mode);
   if (file == nullptr) return Result<void>(OsError(errno, path));
   const size_t written = std::fwrite(content.data(), 1, content.size(), file);
   const int write_error = written != content.size() ? errno : 0;
@@ -46,6 +58,16 @@ Result<void> WriteFile(const std::string& path, std::string_view content) {
     return Result<void>(OsError(write_error != 0 ? write_error : errno, path));
   }
   return Result<void>();
+}
+
+}  // namespace
+
+Result<void> WriteFile(const std::string& path, std::string_view content) {
+  return WriteWithMode(path, content, "wb");
+}
+
+Result<void> AppendFile(const std::string& path, std::string_view content) {
+  return WriteWithMode(path, content, "ab");
 }
 
 }  // namespace cc::util

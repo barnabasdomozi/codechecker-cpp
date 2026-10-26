@@ -2,6 +2,7 @@
 
 #include <yyjson.h>
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <format>
@@ -13,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/source_code_comment_handler.h"
 #include "report/model/report.h"
 #include "util/file.h"
 #include "util/fnmatch.h"
@@ -251,6 +253,90 @@ Result<void> ReviewStatusHandler::SetReviewStatusConfig(
   }
   if (util::JsonToInt(version) == 1) return CheckFormatVersion1(data, path);
   return Result<void>();
+}
+
+Result<report::ReviewStatus> ReviewStatusHandler::GetReviewStatus(
+    const report::Report& report) {
+  Result<std::optional<report::ReviewStatus>> from_source =
+      ReviewStatusFromSource(report);
+  if (!from_source.ok()) {
+    return Result<report::ReviewStatus>(from_source.error());
+  }
+  if (from_source.value()) {
+    return Result<report::ReviewStatus>(std::move(*from_source.value()));
+  }
+  if (std::optional<report::ReviewStatus> from_config =
+          ReviewStatusFromConfig(report)) {
+    return Result<report::ReviewStatus>(std::move(*from_config));
+  }
+  return Result<report::ReviewStatus>(report::ReviewStatus());
+}
+
+Result<std::optional<report::ReviewStatus>>
+ReviewStatusHandler::ReviewStatusFromSource(const report::Report& report) {
+  using Status = Result<std::optional<report::ReviewStatus>>;
+  const std::string source_file =
+      util::pypath::Realpath(report.file.original_path);
+  if (report::ChangedFiles(report).contains(source_file) ||
+      !util::pypath::IsFile(source_file)) {
+    return Status(std::nullopt);
+  }
+  const Result<std::string> text = util::ReadTextFile(source_file);
+  // A quick check before the lines are looked at.
+  if (!text.ok() || text.value().find("codechecker_") == std::string::npos) {
+    return Status(std::nullopt);
+  }
+  const Result<std::vector<SourceCodeComment>> comments =
+      FilterSourceLineComments(text.value(), report.line,
+                               report.checker_name);
+  if (!comments.ok()) {
+    source_comment_warnings_.push_back(source_file + " contains " +
+                                       comments.error().message);
+    return Status(std::nullopt);
+  }
+  if (comments.value().size() > 1) {
+    return Status(Error{.message = std::format(
+                            "Multiple source code comments can be found for "
+                            "'{}' checker in '{}' at line {}.",
+                            report.checker_name, source_file, report.line)});
+  }
+  if (comments.value().empty()) return Status(std::nullopt);
+  const SourceCodeComment& comment = comments.value().front();
+  return Status(report::ReviewStatus{.status = comment.status,
+                                     .message = comment.message,
+                                     .source_comment = comment.line});
+}
+
+std::optional<report::ReviewStatus>
+ReviewStatusHandler::ReviewStatusFromConfig(
+    const report::Report& report) const {
+  if (!data_) return std::nullopt;
+  yyjson_val* rules =
+      util::JsonGet(yyjson_doc_get_root(data_->get()), "rules");
+  yyjson_arr_iter iter = yyjson_arr_iter_with(rules);
+  while (yyjson_val* rule = yyjson_arr_iter_next(&iter)) {
+    yyjson_val* actions = util::JsonGet(rule, "actions");
+    if (!ReportMatchesRule(report, rule) ||
+        util::JsonTruthy(util::JsonGet(actions, "ignore"))) {
+      continue;
+    }
+    yyjson_val* filters = util::JsonGet(rule, "filters");
+    if (!std::ranges::any_of(kAllowedFilters, [filters](std::string_view key) {
+          return Contains(filters, key);
+        })) {
+      continue;
+    }
+    std::string status =
+        util::JsonToStr(util::JsonGet(actions, "review_status"));
+    // Python rewrites "suppress" when it checks the file.
+    if (status == "suppress") status = "false_positive";
+    yyjson_val* reason = util::JsonGet(actions, "reason");
+    return report::ReviewStatus{
+        .status = std::move(status),
+        .message = reason != nullptr ? util::JsonToStr(reason) : "",
+        .source_comment = ""};
+  }
+  return std::nullopt;
 }
 
 bool ReviewStatusHandler::ShouldIgnore(const report::Report& report) const {

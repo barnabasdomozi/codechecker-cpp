@@ -66,20 +66,24 @@ void RemoveResultSource(const std::string& result_file, MetadataTool* tool) {
   });
 }
 
-std::optional<SourceFiles> ReadResultSourceFiles(const std::string& path) {
-  const std::optional<util::JsonDocument> document = common::LoadJson(path);
-  if (!document) return std::nullopt;
-  yyjson_val* root = yyjson_doc_get_root(document->get());
+SourceFiles ResultSourceFiles(yyjson_val* metadata) {
   SourceFiles files;
-  if (yyjson_val* files_v1 = util::JsonGet(root, "result_source_files")) {
+  if (yyjson_val* files_v1 = util::JsonGet(metadata, "result_source_files")) {
     AddObject(files_v1, &files);
     return files;
   }
-  yyjson_arr_iter iter = yyjson_arr_iter_with(util::JsonGet(root, "tools"));
+  yyjson_arr_iter iter =
+      yyjson_arr_iter_with(util::JsonGet(metadata, "tools"));
   while (yyjson_val* tool = yyjson_arr_iter_next(&iter)) {
     AddObject(util::JsonGet(tool, "result_source_files"), &files);
   }
   return files;
+}
+
+std::optional<SourceFiles> ReadResultSourceFiles(const std::string& path) {
+  const std::optional<util::JsonDocument> document = common::LoadJson(path);
+  if (!document) return std::nullopt;
+  return ResultSourceFiles(yyjson_doc_get_root(document->get()));
 }
 
 std::string MetadataJson(const MetadataTool& tool) {

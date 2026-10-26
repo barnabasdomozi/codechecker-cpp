@@ -142,14 +142,18 @@ std::vector<int> FitColumns(const std::vector<int>& natural_widths,
 }
 
 // Returns the column widths prettytable prints with: the widest cell of
-// each column, cut to `max_widths` for data cells but not for the header,
-// then shrunk in proportion if the table is wider than `max_table_width`
-// (prettytable: _compute_widths()). Without `max_widths`, nothing is cut.
-std::vector<int> ColumnWidths(const Row& header, const std::vector<Row>& rows,
+// each column and of the header if it is shown, cut to `max_widths` for
+// data cells but not for the header, then shrunk in proportion if the table
+// is wider than `max_table_width` (prettytable: _compute_widths()). Without
+// `max_widths`, nothing is cut.
+std::vector<int> ColumnWidths(const Row& header, bool show_header,
+                              const std::vector<Row>& rows,
                               const std::optional<std::vector<int>>& max_widths,
                               std::optional<int> max_table_width) {
-  std::vector<int> widths;
-  for (const std::string& name : header) widths.push_back(BlockWidth(name));
+  std::vector<int> widths(header.size(), 0);
+  for (size_t i = 0; show_header && i < header.size(); ++i) {
+    widths[i] = BlockWidth(header[i]);
+  }
   for (const Row& row : rows) {
     for (size_t i = 0; i < row.size(); ++i) {
       const int width = BlockWidth(row[i]);
@@ -218,23 +222,30 @@ std::vector<std::string> RowLines(const Row& row,
 }
 
 // Returns the table prettytable prints in the SINGLE_BORDER style, left
-// aligned (prettytable: get_string()).
+// aligned (prettytable: get_string()); `style.rule_between_rows` is
+// prettytable's HRuleStyle.ALL instead of FRAME. `header` gives the number
+// of columns, also when it is not shown.
 std::string RenderTable(const Row& header, const std::vector<Row>& rows,
+                        TableStyle style,
                         const std::optional<std::vector<int>>& max_widths,
                         std::optional<int> max_table_width) {
-  const std::vector<int> widths =
-      ColumnWidths(header, rows, max_widths, max_table_width);
+  const std::vector<int> widths = ColumnWidths(
+      header, style.show_header, rows, max_widths, max_table_width);
+  const std::string middle_rule = Rule(widths, "├", "┼", "┤");
   std::vector<std::string> lines = {Rule(widths, "┌", "┬", "┐")};
-  std::string header_line = "│";
-  for (size_t i = 0; i < header.size(); ++i) {
-    const std::string_view name(
-        header[i].data(), CodePointPrefixSize(header[i], widths[i]));
-    header_line += " " + LeftJustify(name, widths[i]) + " │";
+  if (style.show_header) {
+    std::string header_line = "│";
+    for (size_t i = 0; i < header.size(); ++i) {
+      const std::string_view name(
+          header[i].data(), CodePointPrefixSize(header[i], widths[i]));
+      header_line += " " + LeftJustify(name, widths[i]) + " │";
+    }
+    lines.push_back(header_line);
+    lines.push_back(middle_rule);
   }
-  lines.push_back(header_line);
-  lines.push_back(Rule(widths, "├", "┼", "┤"));
-  for (const Row& row : rows) {
-    for (std::string& line : RowLines(row, widths)) {
+  for (size_t i = 0; i < rows.size(); ++i) {
+    if (i > 0 && style.rule_between_rows) lines.push_back(middle_rule);
+    for (std::string& line : RowLines(rows[i], widths)) {
       lines.push_back(std::move(line));
     }
   }
@@ -242,36 +253,39 @@ std::string RenderTable(const Row& header, const std::vector<Row>& rows,
   return Join(lines, "\n");
 }
 
-// Python: twodim.to_table() with a header row.
-std::string ToTable(const std::vector<Row>& all_rows) {
-  if (all_rows.empty()) return "";
+}  // namespace
+
+std::string ToTable(const std::vector<Row>& lines, TableStyle style) {
+  if (lines.empty()) return "";
   const int terminal_width = ColumnsVariable().value_or(TerminalColumns());
-  const Row& header = all_rows.front();
+  const Row& header = lines.front();
+  const size_t first_row = style.show_header ? 1 : 0;
   // prettytable expands tabs in the data cells.
   std::vector<Row> rows;
-  for (size_t i = 1; i < all_rows.size(); ++i) {
+  for (size_t i = first_row; i < lines.size(); ++i) {
     Row row;
-    for (const std::string& cell : all_rows[i]) row.push_back(ExpandTabs(cell));
+    for (const std::string& cell : lines[i]) row.push_back(ExpandTabs(cell));
     rows.push_back(std::move(row));
   }
   // The natural widths, measured before tabs are expanded, as in twodim.
-  std::vector<int> natural_widths;
-  for (const std::string& name : header) natural_widths.push_back(Length(name));
-  for (size_t i = 1; i < all_rows.size(); ++i) {
-    for (size_t j = 0; j < all_rows[i].size(); ++j) {
-      natural_widths[j] = std::max(natural_widths[j], Length(all_rows[i][j]));
+  std::vector<int> natural_widths(header.size(), 0);
+  for (size_t j = 0; style.show_header && j < header.size(); ++j) {
+    natural_widths[j] = Length(header[j]);
+  }
+  for (size_t i = first_row; i < lines.size(); ++i) {
+    for (size_t j = 0; j < lines[i].size(); ++j) {
+      natural_widths[j] = std::max(natural_widths[j], Length(lines[i][j]));
     }
   }
   int total = static_cast<int>(natural_widths.size()) * 3 + 1;
   for (const int width : natural_widths) total += width;
   if (total <= terminal_width) {
-    return RenderTable(header, rows, std::nullopt, std::nullopt);
+    return RenderTable(header, rows, style, std::nullopt, std::nullopt);
   }
-  return RenderTable(header, rows, FitColumns(natural_widths, terminal_width),
+  return RenderTable(header, rows, style,
+                     FitColumns(natural_widths, terminal_width),
                      terminal_width);
 }
-
-}  // namespace
 
 std::string ToString(std::string_view format, const Row& keys,
                      const std::vector<Row>& rows) {
@@ -279,7 +293,9 @@ std::string ToString(std::string_view format, const Row& keys,
   if (!keys.empty()) all_rows.push_back(keys);
   all_rows.insert(all_rows.end(), rows.begin(), rows.end());
   if (format == "rows") return ToRows(rows);
-  if (format == "table" || format == "plaintext") return ToTable(all_rows);
+  if (format == "table" || format == "plaintext") {
+    return ToTable(all_rows, TableStyle());
+  }
   if (format == "csv") return ToCsv(all_rows);
   if (format == "json") return ToJson(keys, rows);
   // Python raises ValueError("Unsupported format"); callers only pass the

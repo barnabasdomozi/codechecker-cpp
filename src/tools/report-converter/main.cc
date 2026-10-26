@@ -187,16 +187,6 @@ void AddArguments(argparse::Parser& parser) {
                       .help = "Set verbosity level."});
 }
 
-// Returns `text` with every `from` replaced by `to` (Python: str.replace()).
-std::string ReplaceAll(std::string text, std::string_view from,
-                       std::string_view to) {
-  for (size_t pos = text.find(from); pos != std::string::npos;
-       pos = text.find(from, pos + to.size())) {
-    text.replace(pos, from.size(), to);
-  }
-  return text;
-}
-
 // Returns the reports as Python's repr() of a list of Report objects shows
 // them.
 std::string ReportsRepr(const std::vector<report::Report>& reports) {
@@ -231,10 +221,10 @@ Result<void> WriteResultFiles(const std::vector<report::Report>& reports,
   }
   const std::string output = util::pypath::Abspath(output_dir);
   for (const auto& [path, file_reports] : groups) {
-    std::string name = ReplaceAll(file_name, "{source_file}",
-                                  util::pypath::Basename(path));
-    name = ReplaceAll(name, "{analyzer}", tool_name);
-    name = ReplaceAll(name, "{file_hash}", util::Md5Hex(path));
+    std::string name = util::Replace(file_name, "{source_file}",
+                                     util::pypath::Basename(path));
+    name = util::Replace(name, "{analyzer}", tool_name);
+    name = util::Replace(name, "{file_hash}", util::Md5Hex(path));
     const std::string out_path =
         util::pypath::Join({output, name + "." + export_type});
     kLog.Info("Create/modify " + export_type + " file: '" + out_path + "'.");

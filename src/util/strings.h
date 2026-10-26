@@ -58,6 +58,11 @@ std::vector<std::string> SplitWhitespace(std::string_view text);
 std::vector<std::string> Split(std::string_view text,
                                std::string_view separator);
 
+// Returns `text` with every `from` replaced by `to`; `from` must not be
+// empty (Python: str.replace(from, to)).
+std::string Replace(std::string_view text, std::string_view from,
+                    std::string_view to);
+
 // Returns `text` with the ASCII letters lower-cased (Python: str.lower() on
 // ASCII text).
 std::string AsciiLower(std::string_view text);

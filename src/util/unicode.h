@@ -48,6 +48,10 @@ size_t CodePointCount(std::string_view text);
 // `text` (Python: len(text[:count].encode())).
 size_t CodePointPrefixSize(std::string_view text, size_t count);
 
+// Returns Python's text[:end] of UTF-8 `text`: its first `end` code points,
+// or with a negative `end`, all but the last -`end` code points.
+std::string_view CodePointSlicePrefix(std::string_view text, int end);
+
 }  // namespace cc::util
 
 #endif  // CC_UTIL_UNICODE_H_

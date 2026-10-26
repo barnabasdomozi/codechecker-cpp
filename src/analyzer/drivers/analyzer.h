@@ -163,6 +163,15 @@ struct AnalyzerRun {
   int return_code = 1;
 };
 
+// Returns the hash that names the result files of the analysis of `source`
+// in `directory` with the build command `command` (Python:
+// util.analyzer_action_hash()). The -o arguments are left out, because
+// make 4.3 logs commands with random output names. Fails if `command`
+// cannot be split.
+Result<std::string> AnalyzerActionHash(const std::string& source,
+                                       const std::string& directory,
+                                       const std::string& command);
+
 // Returns the run of the analyzer of `config` on `action`, with its result
 // file names, writing into `workspace`. Fails if the command of the action
 // cannot be split.

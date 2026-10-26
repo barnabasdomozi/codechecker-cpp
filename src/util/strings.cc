@@ -188,6 +188,11 @@ std::vector<std::string> Split(std::string_view text,
   return parts;
 }
 
+std::string Replace(std::string_view text, std::string_view from,
+                    std::string_view to) {
+  return Join(Split(text, from), to);
+}
+
 std::string AsciiLower(std::string_view text) {
   std::string result(text);
   for (char& c : result) {
