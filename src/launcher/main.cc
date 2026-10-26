@@ -12,6 +12,7 @@
 #include <string_view>
 #include <vector>
 
+#include "common/cli/logo.h"
 #include "common/cli/verbose.h"
 #include "common/cmd_config.h"
 #include "common/package.h"
@@ -134,6 +135,7 @@ int Main(std::vector<std::string> argv) {
   parser.set_help_format(util::argparse::HelpFormat::kRawDescription);
   parser.set_description(std::string(kDescription));
   parser.set_epilog(std::string(kEpilog));
+  parser.set_help_banner(common::cli::TerminalLogo());
   parser.AddSubparsers("commands");
   for (const Subcommand& subcommand : subcommands) {
     util::argparse::Parser& subparser = parser.AddParser(

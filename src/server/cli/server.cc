@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "api/thrift/shared_types.h"
+#include "common/cli/logo.h"
 #include "common/cli/verbose.h"
 #include "common/cmd_config.h"
 #include "common/package.h"
@@ -797,6 +798,9 @@ int RunServer(const argparse::Namespace& parsed) {
   args.Set("sqlite", util::pypath::Abspath(args.Get("sqlite")));
   const bool instance_manager =
       args.Has("list") || args.Has("stop") || args.Has("stop_all");
+  if (!instance_manager && !args.Has("reload")) {
+    util::Write(util::Stream::kStdout, common::cli::TerminalLogo());
+  }
   kLog.Info(std::format("Workspace directory: {}", args.Get("workspace")));
   kLog.Info(
       std::format("Config directory: {}", args.Get("config_directory")));

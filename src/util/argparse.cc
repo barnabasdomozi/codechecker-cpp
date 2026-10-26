@@ -650,6 +650,7 @@ Parser& Parser::AddParser(std::string name, std::string help) {
   action.subactions.push_back({.dest = name, .help = std::move(help)});
   subparsers_.push_back(std::make_unique<Parser>(prog_ + " " + name));
   subparsers_.back()->set_error_exit_code(error_exit_code_);
+  subparsers_.back()->set_help_banner(help_banner_);
   action.choices.push_back(std::move(name));
   return *subparsers_.back();
 }
@@ -983,7 +984,7 @@ std::optional<Error> Parser::TakeAction(const Action& action,
                                         const std::vector<std::string>& values,
                                         KnownArgs* known) const {
   if (action.kind == Action::Kind::kHelp) {
-    Write(Stream::kStdout, FormatHelp());
+    Write(Stream::kStdout, help_banner_ + FormatHelp());
     return Error{.exit_code = 0};
   }
   if (action.kind == Action::Kind::kStoreTrue ||

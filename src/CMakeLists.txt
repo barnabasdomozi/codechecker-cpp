@@ -73,6 +73,7 @@ target_link_libraries(cc_report PUBLIC cc_util)
 
 add_library(cc_common STATIC
   common/checker_labels.cc
+  common/cli/logo.cc
   common/cli/verbose.cc
   common/cli/version.cc
   common/cmd_config.cc

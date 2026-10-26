@@ -208,6 +208,9 @@ class Parser {
   // Sets the exit code of parse errors; plain argparse uses 2. Subcommand
   // parsers added later get the same code.
   void set_error_exit_code(int exit_code) { error_exit_code_ = exit_code; }
+  // Sets the text printed before the help for -h, such as a logo; it is not
+  // part of FormatHelp(). Subcommand parsers added later get the same text.
+  void set_help_banner(std::string banner) { help_banner_ = std::move(banner); }
 
   void AddArgument(Argument argument);
 
@@ -277,6 +280,7 @@ class Parser {
   HelpFormat help_format_ = HelpFormat::kDefault;
   bool allow_abbrev_ = true;
   int error_exit_code_ = 1;
+  std::string help_banner_;
   std::vector<Action> actions_;
   std::vector<internal_argparse::Group> groups_;
   int exclusive_groups_ = 0;
