@@ -1,0 +1,152 @@
+<template>
+  <ConfirmDialog
+    v-model="dialog"
+    content-class="edit-source-component-dialog"
+    scrollable
+    :title="dialogTitle"
+    confirm-btn-color="primary"
+    :confirm-btn-label="dialogConfirmButtonTitle"
+    @confirm="saveSourceComponent"
+  >
+    <template v-slot:content>
+      <v-container>
+        <v-form ref="form">
+          <v-text-field
+            v-model="nameInput"
+            class="component-name"
+            label="Name*"
+            autofocus
+            variant="outlined"
+            required
+            :rules="rules.name"
+          />
+
+          <v-textarea
+            v-model="componentInput"
+            class="component-value value"
+            variant="outlined"
+            required
+            validate-on-blur
+            label="Value"
+            :placeholder="placeHolderValue"
+            :rules="rules.value"
+          />
+
+          <v-textarea
+            v-model="descriptionInput"
+            class="component-description"
+            label="Description"
+            variant="outlined"
+          />
+        </v-form>
+      </v-container>
+    </template>
+  </ConfirmDialog>
+</template>
+
+<script setup>
+import { computed, ref, watch } from "vue";
+import { ccService, handleThriftError } from "@cc-api";
+
+import { ConfirmDialog } from "@/components";
+
+const props = defineProps({
+  modelValue: { type: Boolean, default: false },
+  sourceComponent: { type: Object, default: () => null },
+});
+
+const emit = defineEmits([ "update:modelValue", "save:component" ]);
+
+const dialogTitle = computed(() => {
+  return props.sourceComponent ?
+    "Edit source component" : "New source component";
+});
+
+const dialogConfirmButtonTitle = computed(() => {
+  return props.sourceComponent ? "Save" : "Create";
+});
+
+function isValidComponentValue (value) {
+  const _lines = value.trim().split(/\r|\n/);
+  for (let _i = 0; _i < _lines.length; ++_i) {
+    if (!_lines[_i].startsWith("+") && !_lines[_i].startsWith("-") ||
+         _lines[_i].trim().length < 2
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+const form = ref(null);
+const nameInput = ref(null);
+const componentInput = ref(null);
+const descriptionInput = ref(null);
+
+const placeHolderValue = "Value of the source component.\nEach line must start "
+                      + "with a \"+\" (results from this path should be "
+                      + "listed) or a \"-\" (results from this path should "
+                      + "not be listed) sign.\nFor whole directories, a "
+                      + "trailing \"*\" must be added.\n"
+                      + "E.g.: +/a/b/x.cpp or -/a/b/*";
+
+const rules = {
+  name: [ v => !!v || "Name is required" ],
+  value: [
+    v => !!v || "Value is required",
+    v => isValidComponentValue(v) || "Component value format is "
+      + "invalid! Every line should start with + or - sign followed by "
+      + "one or more character."
+  ]
+};
+
+const dialog = computed({
+  get() {
+    return props.modelValue;
+  },
+  set(value) {
+    emit("update:modelValue", value);
+  }
+});
+
+watch(dialog, opened => {
+  if (opened) {
+    form.value?.resetValidation();
+  }
+});
+
+watch(() => props.sourceComponent, component => {
+  nameInput.value = component?.name;
+  componentInput.value = component?.value;
+  descriptionInput.value = component?.description;
+});
+
+async function saveSourceComponent() {
+  const { valid } = await form.value.validate();
+  if (!valid) return;
+
+  if (props.sourceComponent &&
+    props.sourceComponent.name !== nameInput.value)
+  {
+    await ccService.getClient().removeSourceComponent(
+      props.sourceComponent.name, handleThriftError);
+  }
+  ccService.getClient().addSourceComponent(
+    nameInput.value,
+    componentInput.value,
+    descriptionInput.value,
+    handleThriftError(success => {
+      if (success) {
+        emit("save:component");
+        dialog.value = false;
+      }
+    }));
+}
+</script>
+
+<style lang="scss">
+.value textarea::placeholder {
+  opacity: 0.5;
+}
+</style>

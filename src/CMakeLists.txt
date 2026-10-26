@@ -5,13 +5,19 @@
 add_library(cc_platform STATIC
   platform/filesystem.cc
   platform/local_time.cc
+  platform/locked_file.cc
   platform/process.cc
+  platform/processes.cc
+  platform/signal_receiver.cc
+  platform/socket_options.cc
   platform/subprocess.cc
   platform/terminal.cc)
 target_include_directories(cc_platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(cc_util STATIC
   util/argparse.cc
+  util/base64.cc
+  util/datetime.cc
   util/file.cc
   util/fnmatch.cc
   util/hash.cc
@@ -112,8 +118,9 @@ add_library(cc_analyzer STATIC
 target_link_libraries(cc_analyzer PUBLIC cc_common cc_tu_collector)
 
 if(CC_BUILD_WEB)
-  # The API version header (build-system.md §4.3). The Thrift code generated
-  # from api/*.thrift joins it when the client and the server are ported.
+  # The API version header and the C++ code generated from api/*.thrift
+  # (build-system.md §4.3). The generated headers are included as
+  # "api/thrift/<file>.h".
   set(api_version_file ${PROJECT_SOURCE_DIR}/api/api_version.json)
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
                ${api_version_file})
@@ -121,12 +128,73 @@ if(CC_BUILD_WEB)
   string(JSON CC_API_VERSION GET "${api_version_json}" api_version)
   configure_file(api/api_version.h.in
                  ${PROJECT_BINARY_DIR}/gen/api/api_version.h @ONLY)
-  add_library(cc_api INTERFACE)
-  target_include_directories(cc_api INTERFACE ${PROJECT_BINARY_DIR}/gen)
+
+  set(thrift_gen_dir ${PROJECT_BINARY_DIR}/gen/api/thrift)
+  file(GLOB thrift_idl_files CONFIGURE_DEPENDS
+       ${PROJECT_SOURCE_DIR}/api/*.thrift)
+  # What the Thrift compiler writes for the IDL files.
+  set(thrift_sources
+    authentication_types.cpp codeCheckerAuthentication.cpp
+    codeCheckerDBAccess.cpp codeCheckerProductService.cpp
+    codeCheckerServersideTaskService.cpp configurationService.cpp
+    products_types.cpp report_server_constants.cpp report_server_types.cpp
+    serverInfoService.cpp shared_types.cpp tasks_types.cpp)
+  set(thrift_headers
+    authentication_types.h codeCheckerAuthentication.h codeCheckerDBAccess.h
+    codeCheckerProductService.h codeCheckerServersideTaskService.h
+    configurationService.h configuration_types.h products_types.h
+    report_server_constants.h report_server_types.h serverInfoService.h
+    server_info_types.h shared_types.h tasks_types.h)
+  list(TRANSFORM thrift_sources PREPEND ${thrift_gen_dir}/)
+  list(TRANSFORM thrift_headers PREPEND ${thrift_gen_dir}/)
+  set(thrift_compiler ${CC_DEPS_PREFIX}/bin/thrift)
+  add_custom_command(
+    OUTPUT ${thrift_sources} ${thrift_headers}
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${thrift_gen_dir}
+    COMMAND ${CMAKE_COMMAND}
+            -DTHRIFT=${thrift_compiler}
+            -DIDL_DIR=${PROJECT_SOURCE_DIR}/api
+            -DOUT_DIR=${thrift_gen_dir}
+            -DLANGUAGE=cpp
+            -P ${PROJECT_SOURCE_DIR}/cmake/ThriftGenerate.cmake
+    DEPENDS ${thrift_idl_files} ${thrift_compiler}
+            ${PROJECT_SOURCE_DIR}/cmake/ThriftGenerate.cmake
+    COMMENT "Generating the C++ code of the Thrift API"
+    VERBATIM)
+  add_library(cc_api STATIC ${thrift_sources})
+  # Generated code does not follow the project's warning settings.
+  set_source_files_properties(${thrift_sources} PROPERTIES COMPILE_OPTIONS -w)
+  target_include_directories(cc_api PUBLIC ${PROJECT_BINARY_DIR}/gen)
+  target_link_libraries(cc_api PUBLIC third_party::thrift)
 
   add_library(cc_web STATIC
-    web/cli/web_version.cc)
+    web/cli/web_version.cc
+    web/convert.cc
+    web/database_status.cc
+    web/env.cc)
   target_link_libraries(cc_web PUBLIC cc_common cc_api)
+
+  add_library(cc_server STATIC
+    server/api/authentication_handler.cc
+    server/api/configuration_handler.cc
+    server/api/product_handler.cc
+    server/auth/permissions.cc
+    server/auth/session_manager.cc
+    server/cli/server.cc
+    server/database/connection.cc
+    server/database/database.cc
+    server/database/db_cleanup.cc
+    server/database/schema.cc
+    server/http/api_dispatch.cc
+    server/http/http_server.cc
+    server/http/routing.cc
+    server/product.cc
+    server/server_config.cc
+    server/supervisor/instance_manager.cc
+    server/supervisor/supervisor.cc
+    server/tasks/task_manager.cc)
+  target_link_libraries(cc_server PUBLIC cc_web third_party::httplib
+    third_party::sqlite3 third_party::pq third_party::ssl)
 endif()
 
 # The program is built into bin/ and the version files into config/, so the
@@ -138,7 +206,7 @@ add_executable(codechecker-cpp
 target_link_libraries(codechecker-cpp PRIVATE cc_analyzer)
 if(CC_BUILD_WEB)
   target_sources(codechecker-cpp PRIVATE launcher/web_subcommands.cc)
-  target_link_libraries(codechecker-cpp PRIVATE cc_web)
+  target_link_libraries(codechecker-cpp PRIVATE cc_server)
 else()
   target_sources(codechecker-cpp PRIVATE launcher/no_web_subcommands.cc)
 endif()

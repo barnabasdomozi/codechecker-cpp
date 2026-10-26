@@ -35,7 +35,7 @@ The porting order is in
 | Analysis | Checker selection | [checker-selection.md](docs/usage/checker-selection.md) | ✅ | |
 | Analysis | Analyzer configuration | [analyzer-configuration.md](docs/usage/analyzer-configuration.md) | ✅ | |
 | Analysis | Compiler info | [compiler-info.md](docs/usage/compiler-info.md) | ✅ | |
-| Analysis | `--config` files | [config-file.md](docs/usage/config-file.md) | 🟡 | `analyze`, `parse` and `check`; `store` and `server` come with those commands |
+| Analysis | `--config` files | [config-file.md](docs/usage/config-file.md) | 🟡 | `analyze`, `parse`, `check` and `server`; `store` comes with that command |
 | Analysis | Skip and file filters | [skip-and-file-filters.md](docs/usage/skip-and-file-filters.md) | ✅ | |
 | Analysis | CTU analysis | [ctu-analysis.md](docs/usage/ctu-analysis.md) | ✅ | |
 | Analysis | Statistical analysis | [statistical-analysis.md](docs/usage/statistical-analysis.md) | 🟡 | `analyze --stats` is ported; the `post-process-stats` program is not |
@@ -47,12 +47,12 @@ The porting order is in
 | Local results | Review status and suppression | [review-status-and-suppression.md](docs/usage/review-status-and-suppression.md) | ✅ | |
 | Local results | `fixit` | [fixit.md](docs/usage/fixit.md) | ❌ | |
 | Local results | Local diff (`cmd diff` on folders) | [local-diff.md](docs/usage/local-diff.md) | ❌ | |
-| Server | Thrift API (`cc_api`) | [server-api](docs/reference/server-api.md) | 🟡 | `api_version.json` only; no generated stubs yet |
-| Server | `server` | [server.md](docs/usage/server.md) | ❌ | |
-| Server | Server database | [server-database.md](docs/usage/server-database.md) | ❌ | |
-| Server | Authentication | [server-authentication.md](docs/usage/server-authentication.md) | ❌ | |
+| Server | Thrift API (`cc_api`) | [server-api](docs/reference/server-api.md) | ✅ | C++ code generated from the copied IDL files ([build-system.md](docs/implementation/build-system.md#43-generated-files) §4.3); HTTP layer and routing of the server |
+| Server | `server` | [server.md](docs/usage/server.md) | 🟡 | Start-up, instance commands, processes and signals, TLS, the `ServerInfo`, `Configuration`, `Products` and `Authentication` services. The `CodeCheckerService` and `Tasks` services are not served yet, so task workers run no tasks |
+| Server | Server database | [server-database.md](docs/usage/server-database.md) | 🟡 | Latest schema on SQLite and PostgreSQL, status checks, garbage collection; `--db-status` and `--db-upgrade-schema` are ignored as in 6.30.0 (known issue #1) |
+| Server | Authentication | [server-authentication.md](docs/usage/server-authentication.md) | 🟡 | Server side: sessions, dictionary and personal access token logins, permissions, tokens. LDAP and OAuth are missing; the client is not ported |
 | Server | `store` | [store.md](docs/usage/store.md) | ❌ | |
-| Server | Web UI | [web-ui.md](docs/usage/web-ui.md) | ❌ | |
+| Server | Web UI | [web-ui.md](docs/usage/web-ui.md) | 🟡 | Built from the copied sources and served; the result pages need `CodeCheckerService` |
 | `cmd` client | `cmd runs`, `cmd history` | [cmd-runs-history.md](docs/usage/cmd-runs-history.md) | ❌ | |
 | `cmd` client | `cmd results` | [cmd-results.md](docs/usage/cmd-results.md) | ❌ | |
 | `cmd` client | `cmd sum` | [cmd-sum.md](docs/usage/cmd-sum.md) | ❌ | |
@@ -77,7 +77,12 @@ Some black-box tests need commands that are not ported yet. The
 `report-converter` tests that read results back need `parse`; they pass with
 the C++ `report-converter` next to the Python `CodeChecker`. The `analyze`
 tests run with a wrapper that sends `analyze` to `codechecker-cpp` and the
-other subcommands to the Python `CodeChecker`.
+other subcommands to the Python `CodeChecker`. The server tests
+(`tests/server/`) run the same way, with a wrapper that sends `server` to
+`codechecker-cpp` and the client commands (`cmd`, `store`) to the Python
+`CodeChecker`. With it, `server.test.ts`, `server-database.test.ts` and
+`web-ui.test.ts` pass except the three tests that store results or list
+runs, which need `CodeCheckerService`.
 
 ## Goals
 

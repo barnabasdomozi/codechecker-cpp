@@ -1,0 +1,80 @@
+<template>
+  <v-card
+    :loading="loading"
+    flat
+  >
+    <v-container>
+      <v-row
+        align="center"
+      >
+        <v-col
+          cols="auto"
+        >
+          <v-avatar
+            :color="color"
+            size="64"
+            rounded="sm"
+            class="ma-2 widget-avatar"
+          >
+            <v-icon
+              size="48"
+              color="white"
+            >
+              {{ icon }}
+            </v-icon>
+          </v-avatar>
+        </v-col>
+        <v-col
+          class="text-center"
+        >
+          <div
+            class="text-subtitle-1 text-grey text-uppercase"
+          >
+            {{ label }}
+
+            <tooltip-help-icon>
+              <slot name="help" />
+            </tooltip-help-icon>
+          </div>
+          <div
+            class="text-h3 font-weight-bold"
+          >
+            <slot
+              name="value"
+              :value="value"
+            >
+              {{ value }}
+            </slot>
+
+            <slot name="append-value" />
+          </div>
+        </v-col>
+      </v-row>
+    </v-container>
+  </v-card>
+</template>
+
+<script setup>
+import TooltipHelpIcon from "@/components/TooltipHelpIcon";
+
+defineProps({
+  icon: { type: String, required: true },
+  color: { type: String, required: true },
+  label: { type: String, required: true },
+  helpMessage: { type: String, default: null },
+  bus: { type: Object, required: true },
+  value: { type: Number, default: null },
+  loading: { type: Boolean, default: false }
+});
+
+</script>
+
+<style lang="scss" scoped>
+.v-card {
+  border: thin solid rgba(0, 0, 0, 0.12);
+}
+.widget-avatar {
+  border-radius: 4px !important;
+}
+
+</style>

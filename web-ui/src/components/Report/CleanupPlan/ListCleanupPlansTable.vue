@@ -1,0 +1,115 @@
+<template>
+  <v-data-table
+    :headers="headers"
+    :items="items"
+    :items-per-page="25"
+    :items-per-page-options="itemsPerPageOptions"
+    :loading="loading"
+    loading-text="Loading cleanup plans..."
+    no-data-text="There aren't any cleanup plan that match."
+    item-key="name"
+  >
+    <template v-slot:item.dueDate="{ item }">
+      <span v-if="item.dueDate">
+        <due-date
+          :value="item.dueDate"
+          :hide-label="true"
+        />
+      </span>
+    </template>
+
+    <template v-slot:item.closedAt="{ item }">
+      <span v-if="item.closedAt">
+        {{ fromUnixTime(item.closedAt) }}
+      </span>
+    </template>
+
+    <template v-slot:item.actions="{ item }">
+      <v-btn
+        class="edit-btn"
+        color="primary"
+        size="small"
+        variant="text"
+        icon="mdi-pencil-outline"
+        @click="emit('edit', item)"
+      />
+
+      <v-btn
+        v-if="item.closedAt"
+        class="reopen-btn"
+        size="small"
+        color="green"
+        variant="text"
+        icon="mdi-refresh"
+        @click="emit('reopen', item)"
+      />
+
+      <v-btn
+        v-else
+        class="close-btn"
+        size="small"
+        color="green"
+        variant="text"
+        icon="mdi-close-circle-outline"
+        @click="emit('close', item)"
+      />
+
+      <v-btn
+        class="remove-btn"
+        size="small"
+        color="error"
+        variant="text"
+        icon="mdi-trash-can-outline"
+        @click="emit('remove', item)"
+      />
+    </template>
+  </v-data-table>
+</template>
+
+<script setup>
+import { fromUnixTime } from "@/filters/from-unix-time";
+import { computed } from "vue";
+import DueDate from "./DueDate";
+
+const props = defineProps({
+  items: { type: Array, required: true },
+  loading: { type: Boolean, default: false },
+  hideCols: { type: Array, default: () => [] }
+});
+
+const emit = defineEmits([ "remove", "close", "reopen", "edit" ]);
+
+const itemsPerPageOptions = [
+  { value: 25, title: "25" },
+  { value: 50, title: "50" },
+  { value: 100, title: "100" }
+];
+
+const headers = computed(() => [
+  {
+    title: "Name",
+    key: "name",
+    sortable: true
+  },
+  {
+    title: "Description",
+    key: "description",
+    sortable: true
+  },
+  {
+    title: "Due date",
+    key: "dueDate",
+    sortable: true
+  },
+  {
+    title: "Closed at",
+    key: "closedAt",
+    sortable: true
+  },
+  {
+    title: "Actions",
+    key: "actions",
+    sortable: false
+  },
+].filter(c => !props.hideCols.includes(c.value)));
+</script>

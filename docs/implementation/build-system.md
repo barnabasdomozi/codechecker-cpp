@@ -15,10 +15,9 @@ Clang 19.1, CMake 3.31.6) on 2026-10-25.
 
 **Implemented:** the submodules (§2), the deps build (§3), the imported
 targets, options and checks of §4.1–4.2, the version files and the API
-version header (§4.3), ldlogger (§4.4), the presets, the `blackbox` target
-and the license files (§5). The rest is built together with the parts that
-need it: Thrift code generation (§4.3) with the client and the server, the
-web UI (§4.5) with the server, and CI (§6) when CI is set up.
+version header and the Thrift code generation (§4.3), ldlogger (§4.4), the
+web UI (§4.5), the presets, the `blackbox` target and the license files
+(§5). CI (§6) comes when CI is set up.
 
 ## Decisions
 
@@ -440,13 +439,32 @@ ssl.
 
 ### 4.3 Generated files
 
-- **Thrift code.** For every `api/*.thrift`, a custom command runs
-  `${CC_DEPS_PREFIX}/bin/thrift --gen cpp` into `build/<preset>/gen/api/`.
-  The output is compiled into `cc_api` and regenerated when the `.thrift`
-  file or the compiler changes. Nothing generated is checked in
-  ([libraries.md](libraries.md#rpc-apache-thrift)). For the web UI, the same
-  compiler runs with `--gen js:node`, as `codechecker_api/Makefile` does in
-  the Python project.
+- **Thrift code.** `cmake/ThriftGenerate.cmake` runs
+  `${CC_DEPS_PREFIX}/bin/thrift --gen cpp:no_skeleton` on every
+  `api/*.thrift` into `build/<preset>/gen/api/thrift/`; the headers are
+  included as `"api/thrift/<file>.h"`. The output is compiled into `cc_api`
+  (without the project's warnings) and regenerated when an IDL file, the
+  script or the compiler changes. Nothing generated is checked in
+  ([libraries.md](libraries.md#rpc-apache-thrift)). Two adjustments make the
+  C++ code behave like the Python stubs; the IDL files stay unchanged:
+  - `report_server.thrift` uses five structs (`DateInterval`, `BlameData`,
+    `CommitAuthor`, `Commit`, `BlameInfo`) before it declares them, which the
+    C++ generator cannot compile. The compiler reads a copy in
+    `gen/api/thrift/idl/` where these structs come first. Field ids and
+    types do not change, so the wire format is the same.
+  - The C++ generator always sends the fields that are not `optional`, with
+    `0` or `""` when they were never set; Python sends only the fields that
+    are not `None`, and Python clients print the difference (`cmd products
+    list -o json`). The generated struct writers send such a field only if
+    its `__isset` flag is set, and its setter sets the flag. Handlers
+    therefore set every field they send with `__set_<field>()`, and a
+    field left unset is Python's `None`. The arguments of a call have no
+    such flag: where Python tells `None` from a value (the `limit` and
+    `offset` of `getProducts()`), the handler takes `0` as `None`.
+
+  For the web UI, the same compiler runs with `-r --gen js:node` on the
+  original IDL files, as `codechecker_api/Makefile` does in the Python
+  project. The resulting `www/` is byte for byte the reference's.
 - **API version.** `api/api_version.json` is read with `string(JSON)` at
   configure time and written into a header
   ([architecture.md](architecture.md#9-thrift-api-cc_api) §9).

@@ -1,0 +1,118 @@
+<template>
+  <v-list-item
+    two-line
+    density="compact"
+  >
+    <v-list-item-title
+      class="text-body-2"
+    >
+      <router-link
+        :to="{ name: 'reports',
+               query: {
+                 ...defaultReportFilterValues,
+                 ...reportFilterQuery
+               }
+        }"
+        class="name mr-2 text-grey-darken-4 text-subtitle-1"
+        @click.stop
+      >
+        <span>{{ name }}</span>
+      </router-link>
+
+      <run-description
+        v-if="description"
+        :value="description"
+      />
+
+      <version-tag
+        v-if="versionTag"
+        :value="versionTag"
+      />
+    </v-list-item-title>
+
+    <v-list-item-subtitle @click.stop>
+      <v-btn-group
+        class="overflow-visible"
+        density="compact"
+      >
+        <show-statistics-btn
+          :extra-queries="statisticsFilterQuery"
+        />
+
+        <v-divider
+          class="mx-2 d-inline"
+          length="20"
+          inset
+          vertical
+        />
+
+        <analysis-info-dialog
+          :run-id="runId"
+          :icon-only="true"
+          icon-size="default"
+        />
+
+        <v-divider
+          class="mx-2 d-inline"
+          length="20"
+          inset
+          vertical
+        />
+
+        <v-btn
+          v-for="(value, status) in detectionStatusCount"
+          :key="status"
+          :to="{ name: 'reports', query: {
+            run: name,
+            'detection-status': detectionStatusFromCodeToString(status)
+          }}"
+          class="detection-status-count"
+          variant="text"
+        >
+          <detection-status-icon
+            class="mr-1"
+            :status="parseInt(status)"
+            :size="16"
+          />
+          ({{ value }})
+        </v-btn>
+      </v-btn-group>
+    </v-list-item-subtitle>
+  </v-list-item>
+</template>
+
+<script setup>
+import { RunDescription } from "@/components/Run";
+import { computed } from "vue";
+
+import { defaultReportFilterValues } from "@/components/Report/ReportFilter";
+
+import { DetectionStatusIcon } from "@/components/Icons";
+import { useDetectionStatus } from "@/composables/useDetectionStatus";
+import { AnalysisInfoDialog } from "@/components";
+import ShowStatisticsBtn from "./ShowStatisticsBtn";
+import VersionTag from "./VersionTag";
+
+defineProps({
+  runId: { type: Object, required: true },
+  name: { type: String, required: true },
+  description: { type: String, default: null },
+  versionTag: { type: String, default: null },
+  detectionStatusCount: { type: Object, default: () => {} },
+  showRunHistory: { type: Boolean, default: true },
+  reportFilterQuery: { type: Object, default: () => {} },
+  statisticsFilterQuery: { type: Object, default: () => {} },
+});
+
+const detectionStatus = useDetectionStatus();
+
+const detectionStatusFromCodeToString = computed(function() {
+  return detectionStatus.detectionStatusFromCodeToString;
+});
+</script>
+
+<style lang="scss" scoped>
+.v-list-item__title {
+  white-space: normal;
+}
+</style>

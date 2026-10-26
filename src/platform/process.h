@@ -5,11 +5,23 @@
 #define CC_PLATFORM_PROCESS_H_
 
 #include <stdint.h>
+#include <sys/types.h>
 
 #include <functional>
+#include <optional>
 #include <string>
 
 namespace cc::platform {
+
+// The entry of a user in the password database.
+struct UserEntry {
+  std::string name;
+  std::string home;  // The home folder.
+};
+
+// Returns the entry of the user `uid` in the password database (Python:
+// pwd.getpwuid(uid)); nullopt if there is none.
+std::optional<UserEntry> UserOfId(uid_t uid);
 
 // Returns the absolute path of the running executable, with symbolic links
 // resolved (/proc/self/exe). Empty if it cannot be read.
@@ -17,6 +29,14 @@ std::string ExecutablePath();
 
 // Returns the process id (Python: os.getpid()).
 int ProcessId();
+
+// Returns the name of this computer (Python: socket.gethostname()).
+std::string HostName();
+
+// Returns the login name of the user (Python: getpass.getuser()): the first
+// of LOGNAME, USER, LNAME and USERNAME that is set, else the name of the
+// user who runs the process.
+std::string UserName();
 
 // Returns the id of the calling thread as Python's threading.get_ident()
 // prints it.

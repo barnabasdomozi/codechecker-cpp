@@ -1,0 +1,127 @@
+<template>
+  <v-dialog
+    v-model="dialog"
+    persistent
+    :content-class="contentClass"
+    :max-width="maxWidth"
+    :scrollable="scrollable"
+  >
+    <template v-slot:activator="{ props: activatorProps }">
+      <slot name="activator" :props="activatorProps" />
+    </template>
+
+    <v-card
+      v-if="loading"
+      color="bg-primary"
+      rounded="lg"
+    >
+      <v-card-text>
+        Loading...
+        <v-progress-linear
+          indeterminate
+          color="white"
+          class="mb-0"
+        />
+      </v-card-text>
+    </v-card>
+
+    <v-card
+      v-else
+      :title="props.title"
+      :prepend-icon="props.icon"
+      rounded="lg"
+    >
+      <template v-slot:append>
+        <v-btn
+          class="close-btn"
+          icon="mdi-close"
+          size="default"
+          variant="text"
+          @click="dialog = false"
+        />
+      </template>
+
+      <v-progress-linear v-if="confirmInProgress" indeterminate />
+
+      <v-card-text class="pa-0">
+        <v-container
+          class="pa-4 pt-1"
+          fluid
+        >
+          <slot name="content" />
+        </v-container>
+      </v-card-text>
+
+      <v-divider />
+
+      <v-card-actions
+        v-if="props.buttons"
+      >
+        <v-spacer />
+
+        <v-btn
+          variant="text"
+          class="cancel-btn"
+          :color="cancelBtnColor"
+          @click="cancelDialog()"
+        >
+          {{ cancelBtnLabel }}
+        </v-btn>
+
+        <v-btn
+          variant="flat"
+          class="confirm-btn"
+          :color="confirmBtnColor"
+          @click="emit('confirm')"
+        >
+          {{ confirmBtnLabel }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+</template>
+
+<script setup>
+import { computed } from "vue";
+
+const props = defineProps({
+  modelValue: { type: Boolean, default: false },
+  buttons: { type: Boolean, default: true },
+  cancelBtnLabel: { type: String, default: "Cancel" },
+  cancelBtnColor: { type: String, default: "grey" },
+  confirmBtnLabel: { type: String, default: "Save" },
+  confirmBtnColor: { type: String, default: "primary" },
+  confirmInProgress: { type: Boolean, default: false },
+  maxWidth: { type: String, default: "600px" },
+  scrollable: { type: Boolean, default: true },
+  loading: { type: Boolean, default: false },
+  contentClass: { type: String, default: null },
+  title: { type: String, default: null },
+  icon: { type: String, default: null }
+});
+
+const emit = defineEmits([
+  "confirm",
+  "cancel",
+  "update:modelValue"
+]);
+
+const dialog = computed({
+  get() {
+    return props.modelValue;
+  },
+  set(value) {
+    emit("update:modelValue", value);
+  }
+});
+
+function cancelDialog() {
+  emit("cancel");
+  dialog.value = false;
+}
+</script>
+<style scoped>
+:deep(.v-card-item) {
+  padding: 16px 16px 8px 16px !important;
+}
+</style>

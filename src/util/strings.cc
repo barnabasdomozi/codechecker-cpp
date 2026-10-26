@@ -32,6 +32,14 @@ size_t FirstNonSpace(std::string_view text) {
   return text.size();
 }
 
+// Returns the value of the hex digit `c`; nullopt if it is not one.
+std::optional<int> HexDigitValue(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return std::nullopt;
+}
+
 }  // namespace
 
 std::string Repr(std::string_view text) {
@@ -175,10 +183,10 @@ std::vector<std::string> SplitWhitespace(std::string_view text) {
 }
 
 std::vector<std::string> Split(std::string_view text,
-                               std::string_view separator) {
+                               std::string_view separator, int max_splits) {
   std::vector<std::string> parts;
   size_t start = 0;
-  while (true) {
+  while (max_splits < 0 || static_cast<int>(parts.size()) < max_splits) {
     const size_t found = text.find(separator, start);
     if (found == std::string_view::npos) break;
     parts.emplace_back(text.substr(start, found - start));
@@ -300,6 +308,28 @@ std::string Join(const std::vector<std::string>& parts,
     result += parts[i];
   }
   return result;
+}
+
+std::string BracketIpv6Host(std::string_view host) {
+  if (host.find(':') == std::string_view::npos) return std::string(host);
+  return std::format("[{}]", host);
+}
+
+std::string PercentDecode(std::string_view text) {
+  std::string decoded;
+  for (size_t i = 0; i < text.size(); ++i) {
+    if (text[i] == '%' && i + 2 < text.size()) {
+      const std::optional<int> high = HexDigitValue(text[i + 1]);
+      const std::optional<int> low = HexDigitValue(text[i + 2]);
+      if (high && low) {
+        decoded += static_cast<char>(*high * 16 + *low);
+        i += 2;
+        continue;
+      }
+    }
+    decoded += text[i];
+  }
+  return decoded;
 }
 
 }  // namespace cc::util

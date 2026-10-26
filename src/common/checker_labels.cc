@@ -11,8 +11,10 @@
 #include <utility>
 #include <vector>
 
+#include "common/package.h"
 #include "common/util.h"
 #include "platform/filesystem.h"
+#include "platform/subprocess.h"
 #include "util/json.h"
 #include "util/pypath.h"
 #include "util/result.h"
@@ -64,6 +66,14 @@ Result<std::vector<Label>> CheckerLabelList(const std::string& checker,
 }
 
 }  // namespace
+
+std::string LabelsDirectory() {
+  if (const std::optional<std::string> test_dir =
+          platform::GetEnv("CC_TEST_LABELS_DIR")) {
+    return *test_dir;
+  }
+  return util::pypath::Join({DataFilesDir(), "config", "labels"});
+}
 
 Label SplitLabel(std::string_view key_value) {
   const size_t colon = key_value.find(':');
@@ -177,6 +187,12 @@ std::vector<std::string> CheckerLabels::CheckersByLabels(
     }
   }
   return result;
+}
+
+std::vector<std::string> CheckerLabels::Analyzers() const {
+  std::vector<std::string> names;
+  for (const Analyzer& data : analyzers_) names.push_back(data.name);
+  return names;
 }
 
 std::vector<std::string> CheckerLabels::Checkers(

@@ -4,6 +4,8 @@
 
 add_executable(util_test
   argparse_test.cc
+  base64_test.cc
+  datetime_test.cc
   fnmatch_test.cc
   json_test.cc
   plist_test.cc

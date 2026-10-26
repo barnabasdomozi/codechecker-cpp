@@ -1,5 +1,6 @@
 #include "platform/filesystem.h"
 
+#include <errno.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -12,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "platform/process.h"
 #include "platform/subprocess.h"
 
 namespace cc::platform {
@@ -67,6 +69,25 @@ std::optional<double> ModificationTime(const std::string& path) {
   // Python computes st_mtime in the same way.
   return static_cast<double>(status.st_mtim.tv_sec) +
          static_cast<double>(status.st_mtim.tv_nsec) * 1.0e-9;
+}
+
+std::optional<int> FileMode(const std::string& path) {
+  struct stat status = {};
+  if (stat(path.c_str(), &status) != 0) return std::nullopt;
+  return static_cast<int>(status.st_mode & 07777);
+}
+
+std::error_code SetFileMode(const std::string& path, int mode) {
+  if (chmod(path.c_str(), static_cast<mode_t>(mode)) != 0) {
+    return std::error_code(errno, std::generic_category());
+  }
+  return {};
+}
+
+std::string HomeDirectory() {
+  if (const std::optional<std::string> home = GetEnv("HOME")) return *home;
+  const std::optional<UserEntry> user = UserOfId(getuid());
+  return user ? user->home : std::string();
 }
 
 std::error_code MakeDirs(const std::string& path) {

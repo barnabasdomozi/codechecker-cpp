@@ -54,9 +54,11 @@ std::vector<std::string_view> StrSplitLines(std::string_view text);
 std::vector<std::string> SplitWhitespace(std::string_view text);
 
 // Returns the parts of `text` between occurrences of `separator`, which must
-// not be empty (Python: str.split(separator)).
+// not be empty, split at the first `max_splits` occurrences only if it is not
+// negative (Python: str.split(separator, max_splits)).
 std::vector<std::string> Split(std::string_view text,
-                               std::string_view separator);
+                               std::string_view separator,
+                               int max_splits = -1);
 
 // Returns `text` with every `from` replaced by `to`; `from` must not be
 // empty (Python: str.replace(from, to)).
@@ -82,6 +84,14 @@ std::string LeftJustify(std::string_view text, int width);
 // Returns `text` with the characters & < > " ' replaced by HTML character
 // references (Python: html.escape(text)).
 std::string HtmlEscape(std::string_view text);
+
+// Returns `text` with its %XX escapes decoded (Python:
+// urllib.parse.unquote_to_bytes()).
+std::string PercentDecode(std::string_view text);
+
+// Returns `host` in brackets if it is an IPv6 address, which has a ':', as
+// URLs and the server's log lines write a host: "[::1]", "localhost".
+std::string BracketIpv6Host(std::string_view host);
 
 // Returns `parts` joined with `separator` between them (Python:
 // separator.join(parts)).

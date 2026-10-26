@@ -2,7 +2,9 @@
 
 #include <errno.h>
 #include <execinfo.h>
+#include <limits.h>
 #include <pthread.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -15,6 +17,7 @@
 #include <exception>
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <string>
 #include <system_error>
 
@@ -58,6 +61,27 @@ std::string ExecutablePath() {
 }
 
 int ProcessId() { return getpid(); }
+
+std::string HostName() {
+  char name[HOST_NAME_MAX + 1] = {};
+  if (gethostname(name, sizeof(name) - 1) != 0) return {};
+  return name;
+}
+
+std::optional<UserEntry> UserOfId(uid_t uid) {
+  const struct passwd* entry = getpwuid(uid);
+  if (entry == nullptr) return std::nullopt;
+  return UserEntry{.name = entry->pw_name, .home = entry->pw_dir};
+}
+
+std::string UserName() {
+  for (const char* variable : {"LOGNAME", "USER", "LNAME", "USERNAME"}) {
+    const std::optional<std::string> value = GetEnv(variable);
+    if (value && !value->empty()) return *value;
+  }
+  const std::optional<UserEntry> user = UserOfId(getuid());
+  return user ? user->name : std::string();
+}
 
 uint64_t ThreadId() {
   // pthread_t is an integer on Linux; Python's get_ident() prints it.

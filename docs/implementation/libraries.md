@@ -584,7 +584,9 @@ the main process created.
   `cert.pem` / `key.pem` and sets the minimum protocol version so TLS 1.0
   and 1.1 stay disabled.
 - **IPv4 / IPv6:** `set_address_family()`; keep-alive and other socket
-  options through `set_socket_options()`.
+  options through `set_socket_options()`. Its default options set
+  `SO_REUSEPORT`, which would let a second server listen on a port that is
+  in use, so the server replaces them with Python's `SO_REUSEADDR`.
 - **Security headers:** `set_default_headers()` (or
   `set_post_routing_handler()` where a header depends on the request).
 - **`OPTIONS` → 403:** an `Options()` handler for every path.

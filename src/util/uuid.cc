@@ -1,9 +1,12 @@
 #include "util/uuid.h"
 
 #include <openssl/rand.h>
+#include <stddef.h>
 
 #include <format>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace cc::util {
 
@@ -17,6 +20,18 @@ std::string Uuid4() {
     if (i == 4 || i == 6 || i == 8 || i == 10) text += '-';
     text += std::format("{:02x}", bytes[i]);
   }
+  return text;
+}
+
+std::optional<std::string> RandomHexToken(int length) {
+  if (length <= 0) return std::string();
+  std::vector<unsigned char> bytes(static_cast<size_t>((length + 1) / 2));
+  if (RAND_bytes(bytes.data(), static_cast<int>(bytes.size())) != 1) {
+    return std::nullopt;
+  }
+  std::string text;
+  for (const unsigned char byte : bytes) text += std::format("{:02x}", byte);
+  text.resize(static_cast<size_t>(length));
   return text;
 }
 

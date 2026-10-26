@@ -32,6 +32,24 @@ TEST(StringsTest, SplitWhitespace) {
 
 TEST(StringsTest, Split) {
   EXPECT_EQ(Split("a::b:", ":"), (std::vector<std::string>{"a", "", "b", ""}));
+  // Python: 'a:b:c:d'.split(':', 2) and 'a'.split(':', 0).
+  EXPECT_EQ(Split("a:b:c:d", ":", 2),
+            (std::vector<std::string>{"a", "b", "c:d"}));
+  EXPECT_EQ(Split("a:b", ":", 0), (std::vector<std::string>{"a:b"}));
+}
+
+TEST(StringsTest, BracketIpv6Host) {
+  EXPECT_EQ(BracketIpv6Host("::1"), "[::1]");
+  EXPECT_EQ(BracketIpv6Host("localhost"), "localhost");
+}
+
+TEST(StringsTest, PercentDecode) {
+  // Python: urllib.parse.unquote_to_bytes('a%2Fb%zz%4').
+  EXPECT_EQ(PercentDecode("a%2Fb%zz%4"), "a/b%zz%4");
+  EXPECT_EQ(PercentDecode("%41%42"), "AB");
+  // Signs are not hex digits: Python keeps '%-1' and '%+1'.
+  EXPECT_EQ(PercentDecode("a%-1b%+1"), "a%-1b%+1");
+  EXPECT_EQ(PercentDecode("%e9%E9"), "\xe9\xe9");
 }
 
 TEST(StringsTest, Replace) {

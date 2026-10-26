@@ -1,0 +1,141 @@
+import { createRouter, createWebHistory } from "vue-router";
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    {
+      path: "/",
+      name: "products",
+      alias: [ "/products.html" ],
+      meta: {
+        requiresAuth: true
+      },
+      component: () => import("@/views/Products")
+    },
+    {
+      path: "/login",
+      name: "login",
+      alias: [ "/login.html" ],
+      component: () => import("@/views/Login")
+    },
+    {
+      path: "/login/OAuthLogin/:provider",
+      name: "oauthlogin",
+      component: () => import("@/views/OAuthLogin")
+    },
+    {
+      path: "/userguide",
+      name: "userguide",
+      component: () => import("@/views/Userguide"),
+    },
+    {
+      path: "/new-features",
+      name: "new-features",
+      component: () => import("@/views/NewFeatures")
+    },
+    {
+      path: "/404",
+      name: "404",
+      component: () => import("@/views/NotFound")
+    },
+    {
+      // Should be kept in sync with the regex from is_valid_product_endpoint
+      // on the backend.
+      path: "/:endpoint([A-Za-z0-9_-]+)?",
+      meta: {
+        requiresAuth: true
+      },
+      component: () => import("@/views/ProductDetail"),
+      children: [
+        {
+          path: "",
+          name: "main_runs",
+          component: () => import("@/views/RunList")
+        },
+        {
+          path: "runs",
+          name: "runs",
+          component: () => import("@/views/RunList")
+        },
+        {
+          path: "statistics",
+          name: "statistics",
+          redirect: { name: "product-overview" },
+          component: () => import("@/views/Statistics"),
+          children: [
+            {
+              path: "overview",
+              name: "product-overview",
+              component: () =>
+                import("@statistics/Overview/Overview"),
+            },
+            {
+              path: "checker",
+              name: "checker-statistics",
+              component: () =>
+                import("@statistics/Checker/CheckerStatistics"),
+            },
+            {
+              path: "severity",
+              name: "severity-statistics",
+              component: () =>
+                import("@statistics/Severity/SeverityStatistics"),
+            },
+            {
+              path: "component",
+              name: "component-statistics",
+              component: () => import(
+                "@statistics/Component/ComponentStatistics"),
+            },
+            {
+              path: "coverage",
+              name: "checker-coverage-statistics",
+              component: () =>
+                import(
+                  "@statistics/CheckerCoverage/CheckerCoverageStatistics"
+                ),
+            },
+            {
+              path: "guideline",
+              name: "guideline-statistics",
+              component: () => import(
+                "@/components/Statistics/Guideline/GuidelineStatistics"
+              ),
+            },
+          ]
+        },
+        {
+          path: "reports",
+          name: "reports",
+          component: () => import("@/views/Reports")
+        },
+        {
+          path: "report-detail",
+          name: "report-detail",
+          component: () => import("@/views/ReportDetail")
+        },
+        {
+          path: "cleanup-plan",
+          name: "cleanup-plan",
+          component: () => import("@/views/CleanupPlan")
+        },
+        {
+          path: "review-status-rules",
+          name: "review-status-rules",
+          component: () => import("@/views/ReviewStatusRules")
+        },
+        {
+          path: "source-component",
+          name: "source-component",
+          component: () => import("@/views/SourceComponent")
+        },
+      ]
+    },
+    {
+      path: "/:unknown(.*)*",
+      redirect: "/404"
+    }
+  ]
+});
+
+export default router;

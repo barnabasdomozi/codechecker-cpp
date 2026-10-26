@@ -245,6 +245,10 @@ class Parser {
   std::string FormatUsage() const;
   std::string FormatHelp() const;
 
+  // Prints the usage and "<prog>: error: <message>" on stderr and returns
+  // the error to end the command with (Python: error()).
+  Error Fail(std::string_view message) const;
+
  private:
   using Action = internal_argparse::Action;
   struct OptionTuple;
@@ -267,10 +271,6 @@ class Parser {
   std::optional<Error> TakeAction(const Action& action,
                                   const std::vector<std::string>& values,
                                   KnownArgs* known) const;
-  // Prints the usage and "<prog>: error: <message>" on stderr and returns
-  // the error to end the command with (Python: error()).
-  Error Fail(std::string_view message) const;
-
   std::string prog_;
   std::string description_;
   std::string epilog_;

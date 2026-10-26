@@ -231,11 +231,6 @@ Result<AnalyzerContext*> GetContext() {
         const std::string data_files_dir = common::DataFilesDir();
         const std::string config_dir =
             util::pypath::Join({data_files_dir, "config"});
-        std::string labels_dir = util::pypath::Join({config_dir, "labels"});
-        if (const std::optional<std::string> test_dir =
-                platform::GetEnv("CC_TEST_LABELS_DIR")) {
-          labels_dir = *test_dir;
-        }
         const Result<util::JsonDocument> config = LoadPackageConfig(
             util::pypath::Join({config_dir, "config.json"}));
         if (!config.ok()) return Result<AnalyzerContext*>(config.error());
@@ -243,7 +238,7 @@ Result<AnalyzerContext*> GetContext() {
             util::pypath::Join({config_dir, "package_layout.json"}));
         if (!layout.ok()) return Result<AnalyzerContext*>(layout.error());
         Result<common::CheckerLabels> labels =
-            common::CheckerLabels::Load(labels_dir);
+            common::CheckerLabels::Load(common::LabelsDirectory());
         if (!labels.ok()) {
           kLog.Error(labels.error().message);
           return Result<AnalyzerContext*>(Error{});

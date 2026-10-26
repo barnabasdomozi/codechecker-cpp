@@ -21,6 +21,9 @@ endif()
 
 option(CC_BUILD_WEB "Build the web side (store, cmd, server)" ON)
 option(CC_BUILD_TESTS "Build the unit tests" ON)
+option(CC_BUILD_WEB_UI "Build the web UI (www/) with npm" ${CC_BUILD_WEB})
+set(CC_WEB_UI_DIR "" CACHE PATH
+    "A prebuilt www/ folder to install instead of building the web UI")
 option(CC_LDLOGGER_32BIT
        "Also build the 32-bit ldlogger.so (needs gcc-multilib)" ON)
 option(CC_WERROR "Treat warnings in project code as errors" OFF)
@@ -105,6 +108,60 @@ if(CC_LDLOGGER_32BIT)
 endif()
 
 add_subdirectory(src)
+
+# The web UI (build-system.md §4.5): the copied sources are built with npm in
+# the build folder, with the JavaScript stubs of our Thrift compiler, into
+# www/ next to bin/.
+set(www_dir ${PROJECT_BINARY_DIR}/www)
+if(CC_BUILD_WEB AND CC_BUILD_WEB_UI)
+  set(web_ui_root ${PROJECT_BINARY_DIR}/web-ui)
+  set(vue_dir ${web_ui_root}/web/server/vue-cli)
+  set(api_js_dir ${web_ui_root}/codechecker_api/js)
+  file(GLOB_RECURSE web_ui_sources CONFIGURE_DEPENDS
+       ${PROJECT_SOURCE_DIR}/web-ui/*)
+  file(GLOB thrift_idl_files ${PROJECT_SOURCE_DIR}/api/*.thrift)
+  find_program(CC_NPM npm REQUIRED)
+  file(MAKE_DIRECTORY ${vue_dir})
+  add_custom_command(
+    OUTPUT ${vue_dir}/node_modules/.cc-npm-ci
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${PROJECT_SOURCE_DIR}/web-ui/package.json
+            ${PROJECT_SOURCE_DIR}/web-ui/package-lock.json
+            ${PROJECT_SOURCE_DIR}/web-ui/.npmrc ${vue_dir}
+    COMMAND ${CC_NPM} ci --no-audit --no-fund
+    COMMAND ${CMAKE_COMMAND} -E touch ${vue_dir}/node_modules/.cc-npm-ci
+    DEPENDS ${PROJECT_SOURCE_DIR}/web-ui/package-lock.json
+    WORKING_DIRECTORY ${vue_dir}
+    COMMENT "Installing the npm packages of the web UI"
+    VERBATIM)
+  add_custom_command(
+    OUTPUT ${www_dir}/index.html
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${PROJECT_SOURCE_DIR}/web-ui ${vue_dir}
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${api_js_dir}
+    COMMAND ${CMAKE_COMMAND}
+            -DTHRIFT=${CC_DEPS_PREFIX}/bin/thrift
+            -DIDL_DIR=${PROJECT_SOURCE_DIR}/api
+            -DOUT_DIR=${api_js_dir}
+            -DLANGUAGE=js
+            -P ${PROJECT_SOURCE_DIR}/cmake/ThriftGenerate.cmake
+    COMMAND ${CMAKE_COMMAND} -E copy
+            ${PROJECT_SOURCE_DIR}/api/api_version.json
+            ${web_ui_root}/codechecker_api/api_version.json
+    COMMAND ${CC_NPM} run build
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${www_dir}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${vue_dir}/dist ${www_dir}
+    DEPENDS ${web_ui_sources} ${thrift_idl_files}
+            ${vue_dir}/node_modules/.cc-npm-ci
+            ${PROJECT_SOURCE_DIR}/cmake/ThriftGenerate.cmake
+    WORKING_DIRECTORY ${vue_dir}
+    COMMENT "Building the web UI"
+    VERBATIM)
+  add_custom_target(web_ui ALL DEPENDS ${www_dir}/index.html)
+  install(DIRECTORY ${www_dir}/ DESTINATION www)
+elseif(CC_BUILD_WEB AND CC_WEB_UI_DIR)
+  install(DIRECTORY ${CC_WEB_UI_DIR}/ DESTINATION www)
+endif()
 
 # The license of every third-party library that is linked into the programs
 # (build-system.md §5). GoogleTest is only linked into the unit tests.

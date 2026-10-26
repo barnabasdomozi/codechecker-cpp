@@ -1,0 +1,79 @@
+<template>
+  <v-radio-group class="px-7" :value="value" @change="emitUpdate">
+    <template v-slot:label>
+      <div>Report filter mode</div>
+    </template>
+    <v-radio value="end">
+      <template v-slot:label>
+        <span>
+          <v-icon
+            start
+            class="mr-1"
+          >
+            {{ filterIcon["end"] }}
+          </v-icon>
+          End of report path
+          <TooltipHelpIcon>
+            Filters reports with final error location within the
+            selected component(s).
+          </TooltipHelpIcon>
+        </span>
+      </template>
+    </v-radio>
+    <v-radio value="anywhere">
+      <template v-slot:label>
+        <span>
+          <v-icon
+            start
+            class="mr-1"
+          >
+            {{ filterIcon["anywhere"] }}
+          </v-icon>
+          Anywhere on report path
+          <TooltipHelpIcon>
+            Filters reports that have any bug path element within the
+            selected component(s).
+          </TooltipHelpIcon>
+        </span>
+      </template>
+    </v-radio>
+    <v-radio value="single-origin">
+      <template v-slot:label>
+        <span>
+          <v-icon
+            start
+            class="mr-1"
+          >
+            {{ filterIcon["single-origin"] }}
+          </v-icon>
+          Single origin
+          <TooltipHelpIcon>
+            Filters reports with the full bug path contained within the
+            selected component(s).
+          </TooltipHelpIcon>
+        </span>
+      </template>
+    </v-radio>
+  </v-radio-group>
+</template>
+
+<script setup>
+import TooltipHelpIcon from "@/components/TooltipHelpIcon.vue";
+
+defineProps({
+  value: {
+    type: String,
+    default: ""
+  },
+  filterIcon: {
+    type: Object,
+    required: true
+  }
+});
+
+const emit = defineEmits([ "input" ]);
+
+function emitUpdate(selection) {
+  emit("input", selection);
+}
+</script>

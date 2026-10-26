@@ -62,7 +62,9 @@ cc_third_party(ssl ARCHIVES libssl.a LINKS third_party::crypto)
 if(CC_BUILD_WEB)
   cc_third_party(curl ARCHIVES libcurl.a DEFINES CURL_STATICLIB
                  LINKS third_party::ssl third_party::zlib)
-  cc_third_party(httplib DEFINES CPPHTTPLIB_OPENSSL_SUPPORT
+  # The server listens with the backlog of the Python server (server.md §5).
+  cc_third_party(httplib
+                 DEFINES CPPHTTPLIB_OPENSSL_SUPPORT CPPHTTPLIB_LISTEN_BACKLOG=511
                  LINKS third_party::ssl)
   cc_third_party(thrift ARCHIVES libthrift.a LINKS Threads::Threads)
   cc_third_party(sqlite3 ARCHIVES libsqlite3.a

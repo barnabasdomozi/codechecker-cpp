@@ -37,6 +37,17 @@ std::vector<std::string> WalkFiles(const std::string& path);
 // fails.
 std::optional<double> ModificationTime(const std::string& path);
 
+// Returns the permission bits of `path` (Python: os.stat(path).st_mode &
+// 0o7777), symbolic links followed; nullopt if stat() fails.
+std::optional<int> FileMode(const std::string& path);
+
+// Sets the permission bits of `path` (Python: os.chmod(path, mode)).
+std::error_code SetFileMode(const std::string& path, int mode);
+
+// Returns the home folder of the user (Python: os.path.expanduser("~")):
+// HOME, else the home folder in the password database.
+std::string HomeDirectory();
+
 // Creates the folder `path` and its missing parents (Python:
 // os.makedirs(path)). It is an error if `path` exists.
 std::error_code MakeDirs(const std::string& path);

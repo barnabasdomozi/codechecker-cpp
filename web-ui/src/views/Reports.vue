@@ -1,0 +1,1376 @@
+<template>
+  <splitpanes
+    class="default-theme height-constraint"
+  >
+    <pane size="20" :style="{ 'min-width': '320px' }">
+      <ReportFilter
+        :report-count="totalItems"
+        :refresh-filter="refreshFilterState"
+        @refresh="refresh"
+        @set-refresh-filter-state="setRefreshFilterState"
+      />
+    </pane>
+    <pane>
+      <checker-documentation-dialog
+        v-model="checkerDocDialog"
+        :checker="selectedChecker"
+      />
+      <div class="d-flex align-center w-100 mb-2">
+        <span class="mr-2 text-body-2">View</span>
+        <v-btn-toggle
+          v-model="viewMode"
+          mandatory
+          style="height: 28px;"
+          variant="outlined"
+        >
+          <v-btn
+            value="list"
+            size="small"
+            @click="setReportFilter({ filepath: null })"
+          >
+            Report List
+          </v-btn>
+          <v-btn
+            value="tree"
+            size="small"
+            @click="onFileTreeViewClick"
+          >
+            File Tree
+          </v-btn>
+        </v-btn-toggle>
+        <v-spacer />
+        <set-cleanup-plan-btn
+          v-if="viewMode === 'list'"
+          :selected-reports="selected"
+        />
+      </div>
+
+      <v-data-table-server
+        v-if="viewMode === 'list'"
+        v-model="selected"
+        v-model:page="page"
+        v-model:items-per-page="itemsPerPage"
+        v-model:sort-by="sortBy"
+        v-model:expanded="expanded"
+        class="text-caption reports-table"
+        :items-per-page-options="itemsPerPageOptions"
+        :items-length="totalItems"
+        :headers="tableHeaders"
+        :items="formattedReports"
+        :loading="loading"
+        loading-text="Loading reports..."
+        :must-sort="true"
+        show-select
+        :mobile-breakpoint="1100"
+        item-value="id"
+        return-object
+        density="compact"
+        @update:expanded="itemExpanded"
+      >
+        <template v-slot:expanded-row="{ item }">
+          <td
+            class="pa-0"
+            :colspan="headers.length"
+          >
+            <v-list v-if="expandedItemsHistory[item.id]">
+              <v-list-item
+                v-for="report in expandedItemsHistory[item.id]"
+                :key="report.reportId.toNumber()"
+                density="compact"
+              >
+                <v-list-item-title>
+                  Same report in
+                  <kbd class="text-kbd">{{ report.$runName }}</kbd> run:
+                  <span>
+                    <detection-status-icon
+                      :status="parseInt(report.detectionStatus)"
+                      :title="report.$detectionStatusTitle"
+                      :size="18"
+                    />
+                    <review-status-icon
+                      :status="parseInt(report.reviewData.status)"
+                      :size="18"
+                    />
+                    <router-link
+                      :to="{ name: 'report-detail', query: {
+                        ...route.query,
+                        'report-id': report.reportId,
+                        'report-hash': undefined
+                      }}"
+                    >
+                      {{ report.checkedFile }}:{{ report.line }}
+                    </router-link>
+                  </span>
+                </v-list-item-title>
+              </v-list-item>
+            </v-list>
+
+            <v-card
+              v-else
+              flat
+              tile
+            >
+              <v-card-text>
+                Loading...
+                <v-progress-linear
+                  indeterminate
+                  class="mb-0"
+                />
+              </v-card-text>
+            </v-card>
+          </td>
+        </template>
+
+        <template #item.bugHash="{ item }">
+          <span :title="item.bugHash">
+            {{ truncate(item.bugHash, 10) }}
+          </span>
+        </template>
+
+        <template #item.checkedFile="{ item }">
+          <router-link
+            :to="{ name: 'report-detail', query: {
+              ...route.query,
+              'report-id': item.reportId ? item.reportId : undefined,
+              'report-hash': item.bugHash,
+              'report-filepath': reportFilter.isUnique
+                ? `*${item.checkedFile}` : item.checkedFile
+            }}"
+            class="file-name text-body-small text-primary"
+          >
+            {{ item.checkedFile }}
+            <span v-if="item.line">@&nbsp;Line&nbsp;{{ item.line }}</span>
+          </router-link>
+        </template>
+
+        <template #item.checkerId="{ item }">
+          <span
+            class="checker-name text-primary text-decoration-underline"
+            @click="openCheckerDocDialog(item.checkerId, item.analyzerName)"
+          >
+            {{ item.checkerId }}
+          </span>
+        </template>
+
+        <template #item.checkerMsg="{ item }">
+          <span class="checker-message">
+            {{ item.checkerMsg }}
+          </span>
+        </template>
+
+        <template #item.severity="{ item }">
+          <severity-icon :status="item.severity" />
+        </template>
+
+        <template #item.bugPathLength="{ item }">
+          <v-chip
+            class="text-black"
+            :color="getBugPathLenColor(item.bugPathLength)"
+            size="small"
+            variant="flat"
+          >
+            {{ item.bugPathLength }}
+          </v-chip>
+        </template>
+
+        <template
+          v-if="reportFilter.isUnique"
+          #item.reviewData="{ item }"
+        >
+          <review-status-icon
+            v-for="status in sameReports[item.bugHash]"
+            :key="status"
+            :status="parseInt(status)"
+            class="pa-1"
+          />
+        </template>
+
+        <template v-else #item.reviewData="{ item }">
+          <review-status-icon
+            :status="parseInt(item.reviewData.status)"
+          />
+        </template>
+
+        <template #item.detectionStatus="{ item }">
+          <detection-status-icon
+            :status="parseInt(item.detectionStatus)"
+            :title="item.$detectionStatusTitle"
+          />
+        </template>
+      </v-data-table-server>
+
+      <div v-else class="tree-view-container">
+        <div class="tree-header">
+          <span class="tree-header-name">Name</span>
+          <span
+            class="tree-header-cell sortable"
+            @click="toggleTreeSort('all')"
+          >
+            All
+            <v-icon
+              v-if="treeSortKey === 'all'"
+              size="12"
+              class="sort-icon"
+            >
+              {{ treeSortOrder === 'desc' ? 'mdi-arrow-down' : 'mdi-arrow-up' }}
+            </v-icon>
+          </span>
+          <span
+            class="tree-header-cell sortable"
+            @click="toggleTreeSort('style')"
+          >
+            <severity-icon :status="Severity.STYLE" :size="14" />
+            <v-icon
+              v-if="treeSortKey === 'style'"
+              size="12"
+              class="sort-icon"
+            >
+              {{ treeSortOrder === 'desc' ? 'mdi-arrow-down' : 'mdi-arrow-up' }}
+            </v-icon>
+          </span>
+          <span
+            class="tree-header-cell sortable"
+            @click="toggleTreeSort('low')"
+          >
+            <severity-icon :status="Severity.LOW" :size="14" />
+            <v-icon
+              v-if="treeSortKey === 'low'"
+              size="12"
+              class="sort-icon"
+            >
+              {{ treeSortOrder === 'desc' ? 'mdi-arrow-down' : 'mdi-arrow-up' }}
+            </v-icon>
+          </span>
+          <span
+            class="tree-header-cell sortable"
+            @click="toggleTreeSort('medium')"
+          >
+            <severity-icon :status="Severity.MEDIUM" :size="14" />
+            <v-icon
+              v-if="treeSortKey === 'medium'"
+              size="12"
+              class="sort-icon"
+            >
+              {{ treeSortOrder === 'desc' ? 'mdi-arrow-down' : 'mdi-arrow-up' }}
+            </v-icon>
+          </span>
+          <span
+            class="tree-header-cell sortable"
+            @click="toggleTreeSort('high')"
+          >
+            <severity-icon :status="Severity.HIGH" :size="14" />
+            <v-icon
+              v-if="treeSortKey === 'high'"
+              size="12"
+              class="sort-icon"
+            >
+              {{ treeSortOrder === 'desc' ? 'mdi-arrow-down' : 'mdi-arrow-up' }}
+            </v-icon>
+          </span>
+          <span
+            class="tree-header-cell sortable"
+            @click="toggleTreeSort('critical')"
+          >
+            <severity-icon :status="Severity.CRITICAL" :size="14" />
+            <v-icon
+              v-if="treeSortKey === 'critical'"
+              size="12"
+              class="sort-icon"
+            >
+              {{ treeSortOrder === 'desc' ? 'mdi-arrow-down' : 'mdi-arrow-up' }}
+            </v-icon>
+          </span>
+          <span
+            class="tree-header-cell sortable"
+            @click="toggleTreeSort('unreviewed')"
+          >
+            <review-status-icon
+              :status="0"
+              :size="14"
+            />
+            <v-icon
+              v-if="treeSortKey === 'unreviewed'"
+              size="12"
+              class="sort-icon"
+            >
+              {{ treeSortOrder === 'desc' ? 'mdi-arrow-down' : 'mdi-arrow-up' }}
+            </v-icon>
+          </span>
+          <span
+            class="tree-header-cell sortable"
+            @click="toggleTreeSort('confirmed')"
+          >
+            <review-status-icon
+              :status="1"
+              :size="14"
+            />
+            <v-icon
+              v-if="treeSortKey === 'confirmed'"
+              size="12"
+              class="sort-icon"
+            >
+              {{ treeSortOrder === 'desc' ? 'mdi-arrow-down' : 'mdi-arrow-up' }}
+            </v-icon>
+          </span>
+          <span
+            class="tree-header-cell sortable"
+            @click="toggleTreeSort('false_positive')"
+          >
+            <review-status-icon
+              :status="2"
+              :size="14"
+            />
+            <v-icon
+              v-if="treeSortKey === 'false_positive'"
+              size="12"
+              class="sort-icon"
+            >
+              {{ treeSortOrder === 'desc' ? 'mdi-arrow-down' : 'mdi-arrow-up' }}
+            </v-icon>
+          </span>
+          <span
+            class="tree-header-cell sortable"
+            @click="toggleTreeSort('intentional')"
+          >
+            <review-status-icon
+              :status="3"
+              :size="14"
+            />
+            <v-icon
+              v-if="treeSortKey === 'intentional'"
+              size="12"
+              class="sort-icon"
+            >
+              {{ treeSortOrder === 'desc' ? 'mdi-arrow-down' : 'mdi-arrow-up' }}
+            </v-icon>
+          </span>
+        </div>
+        <v-treeview
+          v-model:opened="openedTreeItems"
+          :items="treeItems"
+          :load-children="loadChildren"
+          item-value="fullPath"
+          open-on-click
+          density="compact"
+        >
+          <template #prepend="{ item, isOpen }">
+            <v-icon v-if="item.isDir">
+              {{ isOpen ? 'mdi-folder-open' : 'mdi-folder' }}
+            </v-icon>
+            <v-icon v-else>
+              mdi-file
+            </v-icon>
+          </template>
+          <template #title="{ item }">
+            <div class="tree-row">
+              <span
+                class="tree-item-label clickable"
+                @click.stop="onTreeItemClick(item)"
+              >{{ item.name }}</span>
+              <span
+                class="tree-stat-cell"
+                :class="{ clickable: item.findings }"
+                @click.stop="onTreeStatClick(item, 'all')"
+              >{{ item.findings }}</span>
+              <span
+                class="tree-stat-cell"
+                :class="{ clickable: item.stats.style }"
+                @click.stop="onTreeStatClick(item, 'style')"
+              >{{ item.stats.style || '' }}</span>
+              <span
+                class="tree-stat-cell"
+                :class="{ clickable: item.stats.low }"
+                @click.stop="onTreeStatClick(item, 'low')"
+              >{{ item.stats.low || '' }}</span>
+              <span
+                class="tree-stat-cell"
+                :class="{ clickable: item.stats.medium }"
+                @click.stop="onTreeStatClick(item, 'medium')"
+              >{{ item.stats.medium || '' }}</span>
+              <span
+                class="tree-stat-cell"
+                :class="{ clickable: item.stats.high }"
+                @click.stop="onTreeStatClick(item, 'high')"
+              >{{ item.stats.high || '' }}</span>
+              <span
+                class="tree-stat-cell"
+                :class="{ clickable: item.stats.critical }"
+                @click.stop="onTreeStatClick(item, 'critical')"
+              >
+                {{ item.stats.critical || '' }}
+              </span>
+              <span
+                class="tree-stat-cell"
+                :class="{ clickable: item.stats.unreviewed }"
+                @click.stop="onTreeStatClick(item, 'unreviewed')"
+              >
+                {{ item.stats.unreviewed || '' }}
+              </span>
+              <span
+                class="tree-stat-cell"
+                :class="{ clickable: item.stats.confirmed }"
+                @click.stop="onTreeStatClick(item, 'confirmed')"
+              >
+                {{ item.stats.confirmed || '' }}
+              </span>
+              <span
+                class="tree-stat-cell"
+                :class="{ clickable: item.stats.false_positive }"
+                @click.stop="onTreeStatClick(item, 'false_positive')"
+              >
+                {{ item.stats.false_positive || '' }}
+              </span>
+              <span
+                class="tree-stat-cell"
+                :class="{ clickable: item.stats.intentional }"
+                @click.stop="onTreeStatClick(item, 'intentional')"
+              >
+                {{ item.stats.intentional || '' }}
+              </span>
+            </div>
+          </template>
+        </v-treeview>
+      </div>
+    </pane>
+  </splitpanes>
+</template>
+
+<script setup>
+import {
+  computed,
+  onActivated,
+  onDeactivated,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch
+} from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useStore } from "vuex";
+import { Pane, Splitpanes } from "splitpanes";
+
+import { ccService, handleThriftError } from "@cc-api";
+import {
+  Checker,
+  MAX_QUERY_SIZE,
+  Order,
+  ReviewStatus,
+  Severity,
+  SortMode,
+  SortType
+} from "@cc/report-server-types";
+import { SET_REPORT_FILTER } from "@/store/mutations.type";
+
+import { useGradientColor } from "@/composables/useGradientColor";
+import { useDetectionStatus } from "@/composables/useDetectionStatus";
+import { useSeverity } from "@/composables/useSeverity";
+import { useReviewStatus } from "@/composables/useReviewStatus";
+import {
+  DetectionStatusIcon,
+  ReviewStatusIcon,
+  SeverityIcon
+} from "@/components/Icons";
+
+import CheckerDocumentationDialog from
+  "@/components/CheckerDocumentationDialog";
+import { ReportFilter } from "@/components/Report/ReportFilter";
+import { SetCleanupPlanBtn } from "@/components/Report/CleanupPlan";
+
+const route = useRoute();
+const router = useRouter();
+const store = useStore();
+const gradientColor = useGradientColor();
+const detectionStatus = useDetectionStatus();
+const severity = useSeverity();
+const reviewStatus = useReviewStatus();
+const refreshFilterState = ref(false);
+
+const itemsPerPageOptions = [
+  { value: 25, title: "25" },
+  { value: 50, title: "50" },
+  { value: 100, title: "100" }
+];
+const page = ref(parseInt(route.query["page"]) || 1);
+const itemsPerPage = ref(
+  parseInt(route.query["items-per-page"]) ||
+  itemsPerPageOptions[0].value
+);
+
+const sortBy = ref(
+  route.query["sort-by"]
+    ? [ {
+      key: route.query["sort-by"],
+      order: route.query["sort-desc"] === "true" ? "desc" : "asc"
+    } ]
+    : [ { key: "name", order: "asc" } ]
+);
+
+const headers = [
+  {
+    title: "",
+    key: "data-table-expand"
+  },
+  {
+    title: "Report hash",
+    key: "bugHash",
+    sortable: false
+  },
+  {
+    title: "File",
+    key: "checkedFile",
+    sortable: true
+  },
+  {
+    title: "Message",
+    key: "checkerMsg",
+    sortable: false
+  },
+  {
+    title: "Checker name",
+    key: "checkerId",
+    sortable: true
+  },
+  {
+    title: "Analyzer",
+    key: "analyzerName",
+    align: "center",
+    sortable: false
+  },
+  {
+    title: "Severity",
+    key: "severity",
+    sortable: true,
+    align: "center"
+  },
+  {
+    title: "Bug path length",
+    key: "bugPathLength",
+    align: "center",
+    sortable: true
+  },
+  {
+    title: "Latest review status",
+    key: "reviewData",
+    align: "center",
+    sortable: true
+  },
+  {
+    title: "Latest detection status",
+    key: "detectionStatus",
+    align: "center",
+    sortable: true
+  },
+  {
+    title: "Timestamp",
+    key: "timestamp",
+    align: "center",
+    sortable: true
+  },
+  {
+    title: "Chronological order",
+    key: "chronological_order",
+    align: "center",
+    sortable: true
+  },
+  {
+    title: "Testcase",
+    key: "testcase",
+    align: "center",
+    sortable: true
+  }
+];
+
+const reports = ref([]);
+const sameReports = ref({});
+const hasTimeStamp = ref(true);
+const hasTestCase = ref(true);
+const hasChronologicalOrder = ref(true);
+const selected = ref([]);
+const totalItems = ref(0);
+const loading = ref(false);
+const initalized = ref(false);
+const checkerDocDialog = ref(false);
+const selectedChecker = ref(null);
+const expanded = ref([]);
+const expandedItemsHistory = ref({});
+const viewMode = ref(route.query["view"] === "tree" ? "tree" : "list");
+const openedTreeItems = ref(parseOpenedPaths(route.query["tree-open"]));
+const allReportsFileCounts = ref({});
+const fileSeverities = ref({});
+const fullTree = ref([]);
+const treeItems = ref([]);
+const treeSortKey = ref(null);
+const treeSortOrder = ref(null);
+
+const runIds = computed(function() {
+  return store.getters.getRunIds;
+});
+
+const reportFilter = computed(function() {
+  return store.getters.getReportFilter;
+});
+
+const cmpData = computed(function() {
+  return store.getters.getCmpData;
+});
+
+const tableHeaders = computed(function() {
+  if (!headers || !reportFilter.value) return [];
+
+  return headers.filter(_header => {
+    if (_header.key === "detectionStatus") {
+      return !reportFilter.value.isUnique;
+    }
+
+    if (_header.key === "data-table-expand") {
+      return reportFilter.value.isUnique;
+    }
+
+    if (_header.key === "timestamp") {
+      return hasTimeStamp.value &&
+        !reportFilter.value.isUnique;
+    }
+
+    if (_header.key === "testcase") {
+      return hasTestCase.value &&
+        !reportFilter.value.isUnique;
+    }
+
+    if (_header.key === "chronological_order") {
+      return hasChronologicalOrder.value &&
+        !reportFilter.value.isUnique;
+    }
+
+    return true;
+  });
+});
+
+const formattedReports = computed(function() {
+  return reports.value.map(_report => {
+    const _reportId = _report.reportId ? _report.reportId.toString() : "";
+    const _id = _reportId + _report.bugHash;
+
+    const _detectionStatus =
+      detectionStatus.detectionStatusFromCodeToString(_report.detectionStatus);
+    const _detectedAt = _report.detectedAt
+      ? prettifyDate(_report.detectedAt) : null;
+    const _fixedAt = _report.fixedAt
+      ? prettifyDate(_report.fixedAt) : null;
+
+    const _detectionStatusTitle = [
+      `Status: ${_detectionStatus}`,
+      ...(_detectedAt ? [ `Detected at: ${_detectedAt}` ] : []),
+      ...(_fixedAt ? [ `Fixed at: ${_fixedAt}` ] : [])
+    ].join("\n");
+
+    return {
+      ..._report,
+      "$detectionStatusTitle": _detectionStatusTitle,
+      "id": _id,
+      "sameReports": _report.sameReports,
+      "timestamp": _report.annotations["timestamp"],
+      "testcase": _report.annotations["testcase"],
+      "chronological_order": _report.annotations["chronological_order"]
+    };
+  });
+});
+
+function getTreeStatValue(item, statKey) {
+  return statKey === "all" ? (item.findings || 0) : (item.stats[statKey] || 0);
+}
+
+watch(
+  [ page, itemsPerPage, sortBy ],
+  () => {
+    updateUrl();
+    if (initalized.value) {
+      fetchReports();
+    }
+  },
+  { deep: true }
+);
+
+watch(
+  formattedReports,
+  () => {
+    hasTimeStamp.value =
+      formattedReports.value.some(_report => _report.timestamp);
+
+    hasTestCase.value =
+      formattedReports.value.some(_report => _report.testcase);
+
+    hasChronologicalOrder.value =
+      formattedReports.value.some(_report => _report["chronological_order"]);
+  }
+);
+
+watch(allReportsFileCounts, () => {
+  buildTreeItems();
+}, { deep: true });
+
+watch([ treeSortKey, treeSortOrder ], () => {
+  rebuildTreeItems();
+});
+
+watch(
+  [ viewMode, openedTreeItems ],
+  () => {
+    updateUrl();
+  },
+  { deep: true, immediate: true }
+);
+
+function setReportFilter(params) {
+  store.commit(SET_REPORT_FILTER, params);
+}
+
+const SEVERITY_STAT_KEYS = {
+  style: Severity.STYLE,
+  low: Severity.LOW,
+  medium: Severity.MEDIUM,
+  high: Severity.HIGH,
+  critical: Severity.CRITICAL
+};
+
+const REVIEW_STATUS_STAT_KEYS = {
+  unreviewed: ReviewStatus.UNREVIEWED,
+  confirmed: ReviewStatus.CONFIRMED,
+  false_positive: ReviewStatus.FALSE_POSITIVE,
+  intentional: ReviewStatus.INTENTIONAL
+};
+
+function getTreeItemFilePattern(item) {
+  return item.isDir ? item.fullPath + "/*" : item.fullPath;
+}
+
+function setRefreshFilterState(state) {
+  refreshFilterState.value = state;
+}
+
+// Push the given filter values into the URL and let ReportFilter's
+// initByUrl() (triggered via the refresh-filter prop) apply them to the
+// individual filter components and the store, instead of writing to the
+// store directly and leaving the URL/filters out of sync.
+async function applyTreeFilter(params) {
+  const query = { ...route.query };
+
+  if (params.filepath) {
+    query["filepath"] = params.filepath;
+  }
+  if (params.severity) {
+    query["severity"] =
+      params.severity.map(s => severity.severityFromCodeToString(s));
+  }
+  if (params.reviewStatus) {
+    query["review-status"] = params.reviewStatus.map(
+      s => reviewStatus.reviewStatusFromCodeToString(s)
+    );
+  }
+
+  await router.replace({ query }).catch(() => {});
+  setRefreshFilterState(true);
+  viewMode.value = "list";
+}
+
+function onTreeItemClick(item) {
+  applyTreeFilter({ filepath: [ getTreeItemFilePattern(item) ] });
+}
+
+function onTreeStatClick(item, statKey) {
+  const count = statKey === "all" ? item.findings : item.stats[statKey];
+  if (!count) return;
+
+  const params = { filepath: [ getTreeItemFilePattern(item) ] };
+
+  if (statKey in SEVERITY_STAT_KEYS) {
+    params.severity = [ SEVERITY_STAT_KEYS[statKey] ];
+  } else if (statKey in REVIEW_STATUS_STAT_KEYS) {
+    params.reviewStatus = [ REVIEW_STATUS_STAT_KEYS[statKey] ];
+  }
+
+  applyTreeFilter(params);
+}
+
+function toggleTreeSort(statKey) {
+  if (treeSortKey.value !== statKey) {
+    treeSortKey.value = statKey;
+    treeSortOrder.value = "desc";
+  } else if (treeSortOrder.value === "desc") {
+    treeSortOrder.value = "asc";
+  } else {
+    treeSortKey.value = null;
+    treeSortOrder.value = null;
+  }
+}
+
+// "/a/b/c" -> ["/a", "/a/b", "/a/b/c"]
+// "a/b/c" -> ["a", "a/b", "a/b/c"]
+function ancestorChain(fullPath) {
+  if (!fullPath) return [];
+  const isAbsolute = fullPath.startsWith("/");
+  const parts = fullPath.split("/").filter(Boolean);
+  const chain = [];
+  let current = "";
+  parts.forEach(part => {
+    current += (current || isAbsolute) ? "/" + part : part;
+    chain.push(current);
+  });
+  return chain;
+}
+
+// Drops paths that are an ancestor of another opened path.
+function leafPaths(paths) {
+  return paths.filter(p =>
+    !paths.some(other => other !== p && other.startsWith(p + "/"))
+  );
+}
+
+function parseOpenedPaths(value) {
+  if (!value) return [];
+  const paths = Array.isArray(value) ? value : String(value).split(",");
+  const all = new Set();
+  paths.forEach(p => ancestorChain(p).forEach(a => all.add(a)));
+  return Array.from(all);
+}
+
+function i64ToNum(val) {
+  if (val == null) return 0;
+  if (typeof val === "number") return val;
+  if (typeof val.toNumber === "function") return val.toNumber();
+  if (val.buffer) {
+    let n = 0;
+    for (let i = 0; i < val.buffer.length; i++) n = n * 256 + val.buffer[i];
+    return n;
+  }
+  return Number(val) || 0;
+}
+
+function fetchFileSeverities() {
+  const PAGE = MAX_QUERY_SIZE;
+  const allStats = {};
+
+  const fetchPage = offset => {
+    ccService.getClient().getFileCountsSummary(
+      runIds.value, reportFilter.value, cmpData.value, PAGE, offset,
+      handleThriftError(res => {
+        const keys = Object.keys(res || {});
+        keys.forEach(filePath => {
+          const summary = res[filePath];
+          const stats = {};
+          Object.keys(summary || {}).forEach(key => {
+            const n = i64ToNum(summary[key]);
+            if (!n) return;
+            if (key === "reports") {
+              stats.reports = n;
+            } else if (key.startsWith("severity:")) {
+              stats[key.substring(9).toLowerCase()] =
+                (stats[key.substring(9).toLowerCase()] || 0) + n;
+            } else if (key.startsWith("review_status:")) {
+              const name = key.substring(14);
+              stats[name] = (stats[name] || 0) + n;
+            }
+          });
+          allStats[filePath] = stats;
+        });
+        if (keys.length >= PAGE) {
+          fetchPage(offset + PAGE);
+        } else {
+          fileSeverities.value = Object.assign({}, allStats);
+          const fileCounts = {};
+          Object.keys(allStats).forEach(fp => {
+            fileCounts[fp] = allStats[fp].reports || 0;
+          });
+          allReportsFileCounts.value = fileCounts;
+        }
+      })
+    );
+  };
+  fetchPage(0);
+}
+
+function buildTreeItems() {
+  const items = [];
+  Object.entries(allReportsFileCounts.value || {}).forEach(
+    ([ filePath, count ]) => {
+      if (!filePath) return;
+      const isAbsolute = filePath.startsWith("/");
+      const pathParts = filePath.split("/").slice(0, -1);
+      let currentLevel = items;
+      let currentPath = "";
+      pathParts.forEach(part => {
+        if (part === "") return;
+        currentPath += (currentPath || isAbsolute) ? "/" + part : part;
+        let existing = currentLevel.find(n => n.name === part);
+        if (!existing) {
+          existing = {
+            name: part, fullPath: currentPath,
+            children: [], findings: 0, stats: {}, isDir: true
+          };
+          currentLevel.push(existing);
+        }
+        currentLevel = existing.children;
+      });
+      const fileName = filePath.split("/").slice(-1)[0];
+      const fileStats = fileSeverities.value[filePath] || {};
+      if (fileName) {
+        const existing = currentLevel.find(n => n.name === fileName);
+        if (existing) {
+          existing.findings += count;
+          existing.stats = fileStats;
+        } else {
+          currentLevel.push({
+            name: fileName, fullPath: filePath,
+            findings: count, stats: fileStats, isDir: false
+          });
+        }
+      }
+    });
+
+  function aggregate(node) {
+    if (!node.children || node.children.length === 0) return node.findings;
+    node.findings = node.children.reduce(
+      (sum, child) => sum + aggregate(child), 0
+    );
+    const merged = {};
+    node.children.forEach(child => {
+      Object.keys(child.stats || {}).forEach(k => {
+        merged[k] = (merged[k] || 0) + child.stats[k];
+      });
+    });
+    node.stats = merged;
+    return node.findings;
+  }
+  items.forEach(aggregate);
+  fullTree.value = items;
+}
+
+const nodeIndex = computed(() => {
+  const index = new Map();
+  const walk = nodes => {
+    nodes.forEach(node => {
+      index.set(node.fullPath, node);
+      if (node.children?.length) walk(node.children);
+    });
+  };
+  walk(fullTree.value);
+  return index;
+});
+
+function toViewNode(node) {
+  const view = {
+    name: node.name,
+    fullPath: node.fullPath,
+    findings: node.findings,
+    stats: node.stats || {},
+    isDir: node.isDir
+  };
+  if (node.isDir) {
+    view.children = [];
+    view.loaded = false;
+  }
+  return view;
+}
+
+function sortNodes(nodes) {
+  if (!treeSortKey.value || !treeSortOrder.value) return nodes;
+  return [ ...nodes ].sort((a, b) => {
+    const aVal = getTreeStatValue(a, treeSortKey.value);
+    const bVal = getTreeStatValue(b, treeSortKey.value);
+    return treeSortOrder.value === "desc" ? bVal - aVal : aVal - bVal;
+  });
+}
+
+function fillChildrenNodes(item) {
+  if (!item.isDir) return [];
+  if (!item.loaded) {
+    item.loaded = true;
+    const source = nodeIndex.value.get(item.fullPath);
+    if (source?.children?.length) {
+      item.children.push(...sortNodes(source.children).map(toViewNode));
+    }
+  }
+  return item.children;
+}
+
+function autoExpandSingleChildChain(node, opened) {
+  let current = node;
+  while (current?.isDir) {
+    const children = fillChildrenNodes(current);
+    if (!opened.includes(current.fullPath)) opened.push(current.fullPath);
+    if (children.length !== 1) break;
+    const only = children[0];
+    if (!only.isDir) break;
+    current = only;
+  }
+}
+
+function rebuildTreeItems() {
+  treeItems.value = sortNodes(fullTree.value).map(toViewNode);
+  openedTreeItems.value.forEach(path => {
+    if (nodeIndex.value.get(path)?.isDir) ensureViewPath(path);
+  });
+}
+
+watch(fullTree, rebuildTreeItems);
+
+function loadChildren(item) {
+  const alreadyLoaded = item.loaded;
+  fillChildrenNodes(item);
+  if (!alreadyLoaded && item.children.length === 1 && item.children[0].isDir) {
+    autoExpandSingleChildChain(item.children[0], openedTreeItems.value);
+  }
+  return Promise.resolve();
+}
+
+function ensureViewPath(fullPath) {
+  const parts = fullPath.split("/").filter(Boolean);
+  let level = treeItems.value;
+  let current = "";
+  for (const part of parts) {
+    current += "/" + part;
+    const node = level.find(n => n.fullPath === current);
+    if (!node || !node.isDir) break;
+    level = fillChildrenNodes(node);
+  }
+}
+
+function collectSingleChildedNodes(nodes, opened) {
+  nodes.forEach(node => {
+    if (!node.isDir) return;
+    autoExpandSingleChildChain(node, opened);
+  });
+}
+
+function autoExpandTree() {
+  const opened = [];
+  collectSingleChildedNodes(treeItems.value, opened);
+  openedTreeItems.value = opened;
+}
+
+function onFileTreeViewClick() {
+  setReportFilter({ filepath: null });
+  autoExpandTree();
+}
+
+function itemExpanded(expandedItems) {
+  if (!expandedItems || expandedItems.length === 0) return;
+
+  for (const item of expandedItems) {
+    if (
+      !(item.id in expandedItemsHistory.value) ||
+      expandedItemsHistory.value[item.id].length === 0
+    ) {
+      ccService.getSameReports(item.bugHash).then(_sameReports => {
+        const report = reports.value.find(report =>
+          (report.reportId?.toString() || "") + report.bugHash === item.id
+        );
+        if (report) {
+          expandedItemsHistory.value[item.id] = _sameReports;
+        }
+      });
+    }
+  }
+}
+
+function getSortMode() {
+  let _type = null;
+  const _sortBy = sortBy.value?.[0]?.key;
+
+  switch (_sortBy) {
+  case "checkedFile":
+    _type = SortType.FILENAME;
+    break;
+  case "checkerId":
+    _type = SortType.CHECKER_NAME;
+    break;
+  case "detectionStatus":
+    _type = SortType.DETECTION_STATUS;
+    break;
+  case "reviewData":
+    _type = SortType.REVIEW_STATUS;
+    break;
+  case "bugPathLength":
+    _type = SortType.BUG_PATH_LENGTH;
+    break;
+  case "timestamp":
+    _type = SortType.TIMESTAMP;
+    break;
+  case "testcase":
+    _type = SortType.TESTCASE;
+    break;
+  case "chronological_order":
+    _type = SortType.CHRONOLOGICAL_ORDER;
+    break;
+  default:
+    _type = SortType.SEVERITY;
+  }
+
+  const _ord = sortBy.value?.[0]?.order === "asc" ? Order.ASC : Order.DESC;
+
+  return [ new SortMode({ type: _type, ord: _ord }) ];
+}
+
+function openCheckerDocDialog(checkerId, analyzerName) {
+  selectedChecker.value = new Checker({
+    checkerId: checkerId,
+    analyzerName: analyzerName
+  });
+  checkerDocDialog.value = true;
+}
+
+function updateUrl() {
+  const _defaultItemsPerPage = itemsPerPageOptions[0].value;
+  const _itemsPerPage =
+    itemsPerPage.value === _defaultItemsPerPage
+      ? undefined
+      : itemsPerPage.value;
+
+  const _page = page.value === 1 ? undefined : page.value;
+  const _sortBy = sortBy.value?.[0]?.key;
+  const _sortDesc = sortBy.value?.[0]?.order === "desc";
+  const _view = viewMode.value === "tree" ? "tree" : "list";
+  const _openLeaves = leafPaths(openedTreeItems.value);
+  const _treeOpen = _openLeaves.length ? _openLeaves.join(",") : undefined;
+
+  router.replace({
+    query: {
+      ...route.query,
+      "items-per-page": _itemsPerPage,
+      "page": _page,
+      "sort-by": _sortBy,
+      "sort-desc": _sortDesc,
+      "view": _view,
+      "tree-open": _treeOpen,
+    }
+  }).catch(() => {});
+}
+
+function refresh() {
+  expanded.value = [];
+
+  ccService.getClient().getRunResultCount(
+    runIds.value,
+    reportFilter.value,
+    cmpData.value,
+    handleThriftError(_res => {
+      totalItems.value = _res.toNumber();
+    }));
+
+  if (page.value !== 1 && initalized.value) {
+    page.value = 1;
+  } else {
+    fetchReports();
+  }
+}
+
+function fetchReports() {
+  loading.value = true;
+
+  const _limit = itemsPerPage.value;
+  const _offset = _limit * (page.value - 1);
+  const _sortType = getSortMode();
+  const _getDetails = false;
+
+  ccService.getClient().getRunResults(
+    runIds.value,
+    _limit,
+    _offset,
+    _sortType,
+    reportFilter.value,
+    cmpData.value,
+    _getDetails,
+    handleThriftError(_reports => {
+      reports.value = _reports;
+      loading.value = false;
+      initalized.value = true;
+
+      fetchFileSeverities();
+
+      _reports.forEach(_report => {
+        ccService.getSameReports(_report.bugHash).then(_sameReports => {
+          sameReports.value[_report.bugHash] =
+            [
+              ...new Set(_sameReports.map(_r => _r.reviewData.status))
+            ];
+        });
+      });
+    }));
+}
+
+function truncate(text, length) {
+  if (!text) return "";
+  if (text.length <= length) return text;
+  return text.substring(0, length) + "...";
+}
+
+function prettifyDate(date) {
+  if (!date) return "";
+  const _d = new Date(date);
+  const _year = _d.getFullYear();
+  const _month = String(_d.getMonth() + 1).padStart(2, "0");
+  const _day = String(_d.getDate()).padStart(2, "0");
+  const _hours = String(_d.getHours()).padStart(2, "0");
+  const _minutes = String(_d.getMinutes()).padStart(2, "0");
+  const _seconds = String(_d.getSeconds()).padStart(2, "0");
+  return `${_year}-${_month}-${_day} ${_hours}:${_minutes}:${_seconds}`;
+}
+
+function getBugPathLenColor(length) {
+  return gradientColor.getGradientColor(length);
+}
+
+function lockBodyScroll() {
+  document.body.style.overflow = "hidden";
+}
+
+function unlockBodyScroll() {
+  document.body.style.overflow = "";
+}
+
+onMounted(lockBodyScroll);
+onActivated(lockBodyScroll);
+onUnmounted(unlockBodyScroll);
+onDeactivated(unlockBodyScroll);
+</script>
+
+<style lang="scss">
+
+.height-constraint {
+  height: calc(100vh - 100px);
+}
+
+.splitpanes__pane {
+  overflow-y: auto;
+  height: 100%;
+}
+
+.splitpanes.default-theme {
+  .splitpanes__pane {
+    background-color: inherit;
+  }
+}
+
+.v-btn-toggle .v-btn--active {
+  background-color: var(--color-soft-blue) !important;
+  color: #ffffff !important;
+}
+
+.tree-view-container {
+  position: relative;
+  overflow-y: auto;
+  height: calc(100vh - 150px);
+}
+
+.tree-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: white;
+  display: flex;
+  align-items: center;
+  padding: 4px 8px 4px 40px;
+  font-size: 0.75em;
+  font-weight: bold;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.tree-header-name {
+  flex: 1;
+  min-width: 200px;
+}
+
+.tree-header-cell {
+  width: 50px;
+  text-align: center;
+  flex-shrink: 0;
+
+  &.sortable {
+    cursor: pointer;
+    user-select: none;
+
+    &:hover {
+      color: rgb(var(--v-theme-primary));
+    }
+  }
+
+  .sort-icon {
+    vertical-align: middle;
+  }
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.tree-item-label {
+  flex: 1;
+  min-width: 200px;
+  font-size: 0.85em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &.clickable {
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+      color: rgb(var(--v-theme-primary));
+    }
+  }
+}
+
+.tree-stat-cell {
+  width: 50px;
+  text-align: center;
+  flex-shrink: 0;
+  font-size: 0.8em;
+
+  &.clickable {
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+      color: rgb(var(--v-theme-primary));
+    }
+  }
+}
+
+.v-data-table {
+  .file-name,
+  .checker-name,
+  .checker-message {
+    word-break: break-word;
+  }
+
+  .checker-name {
+    cursor: pointer;
+  }
+}
+
+.reports-table {
+  th.v-data-table-column--align-center {
+    .v-data-table-header__content::before {
+      content: "";
+      display: inline-block;
+      width: 18px;
+      flex: 0 0 auto;
+    }
+  }
+}
+
+kbd {
+  background-color: #eeeeee;
+  border-radius: 3px;
+  border: 1px solid #b4b4b4;
+  color: #333333;
+  display: inline-block;
+  font-size: 0.85em;
+  font-weight: bold;
+  line-height: 1;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+</style>

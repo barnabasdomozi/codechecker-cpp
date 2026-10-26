@@ -24,6 +24,11 @@ using Label = std::pair<std::string, std::string>;
 // split_label_kv()). Without a colon, the value is empty.
 Label SplitLabel(std::string_view key_value);
 
+// Returns the folder of the checker label files: config/labels in the
+// package, or CC_TEST_LABELS_DIR if it is set (Python: the context's
+// labels_dir).
+std::string LabelsDirectory();
+
 // The labels of every checker of every analyzer. Read-only after Load(), so
 // it can be used from several threads.
 class CheckerLabels {
@@ -42,6 +47,10 @@ class CheckerLabels {
   std::vector<std::string> CheckersByLabels(
       const std::vector<std::string>& filter_labels,
       std::optional<std::string_view> analyzer = std::nullopt) const;
+
+  // Returns the names of the analyzers that have a label file (Python:
+  // get_analyzers()).
+  std::vector<std::string> Analyzers() const;
 
   // Returns the checker names of `analyzer`, or of all analyzers.
   std::vector<std::string> Checkers(
