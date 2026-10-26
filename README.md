@@ -42,8 +42,8 @@ The porting order is in
 | Analysis | Makefile mode | [makefile-mode.md](docs/usage/makefile-mode.md) | ✅ | |
 | Analysis | Analysis debugging | [analysis-debugging.md](docs/usage/analysis-debugging.md) | ✅ | |
 | Analysis | `check` | [check.md](docs/usage/check.md) | ❌ | |
-| Local results | `parse` | [parse.md](docs/usage/parse.md) | ✅ | Text output and `--status` (also with `-e json`); the other `-e` formats come with `parse --export` |
-| Local results | `parse --export` | [parse-export.md](docs/usage/parse-export.md) | ❌ | HTML, JSON, Code Climate, SARIF, Gerrit, baseline |
+| Local results | `parse` | [parse.md](docs/usage/parse.md) | ✅ | Text output and `--status` (also with `-e json`) |
+| Local results | `parse --export` | [parse-export.md](docs/usage/parse-export.md) | ✅ | HTML, JSON, Code Climate, SARIF, Gerrit, baseline |
 | Local results | Review status and suppression | [review-status-and-suppression.md](docs/usage/review-status-and-suppression.md) | 🟡 | Ported for `analyze` and `parse`: source code comments, `review_status.yaml`, suppress files and `--export-source-suppress`; `check` is not |
 | Local results | `fixit` | [fixit.md](docs/usage/fixit.md) | ❌ | |
 | Local results | Local diff (`cmd diff` on folders) | [local-diff.md](docs/usage/local-diff.md) | ❌ | |
@@ -67,7 +67,7 @@ The porting order is in
 | Tools | `report-converter` | [report-converter.md](docs/usage/report-converter.md) | ✅ | All 28 input types |
 | Tools | `tu_collector` | [tu-collector.md](docs/usage/tu-collector.md) | 🟡 | The library is ported and used by `analyze`; the standalone program is not |
 | Tools | `merge-clang-extdef-mappings` | [merge-clang-extdef-mappings.md](docs/usage/merge-clang-extdef-mappings.md) | 🟡 | The merge is ported inside `analyze` (CTU); the standalone program is not |
-| Tools | Gerrit integration | [gerrit-integration.md](docs/usage/gerrit-integration.md) | ❌ | |
+| Tools | Gerrit integration | [gerrit-integration.md](docs/usage/gerrit-integration.md) | 🟡 | `parse -e gerrit` is ported; the skip file script for changed files and `cmd diff -o gerrit` are not |
 | Tools | `memory_safety_reporter` | [memory-safety-reporter.md](docs/usage/memory-safety-reporter.md) | ❌ | |
 | Tools | `bazel-compile-commands` | [bazel-compile-commands.md](docs/usage/bazel-compile-commands.md) | ❌ | |
 | Reference | Environment variables | [environment-variables.md](docs/usage/environment-variables.md) | 🟡 | Supported by the ported commands |

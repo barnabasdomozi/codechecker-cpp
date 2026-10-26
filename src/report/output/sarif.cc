@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "report/model/report.h"
+#include "report/output/checker_info.h"
 #include "report/output/tool_info.h"
 #include "util/file.h"
 #include "util/json.h"
@@ -17,14 +18,10 @@
 namespace cc::report {
 namespace {
 
-yyjson_mut_val* String(yyjson_mut_doc* doc, std::string_view text) {
-  return yyjson_mut_strncpy(doc, text.data(), text.size());
-}
-
 // Returns {"text": text}.
 yyjson_mut_val* Text(yyjson_mut_doc* doc, std::string_view text) {
   yyjson_mut_val* object = yyjson_mut_obj(doc);
-  yyjson_mut_obj_add_val(doc, object, "text", String(doc, text));
+  yyjson_mut_obj_add_val(doc, object, "text", util::MakeJsonString(doc, text));
   return object;
 }
 
@@ -46,7 +43,7 @@ yyjson_mut_val* Location(yyjson_mut_doc* doc, const File& file,
   }
   yyjson_mut_val* artifact = yyjson_mut_obj(doc);
   yyjson_mut_obj_add_val(doc, artifact, "uri",
-                         String(doc, "file://" + file.path));
+                         util::MakeJsonString(doc, "file://" + file.path));
   yyjson_mut_val* physical = yyjson_mut_obj(doc);
   yyjson_mut_obj_add_val(doc, physical, "artifactLocation", artifact);
   yyjson_mut_obj_add_val(doc, physical, "region", region);
@@ -67,15 +64,35 @@ yyjson_mut_val* EventLocation(yyjson_mut_doc* doc, const BugPathEvent& event,
   return item;
 }
 
+// Returns the SARIF result of `report` (Python: _create_result()).
 yyjson_mut_val* ResultObject(yyjson_mut_doc* doc, const Report& report) {
   yyjson_mut_val* result = yyjson_mut_obj(doc);
   yyjson_mut_obj_add_val(doc, result, "ruleId",
-                         String(doc, report.checker_name));
+                         util::MakeJsonString(doc, report.checker_name));
   yyjson_mut_obj_add_val(doc, result, "message", Text(doc, report.message));
   yyjson_mut_val* locations = yyjson_mut_arr(doc);
   yyjson_mut_arr_append(locations, Location(doc, report.file, std::nullopt,
                                             report.line, report.column));
   yyjson_mut_obj_add_val(doc, result, "locations", locations);
+
+  const ReviewStatus& status = report.review_status;
+  if (status.status != "unreviewed") {
+    yyjson_mut_val* suppression = yyjson_mut_obj(doc);
+    yyjson_mut_obj_add_str(doc, suppression, "kind",
+                           status.source_comment.empty() ? "external"
+                                                         : "inSource");
+    if (status.status == "suppress" || status.status == "false_positive" ||
+        status.status == "intentional") {
+      yyjson_mut_obj_add_str(doc, suppression, "status", "accepted");
+    } else if (status.status == "confirmed") {
+      yyjson_mut_obj_add_str(doc, suppression, "status", "rejected");
+    }
+    yyjson_mut_obj_add_val(doc, suppression, "justification",
+                           util::MakeJsonString(doc, status.message));
+    yyjson_mut_val* suppressions = yyjson_mut_arr(doc);
+    yyjson_mut_arr_append(suppressions, suppression);
+    yyjson_mut_obj_add_val(doc, result, "suppressions", suppressions);
+  }
 
   yyjson_mut_val* flow = yyjson_mut_arr(doc);
   for (const BugPathEvent& event : report.bug_path_events) {
@@ -108,10 +125,46 @@ yyjson_mut_val* ResultObject(yyjson_mut_doc* doc, const Report& report) {
   return result;
 }
 
+// Returns the rule level of `severity` (Python: _to_level()); null for an
+// unknown severity.
+const char* Level(const std::string& severity) {
+  if (severity == "HIGH" || severity == "CRITICAL") return "error";
+  if (severity == "MEDIUM" || severity == "UNSPECIFIED") return "warning";
+  if (severity == "STYLE" || severity == "LOW") return "note";
+  return nullptr;
+}
+
+// Returns the rule of the checker of `report`, the first report of that
+// checker.
+yyjson_mut_val* Rule(yyjson_mut_doc* doc, const Report& report,
+                     const CheckerInfoLookup& checker_info) {
+  yyjson_mut_val* rule = yyjson_mut_obj(doc);
+  yyjson_mut_obj_add_val(doc, rule, "id",
+                         util::MakeJsonString(doc, report.checker_name));
+  yyjson_mut_obj_add_val(doc, rule, "fullDescription",
+                         Text(doc, report.message));
+  if (!checker_info) return rule;
+  const CheckerInfo info =
+      checker_info(report.checker_name, report.analyzer_name);
+  if (info.doc_url) {
+    yyjson_mut_obj_add_val(doc, rule, "helpUri",
+                           util::MakeJsonString(doc, *info.doc_url));
+  }
+  if (!info.severity.empty()) {
+    yyjson_mut_val* configuration = yyjson_mut_obj(doc);
+    const char* level = Level(info.severity);
+    yyjson_mut_obj_add_val(doc, configuration, "level",
+                           level != nullptr ? yyjson_mut_str(doc, level)
+                                            : yyjson_mut_null(doc));
+    yyjson_mut_obj_add_val(doc, rule, "defaultConfiguration", configuration);
+  }
+  return rule;
+}
+
 }  // namespace
 
-Result<void> WriteSarifFile(const std::string& path,
-                            const std::vector<Report>& reports) {
+std::string ReportsToSarif(const std::vector<Report>& reports,
+                           const CheckerInfoLookup& checker_info) {
   const util::MutableJsonDocument document = util::NewJsonDocument();
   yyjson_mut_doc* doc = document.get();
   const ToolInfo tool = GetToolInfo();
@@ -121,19 +174,16 @@ Result<void> WriteSarifFile(const std::string& path,
   yyjson_mut_val* results = yyjson_mut_arr(doc);
   for (const Report& report : reports) {
     if (seen_checkers.insert(report.checker_name).second) {
-      yyjson_mut_val* rule = yyjson_mut_obj(doc);
-      yyjson_mut_obj_add_val(doc, rule, "id",
-                             String(doc, report.checker_name));
-      yyjson_mut_obj_add_val(doc, rule, "fullDescription",
-                             Text(doc, report.message));
-      yyjson_mut_arr_append(rules, rule);
+      yyjson_mut_arr_append(rules, Rule(doc, report, checker_info));
     }
     yyjson_mut_arr_append(results, ResultObject(doc, report));
   }
 
   yyjson_mut_val* driver = yyjson_mut_obj(doc);
-  yyjson_mut_obj_add_val(doc, driver, "name", String(doc, tool.name));
-  yyjson_mut_obj_add_val(doc, driver, "version", String(doc, tool.version));
+  yyjson_mut_obj_add_val(doc, driver, "name",
+                         util::MakeJsonString(doc, tool.name));
+  yyjson_mut_obj_add_val(doc, driver, "version",
+                         util::MakeJsonString(doc, tool.version));
   yyjson_mut_obj_add_val(doc, driver, "rules", rules);
   yyjson_mut_val* tool_value = yyjson_mut_obj(doc);
   yyjson_mut_obj_add_val(doc, tool_value, "driver", driver);
@@ -148,7 +198,12 @@ Result<void> WriteSarifFile(const std::string& path,
                          "https://raw.githubusercontent.com/oasis-tcs/"
                          "sarif-spec/master/Schemata/sarif-schema-2.1.0.json");
   yyjson_mut_obj_add_val(doc, root, "runs", runs);
-  return util::WriteFile(path, util::DumpJson(root));
+  return util::DumpJson(root);
+}
+
+Result<void> WriteSarifFile(const std::string& path,
+                            const std::vector<Report>& reports) {
+  return util::WriteFile(path, ReportsToSarif(reports, CheckerInfoLookup()));
 }
 
 }  // namespace cc::report

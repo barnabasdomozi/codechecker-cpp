@@ -42,6 +42,10 @@ std::pair<std::string, std::string> Splitext(std::string_view path);
 // raises ValueError).
 std::optional<std::string> Commonpath(const std::vector<std::string>& paths);
 
+// os.path.relpath(path, start): `path` relative to the folder `start`,
+// both made absolute first. `path` must not be empty.
+std::string Relpath(std::string_view path, std::string_view start);
+
 // os.path.expandvars(path): "$NAME" and "${NAME}" replaced by the
 // environment variable NAME, if it is set.
 std::string Expandvars(std::string_view path);

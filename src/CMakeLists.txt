@@ -25,6 +25,7 @@ add_library(cc_util STATIC
   util/semver.cc
   util/shlex.cc
   util/strings.cc
+  util/template.cc
   util/terminal.cc
   util/textwrap.cc
   util/twodim.cc
@@ -48,7 +49,12 @@ add_library(cc_report STATIC
   report/converter/xml_formats.cc
   report/hash/report_hash.cc
   report/model/report.cc
+  report/output/baseline.cc
+  report/output/codeclimate.cc
   report/output/error_file.cc
+  report/output/gerrit.cc
+  report/output/html.cc
+  report/output/json.cc
   report/output/plaintext.cc
   report/output/plist.cc
   report/output/sarif.cc
@@ -157,23 +163,32 @@ add_custom_target(version_files ALL
   VERBATIM)
 install(FILES ${version_files} DESTINATION config)
 
-# The copied package data files (architecture.md §3), next to the version
-# files.
-file(GLOB_RECURSE config_files CONFIGURE_DEPENDS
-  RELATIVE ${PROJECT_SOURCE_DIR}/config ${PROJECT_SOURCE_DIR}/config/*)
-set(config_outputs)
-foreach(file IN LISTS config_files)
-  add_custom_command(
-    OUTPUT ${PROJECT_BINARY_DIR}/config/${file}
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${PROJECT_SOURCE_DIR}/config/${file}
-            ${PROJECT_BINARY_DIR}/config/${file}
-    DEPENDS ${PROJECT_SOURCE_DIR}/config/${file}
-    VERBATIM)
-  list(APPEND config_outputs ${PROJECT_BINARY_DIR}/config/${file})
-endforeach()
-add_custom_target(config_files ALL DEPENDS ${config_outputs})
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/config/ DESTINATION config)
+# Adds the target `target`, which copies the files of the folder `source`
+# (relative to the project) into the folder `destination` of the build
+# folder, and installs them there.
+function(cc_add_data_files target source destination)
+  file(GLOB_RECURSE files CONFIGURE_DEPENDS
+    RELATIVE ${PROJECT_SOURCE_DIR}/${source} ${PROJECT_SOURCE_DIR}/${source}/*)
+  set(outputs)
+  foreach(file IN LISTS files)
+    add_custom_command(
+      OUTPUT ${PROJECT_BINARY_DIR}/${destination}/${file}
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+              ${PROJECT_SOURCE_DIR}/${source}/${file}
+              ${PROJECT_BINARY_DIR}/${destination}/${file}
+      DEPENDS ${PROJECT_SOURCE_DIR}/${source}/${file}
+      VERBATIM)
+    list(APPEND outputs ${PROJECT_BINARY_DIR}/${destination}/${file})
+  endforeach()
+  add_custom_target(${target} ALL DEPENDS ${outputs})
+  install(DIRECTORY ${PROJECT_SOURCE_DIR}/${source}/
+          DESTINATION ${destination})
+endfunction()
+
+# The copied package data files (architecture.md §3): the config files next
+# to the version files, and the HTML report templates and static files.
+cc_add_data_files(config_files config config)
+cc_add_data_files(html_files data/html lib/codechecker/html)
 
 # The standalone tools (architecture.md §4), built into bin/ next to
 # codechecker-cpp.

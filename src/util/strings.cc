@@ -266,6 +266,32 @@ std::string LeftJustify(std::string_view text, int width) {
   return result;
 }
 
+std::string HtmlEscape(std::string_view text) {
+  std::string result;
+  for (const char c : text) {
+    switch (c) {
+      case '&':
+        result += "&amp;";
+        break;
+      case '<':
+        result += "&lt;";
+        break;
+      case '>':
+        result += "&gt;";
+        break;
+      case '"':
+        result += "&quot;";
+        break;
+      case '\'':
+        result += "&#x27;";
+        break;
+      default:
+        result += c;
+    }
+  }
+  return result;
+}
+
 std::string Join(const std::vector<std::string>& parts,
                  std::string_view separator) {
   std::string result;

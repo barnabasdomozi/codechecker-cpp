@@ -79,6 +79,10 @@ std::string ExpandTabs(std::string_view text);
 // str.ljust()).
 std::string LeftJustify(std::string_view text, int width);
 
+// Returns `text` with the characters & < > " ' replaced by HTML character
+// references (Python: html.escape(text)).
+std::string HtmlEscape(std::string_view text);
+
 // Returns `parts` joined with `separator` between them (Python:
 // separator.join(parts)).
 std::string Join(const std::vector<std::string>& parts,

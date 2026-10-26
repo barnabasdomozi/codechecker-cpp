@@ -40,6 +40,14 @@ Result<JsonDocument> ParseJson(std::string_view text);
 // Returns a new, empty document to build values in.
 MutableJsonDocument NewJsonDocument();
 
+// Returns a new string value in `doc` with a copy of `text`.
+yyjson_mut_val* MakeJsonString(yyjson_mut_doc* doc, std::string_view text);
+
+// Returns a new string value in `doc` with a copy of `text`, or null for
+// nullopt (Python: None).
+yyjson_mut_val* MakeJsonOptionalString(yyjson_mut_doc* doc,
+                                       const std::optional<std::string>& text);
+
 // Returns `value` as Python's json.dumps() writes it with its defaults:
 // ", " and ": " separators, and non-ASCII characters as \uXXXX escapes.
 std::string DumpJson(yyjson_mut_val* value);

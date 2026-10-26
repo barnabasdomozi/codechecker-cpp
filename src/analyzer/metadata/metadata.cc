@@ -32,15 +32,11 @@ void AddObject(yyjson_val* object, SourceFiles* files) {
   }
 }
 
-yyjson_mut_val* String(yyjson_mut_doc* doc, const std::string& text) {
-  return yyjson_mut_strncpy(doc, text.data(), text.size());
-}
-
 yyjson_mut_val* StringList(yyjson_mut_doc* doc,
                            const std::vector<std::string>& items) {
   yyjson_mut_val* list = yyjson_mut_arr(doc);
   for (const std::string& item : items) {
-    yyjson_mut_arr_append(list, String(doc, item));
+    yyjson_mut_arr_append(list, util::MakeJsonString(doc, item));
   }
   return list;
 }
@@ -93,14 +89,16 @@ std::string MetadataJson(const MetadataTool& tool) {
   yyjson_mut_obj_add_str(doc, entry, "name", "codechecker");
   yyjson_mut_obj_add_int(doc, entry, "action_num", tool.action_num);
   yyjson_mut_obj_add_val(doc, entry, "command", StringList(doc, tool.command));
-  yyjson_mut_obj_add_val(doc, entry, "version", String(doc, tool.version));
+  yyjson_mut_obj_add_val(doc, entry, "version",
+                         util::MakeJsonString(doc, tool.version));
   yyjson_mut_obj_add_val(doc, entry, "working_directory",
-                         String(doc, tool.working_directory));
+                         util::MakeJsonString(doc, tool.working_directory));
   yyjson_mut_obj_add_val(doc, entry, "output_path",
-                         String(doc, tool.output_path));
+                         util::MakeJsonString(doc, tool.output_path));
   yyjson_mut_val* files = yyjson_mut_obj(doc);
   for (const auto& [result_file, source] : tool.result_source_files) {
-    yyjson_mut_obj_add(files, String(doc, result_file), String(doc, source));
+    yyjson_mut_obj_add(files, util::MakeJsonString(doc, result_file),
+                       util::MakeJsonString(doc, source));
   }
   yyjson_mut_obj_add_val(doc, entry, "result_source_files", files);
   yyjson_mut_val* analyzers = yyjson_mut_obj(doc);
@@ -108,7 +106,7 @@ std::string MetadataJson(const MetadataTool& tool) {
     yyjson_mut_val* analyzer = yyjson_mut_obj(doc);
     yyjson_mut_val* checkers = yyjson_mut_obj(doc);
     for (const auto& [checker, enabled] : metadata.checkers) {
-      yyjson_mut_obj_add(checkers, String(doc, checker),
+      yyjson_mut_obj_add(checkers, util::MakeJsonString(doc, checker),
                          yyjson_mut_bool(doc, enabled));
     }
     yyjson_mut_obj_add_val(doc, analyzer, "checkers", checkers);
@@ -121,13 +119,14 @@ std::string MetadataJson(const MetadataTool& tool) {
     yyjson_mut_obj_add_val(doc, statistics, "successful_sources",
                            StringList(doc, stats.successful_sources));
     yyjson_mut_obj_add_val(doc, statistics, "version",
-                           String(doc, stats.version));
+                           util::MakeJsonString(doc, stats.version));
     yyjson_mut_obj_add_val(doc, analyzer, "analyzer_statistics", statistics);
-    yyjson_mut_obj_add(analyzers, String(doc, name), analyzer);
+    yyjson_mut_obj_add(analyzers, util::MakeJsonString(doc, name), analyzer);
   }
   yyjson_mut_obj_add_val(doc, entry, "analyzers", analyzers);
   if (tool.run_name) {
-    yyjson_mut_obj_add_val(doc, entry, "run_name", String(doc, *tool.run_name));
+    yyjson_mut_obj_add_val(doc, entry, "run_name",
+                           util::MakeJsonString(doc, *tool.run_name));
   }
   if (tool.skipped) {
     yyjson_mut_obj_add_int(doc, entry, "skipped", *tool.skipped);

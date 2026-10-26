@@ -11,6 +11,7 @@ add_executable(util_test
   pyre_test.cc
   shlex_test.cc
   strings_test.cc
+  template_test.cc
   textwrap_test.cc
   twodim_test.cc
   yaml_test.cc)

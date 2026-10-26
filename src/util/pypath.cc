@@ -188,6 +188,23 @@ std::optional<std::string> Commonpath(const std::vector<std::string>& paths) {
   return (absolute ? "/" : "") + util::Join(common, "/");
 }
 
+std::string Relpath(std::string_view path, std::string_view start) {
+  const auto parts = [](std::string_view target) {
+    std::vector<std::string> result = Split(Abspath(target), "/");
+    std::erase(result, "");
+    return result;
+  };
+  const std::vector<std::string> start_parts = parts(start);
+  const std::vector<std::string> path_parts = parts(path);
+  const size_t common = static_cast<size_t>(
+      std::ranges::mismatch(start_parts, path_parts).in1 -
+      start_parts.begin());
+  std::vector<std::string> relative(start_parts.size() - common, "..");
+  relative.insert(relative.end(), path_parts.begin() + common,
+                  path_parts.end());
+  return relative.empty() ? "." : util::Join(relative, "/");
+}
+
 std::string Expandvars(std::string_view path) {
   // Python: re.compile(r'\$(\w+|\{[^}]*\})', re.ASCII).
   static const Regex& kVariable =

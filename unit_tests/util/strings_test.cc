@@ -77,6 +77,11 @@ TEST(StringsTest, Lines) {
             (std::vector<std::string_view>{"a\r\n", "b\r", "c\n", "d"}));
 }
 
+TEST(StringsTest, HtmlEscape) {
+  EXPECT_EQ(HtmlEscape("<a href=\"x\">&'b'</a>"),
+            "&lt;a href=&quot;x&quot;&gt;&amp;&#x27;b&#x27;&lt;/a&gt;");
+}
+
 TEST(StringsTest, FloatRepr) {
   EXPECT_EQ(FloatRepr(1.0), "1.0");
   EXPECT_EQ(FloatRepr(1e-05), "1e-05");

@@ -188,6 +188,15 @@ std::string JsonString(yyjson_mut_val* value) {
   return std::string(yyjson_mut_get_str(value), yyjson_mut_get_len(value));
 }
 
+yyjson_mut_val* MakeJsonString(yyjson_mut_doc* doc, std::string_view text) {
+  return yyjson_mut_strncpy(doc, text.data(), text.size());
+}
+
+yyjson_mut_val* MakeJsonOptionalString(
+    yyjson_mut_doc* doc, const std::optional<std::string>& text) {
+  return text ? MakeJsonString(doc, *text) : yyjson_mut_null(doc);
+}
+
 std::string DumpJson(yyjson_mut_val* value) {
   std::string out;
   AppendValue(value, -1, 0, &out);

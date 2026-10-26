@@ -8,9 +8,17 @@
 #include <vector>
 
 #include "report/model/report.h"
+#include "report/output/checker_info.h"
 #include "util/result.h"
 
 namespace cc::report {
+
+// Returns `reports` as SARIF, as json.dumps() writes it (Python:
+// Parser.convert() of report/parser/sarif.py). With `checker_info`, rules
+// get their helpUri and defaultConfiguration; an empty function leaves them
+// out.
+std::string ReportsToSarif(const std::vector<Report>& reports,
+                           const CheckerInfoLookup& checker_info);
 
 // Writes `reports` into the SARIF file at `path`, replacing it, as
 // json.dump() writes it. Checker labels are not known here, so rules have no

@@ -9,6 +9,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -72,6 +73,10 @@ struct ReviewStatus {
   // from a source code comment.
   std::string source_comment = {};
 };
+
+// Returns the status of `status` as the outputs show it, for example "False
+// positive" (Python: SourceReviewStatus.formatted_status()).
+std::string FormattedStatus(const ReviewStatus& status);
 
 // One finding of an analyzer.
 struct Report {
@@ -140,6 +145,17 @@ yyjson_mut_val* ReportToJson(const Report& report, yyjson_mut_doc* document);
 
 // Returns repr(report): ReportToJson() written by json.dumps().
 std::string ReportRepr(const Report& report);
+
+// Shown instead of the source of a file that changed since the analysis
+// (Python: InvalidFileContentMsg).
+inline constexpr std::string_view kInvalidFileContentMessage =
+    "WARNING: source file content is changed or missing. Please re-analyze "
+    "your project to update the reports.";
+
+// Returns the source line of `report`, with its line terminator (Python:
+// Report.source_line): kInvalidFileContentMessage if its file changed since
+// the analysis (see ChangedFiles()), else as GetLine() reads it.
+std::string SourceLine(const Report& report);
 
 // Returns line `line` of the file at `path`, with its line terminator, read
 // as UTF-8 with undecodable bytes dropped and universal newlines; "" if the

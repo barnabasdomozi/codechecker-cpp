@@ -29,6 +29,14 @@ TEST(PypathTest, Join) {
   EXPECT_EQ(Join({"", "b"}), "b");
 }
 
+TEST(PypathTest, Relpath) {
+  EXPECT_EQ(Relpath("/a/b/c", "/a"), "b/c");
+  EXPECT_EQ(Relpath("/a/b", "/a/b"), ".");
+  EXPECT_EQ(Relpath("/a/x", "/a/b/c"), "../../x");
+  EXPECT_EQ(Relpath("/a//b/", "/a/"), "b");
+  EXPECT_EQ(Relpath("/", "/a/b"), "../..");
+}
+
 TEST(PypathTest, Normpath) {
   EXPECT_EQ(Normpath(""), ".");
   EXPECT_EQ(Normpath("a/b/"), "a/b");

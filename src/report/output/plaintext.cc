@@ -19,12 +19,6 @@
 namespace cc::report {
 namespace {
 
-// Printed instead of the source line of a report whose file changed
-// (Python: InvalidFileContentMsg).
-constexpr std::string_view kInvalidFileContentMessage =
-    "WARNING: source file content is changed or missing. Please re-analyze "
-    "your project to update the reports.";
-
 void Write(std::string_view text) { util::Write(util::Stream::kStdout, text); }
 
 // Returns the key that orders file paths (Python: str.casefold). Only ASCII
@@ -59,13 +53,7 @@ std::string FormatReport(const Report& report, bool content_is_not_changed) {
       report.line, report.column, report.message, report.checker_name);
   const std::string& status = report.review_status.status;
   if (content_is_not_changed && status != "unreviewed") {
-    // Python: SourceReviewStatus.formatted_status().
-    std::string formatted = util::AsciiLower(status);
-    std::ranges::replace(formatted, '_', ' ');
-    if (!formatted.empty() && formatted[0] >= 'a' && formatted[0] <= 'z') {
-      formatted[0] = static_cast<char>(formatted[0] - 'a' + 'A');
-    }
-    out += " [" + formatted + "]";
+    out += " [" + FormattedStatus(report.review_status) + "]";
   }
   return out;
 }

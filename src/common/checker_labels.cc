@@ -198,27 +198,41 @@ const std::vector<std::string>& CheckerLabels::OccurringValues(
   return values == values_.end() ? kNone : values->second;
 }
 
+const CheckerLabels::Checker* CheckerLabels::FindChecker(
+    const Analyzer& data, const std::string& checker) {
+  if (const auto it = data.index.find(checker); it != data.index.end()) {
+    return &data.checkers[it->second];
+  }
+  for (const Checker& candidate : data.checkers) {
+    if (checker.starts_with(candidate.name)) return &candidate;
+  }
+  return nullptr;
+}
+
+std::vector<std::string> CheckerLabels::LabelsOfChecker(
+    const std::string& checker, std::string_view key,
+    std::optional<std::string_view> analyzer) const {
+  std::vector<std::string> values;
+  for (const Analyzer& data : analyzers_) {
+    if (analyzer && data.name != *analyzer) continue;
+    const Checker* found = FindChecker(data, checker);
+    if (found == nullptr) continue;
+    for (const auto& [label_key, value] : found->labels) {
+      if (label_key == key &&
+          std::ranges::find(values, value) == values.end()) {
+        values.push_back(value);
+      }
+    }
+  }
+  return values;
+}
+
 std::string CheckerLabels::UniqueLabelOfChecker(
     const std::string& checker, std::string_view key,
     std::optional<std::string_view> analyzer) const {
-  for (const Analyzer& data : analyzers_) {
-    if (analyzer && data.name != *analyzer) continue;
-    const Checker* found = nullptr;
-    if (const auto it = data.index.find(checker); it != data.index.end()) {
-      found = &data.checkers[it->second];
-    } else {
-      for (const Checker& candidate : data.checkers) {
-        if (checker.starts_with(candidate.name)) {
-          found = &candidate;
-          break;
-        }
-      }
-    }
-    if (found == nullptr) continue;
-    for (const auto& [label_key, value] : found->labels) {
-      if (label_key == key) return value;
-    }
-  }
+  const std::vector<std::string> values =
+      LabelsOfChecker(checker, key, analyzer);
+  if (!values.empty()) return values.front();
   for (const auto& [unique, default_value] : kUniqueLabels) {
     if (unique == key) return std::string(default_value);
   }

@@ -2,6 +2,7 @@
 
 #include <yyjson.h>
 
+#include <algorithm>
 #include <optional>
 #include <set>
 #include <string>
@@ -23,21 +24,13 @@ namespace {
 
 constexpr util::Logger kLog("report-converter");
 
-yyjson_mut_val* String(yyjson_mut_doc* doc, std::string_view text) {
-  return yyjson_mut_strncpy(doc, text.data(), text.size());
-}
-
-yyjson_mut_val* OptionalString(yyjson_mut_doc* doc,
-                               const std::optional<std::string>& text) {
-  return text ? String(doc, *text) : yyjson_mut_null(doc);
-}
-
 yyjson_mut_val* FileToJson(const File& file, yyjson_mut_doc* doc) {
   yyjson_mut_val* object = yyjson_mut_obj(doc);
-  yyjson_mut_obj_add_val(doc, object, "id", String(doc, file.id));
-  yyjson_mut_obj_add_val(doc, object, "path", String(doc, file.path));
+  yyjson_mut_obj_add_val(doc, object, "id", util::MakeJsonString(doc, file.id));
+  yyjson_mut_obj_add_val(doc, object, "path",
+                         util::MakeJsonString(doc, file.path));
   yyjson_mut_obj_add_val(doc, object, "original_path",
-                         String(doc, file.original_path));
+                         util::MakeJsonString(doc, file.original_path));
   return object;
 }
 
@@ -56,12 +49,14 @@ yyjson_mut_val* EventToJson(const BugPathEvent& event, yyjson_mut_doc* doc,
                             const std::string* macro_name = nullptr) {
   yyjson_mut_val* object = yyjson_mut_obj(doc);
   if (macro_name != nullptr) {
-    yyjson_mut_obj_add_val(doc, object, "name", String(doc, *macro_name));
+    yyjson_mut_obj_add_val(doc, object, "name",
+                           util::MakeJsonString(doc, *macro_name));
   }
   yyjson_mut_obj_add_val(doc, object, "file", FileToJson(event.file, doc));
   yyjson_mut_obj_add_int(doc, object, "line", event.line);
   yyjson_mut_obj_add_int(doc, object, "column", event.column);
-  yyjson_mut_obj_add_val(doc, object, "message", String(doc, event.message));
+  yyjson_mut_obj_add_val(doc, object, "message",
+                         util::MakeJsonString(doc, event.message));
   yyjson_mut_obj_add_val(doc, object, "range", RangeToJson(event.range, doc));
   return object;
 }
@@ -117,18 +112,18 @@ yyjson_mut_val* ReportToJson(const Report& report, yyjson_mut_doc* doc) {
     yyjson_mut_obj_add_val(doc, object, key, value);
   };
   add("analyzer_result_file_path",
-      OptionalString(doc, report.analyzer_result_file_path));
+      util::MakeJsonOptionalString(doc, report.analyzer_result_file_path));
   add("file", FileToJson(report.file, doc));
   add("line", yyjson_mut_int(doc, report.line));
   add("column", yyjson_mut_int(doc, report.column));
-  add("message", String(doc, report.message));
-  add("checker_name", String(doc, report.checker_name));
-  add("severity", OptionalString(doc, report.severity));
-  add("report_hash", OptionalString(doc, report.report_hash));
-  add("analyzer_name", OptionalString(doc, report.analyzer_name));
-  add("category", OptionalString(doc, report.category));
+  add("message", util::MakeJsonString(doc, report.message));
+  add("checker_name", util::MakeJsonString(doc, report.checker_name));
+  add("severity", util::MakeJsonOptionalString(doc, report.severity));
+  add("report_hash", util::MakeJsonOptionalString(doc, report.report_hash));
+  add("analyzer_name", util::MakeJsonOptionalString(doc, report.analyzer_name));
+  add("category", util::MakeJsonOptionalString(doc, report.category));
   add("type", yyjson_mut_null(doc));
-  add("review_status", String(doc, report.review_status.status));
+  add("review_status", util::MakeJsonString(doc, report.review_status.status));
   yyjson_mut_val* events = yyjson_mut_arr(doc);
   for (const BugPathEvent& event : report.bug_path_events) {
     yyjson_mut_arr_append(events, EventToJson(event, doc));
@@ -155,7 +150,8 @@ yyjson_mut_val* ReportToJson(const Report& report, yyjson_mut_doc* doc) {
   add("macro_expansions", macros);
   yyjson_mut_val* annotations = yyjson_mut_obj(doc);
   for (const auto& [key, value] : report.annotations) {
-    yyjson_mut_obj_add(annotations, String(doc, key), String(doc, value));
+    yyjson_mut_obj_add(annotations, util::MakeJsonString(doc, key),
+                       util::MakeJsonString(doc, value));
   }
   add("annotations", annotations);
   return object;
@@ -238,6 +234,22 @@ std::string TrimPathPrefixes(const std::string& path,
   }
   if (longest.empty() || longest == "/") return path;
   return path.substr(longest.size());
+}
+
+std::string FormattedStatus(const ReviewStatus& status) {
+  std::string formatted = util::AsciiLower(status.status);
+  std::ranges::replace(formatted, '_', ' ');
+  if (!formatted.empty() && formatted[0] >= 'a' && formatted[0] <= 'z') {
+    formatted[0] = static_cast<char>(formatted[0] - 'a' + 'A');
+  }
+  return formatted;
+}
+
+std::string SourceLine(const Report& report) {
+  if (ChangedFiles(report).contains(report.file.original_path)) {
+    return std::string(kInvalidFileContentMessage);
+  }
+  return GetLine(report.file.original_path, report.line);
 }
 
 std::string GetLine(const std::string& path, int line) {

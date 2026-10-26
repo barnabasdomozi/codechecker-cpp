@@ -31,7 +31,14 @@
 #include "platform/filesystem.h"
 #include "report/hash/report_hash.h"
 #include "report/model/report.h"
+#include "report/output/baseline.h"
+#include "report/output/checker_info.h"
+#include "report/output/codeclimate.h"
+#include "report/output/gerrit.h"
+#include "report/output/html.h"
+#include "report/output/json.h"
 #include "report/output/plaintext.h"
+#include "report/output/sarif.h"
 #include "report/output/statistics.h"
 #include "report/parser/report_file.h"
 #include "util/argparse.h"
@@ -133,6 +140,14 @@ std::string ListRepr(const std::vector<std::string>& items) {
   std::vector<std::string> reprs;
   for (const std::string& item : items) reprs.push_back(util::Repr(item));
   return "[" + util::Join(reprs, ", ") + "]";
+}
+
+// Returns the error for a Python exception that is not caught, so the
+// command ends with a stack trace: the text of `error` is printed as it is,
+// not logged.
+Error Uncaught(const Error& error) {
+  util::Print(error.message);
+  return Error{};
 }
 
 // --- The analysis status (--status) ---
@@ -307,16 +322,13 @@ void LogStatus(const ReportDirStatus& status, bool detailed) {
 std::string StatusJson(const ReportDirStatus& status, bool detailed) {
   const util::MutableJsonDocument document = util::NewJsonDocument();
   yyjson_mut_doc* doc = document.get();
-  const auto string = [doc](std::string_view text) {
-    return yyjson_mut_strncpy(doc, text.data(), text.size());
-  };
   yyjson_mut_val* analyzers = yyjson_mut_obj(doc);
   for (const AnalyzerStatus& analyzer : status.analyzers) {
     yyjson_mut_val* entry = yyjson_mut_obj(doc);
     yyjson_mut_val* summary = yyjson_mut_obj(doc);
     for (int state = 0; state < kStateCount; ++state) {
       yyjson_mut_obj_add(
-          summary, string(kStateKeys[state]),
+          summary, util::MakeJsonString(doc, kStateKeys[state]),
           yyjson_mut_int(doc,
                          static_cast<int64_t>(analyzer.files[state].size())));
     }
@@ -324,11 +336,13 @@ std::string StatusJson(const ReportDirStatus& status, bool detailed) {
     for (int state = 0; detailed && state < kStateCount; ++state) {
       yyjson_mut_val* files = yyjson_mut_arr(doc);
       for (const std::string& file : analyzer.files[state]) {
-        yyjson_mut_arr_append(files, string(file));
+        yyjson_mut_arr_append(files, util::MakeJsonString(doc, file));
       }
-      yyjson_mut_obj_add(entry, string(kStateKeys[state]), files);
+      yyjson_mut_obj_add(entry, util::MakeJsonString(doc, kStateKeys[state]),
+                         files);
     }
-    yyjson_mut_obj_add(analyzers, string(analyzer.name), entry);
+    yyjson_mut_obj_add(analyzers, util::MakeJsonString(doc, analyzer.name),
+                       entry);
   }
   yyjson_mut_val* root = yyjson_mut_obj(doc);
   yyjson_mut_obj_add_val(doc, root, "analyzers", analyzers);
@@ -395,8 +409,7 @@ Result<void> PrintStatus(const std::string& report_dir, bool detailed,
             util::WriteFile(path, StatusJson(status.value(), detailed));
         !written.ok()) {
       // Python ends with an uncaught OSError here.
-      util::Print(written.error().message);
-      return Result<void>(Error{});
+      return Result<void>(Uncaught(written.error()));
     }
     kLog.Info(std::format("Status info was dumped to '{}'.", path));
   }
@@ -448,6 +461,12 @@ struct ParseState {
   // The patterns of --trim-path-prefix; empty: the paths are not trimmed.
   std::vector<util::Regex> trim_patterns;
   TrimmedPaths trimmed_paths;
+  // The absolute path of -o: a folder for HTML, else a file.
+  std::optional<std::string> output_path;
+  // The HTML pages; only for --export html.
+  std::optional<report::HtmlBuilder> html_builder;
+  // The shown reports, for the exports other than HTML.
+  std::vector<report::Report> exported_reports;
 };
 
 // Returns the reports of `reports` that are shown (Python:
@@ -503,9 +522,9 @@ std::vector<report::Report> KeptReports(std::vector<report::Report> reports,
   return kept;
 }
 
-// Reads, filters and prints the reports of the result file at `path`.
-// `source_files` maps result files to the source files they were made
-// from.
+// Reads and filters the reports of the result file at `path`, and prints
+// them, writes their HTML page or keeps them for the export. `source_files`
+// maps result files to the source files they were made from.
 Result<void> ProcessResultFile(
     const std::string& path, const ParseArgs& args,
     const std::unordered_map<std::string, std::string>& source_files,
@@ -538,13 +557,24 @@ Result<void> ProcessResultFile(
       ApplyTrimmedPaths(state->trimmed_paths, &report);
     }
   }
-  const auto source_file = source_files.find(path);
-  report::PrintReports(
-      report::GetFileReportMap(
-          kept, source_file != source_files.end()
-                    ? std::optional<std::string>(source_file->second)
-                    : std::nullopt),
-      args.print_steps, &state->processed_file_paths);
+  if (!args.export_format) {
+    const auto source_file = source_files.find(path);
+    report::PrintReports(
+        report::GetFileReportMap(
+            kept, source_file != source_files.end()
+                      ? std::optional<std::string>(source_file->second)
+                      : std::nullopt),
+        args.print_steps, &state->processed_file_paths);
+  } else if (state->html_builder) {
+    util::Print(std::format("Parsing input file '{}'.", path));
+    if (Result<void> converted =
+            state->html_builder->Convert(path, kept, *state->output_path);
+        !converted.ok()) {
+      return Result<void>(Uncaught(converted.error()));
+    }
+  } else {
+    std::ranges::move(kept, std::back_inserter(state->exported_reports));
+  }
   return Result<void>();
 }
 
@@ -644,8 +674,7 @@ Result<std::optional<SuppressHandler>> MakeSuppressHandler(
     if (const Result<void> created = util::WriteFile(path, "");
         !created.ok()) {
       // Python ends with an uncaught OSError here.
-      util::Print(created.error().message);
-      return Handler(Error{});
+      return Handler(Uncaught(created.error()));
     }
     kLog.Info("Will write source-code suppressions to suppress file: " +
               path);
@@ -653,31 +682,40 @@ Result<std::optional<SuppressHandler>> MakeSuppressHandler(
   Result<SuppressHandler> handler =
       SuppressHandler::Create(path, args.export_source_suppress, filter);
   if (!handler.ok()) {
-    util::Print(handler.error().message);
-    return Handler(Error{});
+    return Handler(Uncaught(handler.error()));
   }
   return Handler(std::move(handler).value());
 }
 
-// Checks the -o path and creates its folder. Without an export format it
-// is not written, but Python checks it all the same.
-Result<void> PrepareOutputPath(const ParseArgs& args) {
-  if (!args.output_path) return Result<void>();
+// Returns the -o path, made absolute, after checking it, and creates the
+// folder the export is written into: the path itself for HTML, else its
+// parent. Without an export format nothing is written, but Python checks
+// the path all the same.
+Result<std::optional<std::string>> PrepareOutputPath(const ParseArgs& args) {
+  using Path = Result<std::optional<std::string>>;
+  if (!args.output_path) return Path(std::nullopt);
   const std::string path = util::pypath::Abspath(*args.output_path);
-  if (util::pypath::IsDir(path)) {
-    return Result<void>(Error{
-        .message = std::format("Please provide a file path instead of a "
-                               "directory for '{}' export type!",
-                               args.export_format.value_or("None"))});
+  std::string dir = path;
+  if (args.export_format != "html") {
+    if (util::pypath::IsDir(path)) {
+      return Path(Error{
+          .message = std::format("Please provide a file path instead of a "
+                                 "directory for '{}' export type!",
+                                 args.export_format.value_or("None"))});
+    }
+    if (args.export_format == "baseline" && !report::IsBaselineFile(path)) {
+      return Path(
+          Error{.message = "Baseline files must have '.baseline' extensions."});
+    }
+    dir = util::pypath::Dirname(path);
   }
-  const std::string dir = util::pypath::Dirname(path);
   if (!util::pypath::Exists(dir)) {
     if (const std::error_code error = platform::MakeDirs(dir)) {
-      util::Print(util::OsError(error.value(), dir).message);
-      return Result<void>(Error{});
+      // Python ends with an uncaught OSError here.
+      return Path(Uncaught(util::OsError(error.value(), dir)));
     }
   }
-  return Result<void>();
+  return Path(path);
 }
 
 // Returns the skip handlers of --file and -i.
@@ -693,34 +731,137 @@ Result<common::SkipListHandlers> MakeSkipHandlers(const ParseArgs& args) {
     const Result<std::string> content = util::ReadTextFile(*args.skipfile);
     if (!content.ok()) {
       // Python ends with an uncaught OSError here.
-      util::Print(content.error().message);
-      return Result<common::SkipListHandlers>(Error{});
+      return Result<common::SkipListHandlers>(Uncaught(content.error()));
     }
     handlers.emplace_back(content.value());
   }
   return Result<common::SkipListHandlers>(std::move(handlers));
 }
 
-// Prints the reports of the inputs, the statistics and the analysis status
-// of the first input. Returns the exit code.
-Result<int> ParseReports(const ParseArgs& args,
-                         const common::CheckerLabels& checker_labels) {
-  ParseState state;
-  state.checker_labels = &checker_labels;
-  state.review_status_filter = args.review_status.value_or(
-      std::vector<std::string>{"confirmed", "unreviewed"});
-  state.trim_patterns = report::PathPrefixPatterns(args.trim_path_prefixes);
+// Returns the lookup of the checker labels that the HTML and SARIF
+// exports show, in `labels`, which must outlive it.
+report::CheckerInfoLookup CheckerInfoOf(const common::CheckerLabels& labels) {
+  return [&labels](const std::string& checker,
+                   const std::optional<std::string>& analyzer) {
+    const std::optional<std::string_view> analyzer_name =
+        analyzer ? std::optional<std::string_view>(*analyzer) : std::nullopt;
+    const std::vector<std::string> doc_urls =
+        labels.LabelsOfChecker(checker, "doc_url", analyzer_name);
+    return report::CheckerInfo{
+        .severity =
+            labels.UniqueLabelOfChecker(checker, "severity", analyzer_name),
+        .doc_url = doc_urls.empty() ? std::nullopt
+                                    : std::optional<std::string>(doc_urls[0])};
+  };
+}
+
+// Writes the export of `args` other than HTML: the shown reports, kept in
+// `state`, into the -o file or on stdout.
+Result<void> ExportReports(const ParseArgs& args,
+                           const report::CheckerInfoLookup& checker_info,
+                           ParseState* state) {
+  std::vector<report::Report>& reports = state->exported_reports;
+  // The reports read first see the paths trimmed for the later ones, as
+  // they do through Python's shared File objects.
+  for (report::Report& report : reports) {
+    ApplyTrimmedPaths(state->trimmed_paths, &report);
+  }
+  const std::string& format = *args.export_format;
+  if (format == "baseline") {
+    // Without -o, nothing is written.
+    if (!state->output_path) return Result<void>();
+    if (Result<void> written = report::WriteBaseline(
+            *state->output_path, report::BaselineHashes(reports));
+        !written.ok()) {
+      return Result<void>(Uncaught(written.error()));
+    }
+    return Result<void>();
+  }
+  std::string json;
+  if (format == "json") {
+    json = report::ReportsToJson(reports);
+  } else if (format == "codeclimate") {
+    json = report::ReportsToCodeClimate(reports);
+  } else if (format == "sarif") {
+    json = report::ReportsToSarif(reports, checker_info);
+  } else {  // gerrit
+    Result<std::string> review = report::ReportsToGerrit(reports);
+    if (!review.ok()) return Result<void>(Uncaught(review.error()));
+    json = std::move(review).value();
+  }
+  if (Result<void> dumped = report::DumpJsonOutput(json, state->output_path);
+      !dumped.ok()) {
+    return Result<void>(Uncaught(dumped.error()));
+  }
+  return Result<void>();
+}
+
+// Fills `state` from `args` before the inputs are read: the review status
+// filter, the suppress and skip handlers, the checked -o path and, for
+// --export html, the HTML builder, which uses `checker_info`.
+Result<void> PrepareParseState(const ParseArgs& args,
+                               const AnalyzerContext& context,
+                               const report::CheckerInfoLookup& checker_info,
+                               ParseState* state) {
+  state->checker_labels = &context.checker_labels();
+  std::vector<std::string> default_filter = {"confirmed", "unreviewed"};
+  if (args.export_format == "sarif") {
+    default_filter.assign(std::begin(common::kReviewStatusValues),
+                          std::end(common::kReviewStatusValues));
+  }
+  state->review_status_filter = args.review_status.value_or(default_filter);
+  state->trim_patterns = report::PathPrefixPatterns(args.trim_path_prefixes);
   Result<std::optional<SuppressHandler>> suppress_handler =
-      MakeSuppressHandler(args, state.review_status_filter);
-  if (!suppress_handler.ok()) return Result<int>(suppress_handler.error());
-  state.suppress_handler = std::move(suppress_handler).value();
-  if (Result<void> prepared = PrepareOutputPath(args); !prepared.ok()) {
+      MakeSuppressHandler(args, state->review_status_filter);
+  if (!suppress_handler.ok()) return Result<void>(suppress_handler.error());
+  state->suppress_handler = std::move(suppress_handler).value();
+  Result<std::optional<std::string>> output_path = PrepareOutputPath(args);
+  if (!output_path.ok()) return Result<void>(output_path.error());
+  state->output_path = std::move(output_path).value();
+  Result<common::SkipListHandlers> skip_handlers = MakeSkipHandlers(args);
+  if (!skip_handlers.ok()) return Result<void>(skip_handlers.error());
+  state->skip_handlers = std::move(skip_handlers).value();
+  if (args.export_format == "html") {
+    Result<report::HtmlBuilder> builder = report::HtmlBuilder::Create(
+        util::pypath::Join(
+            {context.data_files_dir(), "lib", "codechecker", "html"}),
+        checker_info);
+    if (!builder.ok()) return Result<void>(Uncaught(builder.error()));
+    state->html_builder = std::move(builder).value();
+  }
+  return Result<void>();
+}
+
+// Writes the result of the reports read into `state`: the statistics
+// without an export format, else the export of `args`.
+Result<void> WriteParseOutput(const ParseArgs& args,
+                              const report::CheckerInfoLookup& checker_info,
+                              ParseState* state) {
+  if (!args.export_format) {
+    state->statistics.Write();
+    return Result<void>();
+  }
+  if (!state->html_builder) return ExportReports(args, checker_info, state);
+  if (Result<void> finished =
+          state->html_builder->Finish(*state->output_path, state->statistics);
+      !finished.ok()) {
+    return Result<void>(Uncaught(finished.error()));
+  }
+  return Result<void>();
+}
+
+// Prints or exports the reports of the inputs, prints the analysis status
+// of the first input, and returns the exit code.
+Result<int> ParseReports(const ParseArgs& args,
+                         const AnalyzerContext& context) {
+  const report::CheckerInfoLookup checker_info =
+      CheckerInfoOf(context.checker_labels());
+  ParseState state;
+  if (Result<void> prepared =
+          PrepareParseState(args, context, checker_info, &state);
+      !prepared.ok()) {
     return Result<int>(prepared.error());
   }
-  Result<common::SkipListHandlers> skip_handlers = MakeSkipHandlers(args);
-  if (!skip_handlers.ok()) return Result<int>(skip_handlers.error());
-  state.skip_handlers = std::move(skip_handlers).value();
-
   for (const report::ResultFolder& folder :
        report::AnalyzerResultFiles(args.inputs)) {
     if (Result<void> processed = ProcessFolder(folder, args, &state);
@@ -732,7 +873,10 @@ Result<int> ParseReports(const ParseArgs& args,
        state.review_status_handler.source_comment_warnings()) {
     kLog.Warning(warning);
   }
-  state.statistics.Write();
+  if (Result<void> written = WriteParseOutput(args, checker_info, &state);
+      !written.ok()) {
+    return Result<int>(written.error());
+  }
   report::DumpChangedFiles(state.changed_files);
   const std::string& input = args.inputs.front();
   if (util::pypath::IsDir(input) &&
@@ -766,6 +910,9 @@ Result<int> Parse(const argparse::Namespace& ns) {
                                         "without argument --output when "
                                         "exporting to HTML."});
   }
+  if (args.export_format == "gerrit" && !report::GerritEnvironmentIsSet()) {
+    return Result<int>(Error{});
+  }
   const Result<AnalyzerContext*> context = GetContext();
   if (!context.ok()) return Result<int>(context.error());
   if (args.status) {
@@ -777,15 +924,7 @@ Result<int> Parse(const argparse::Namespace& ns) {
     }
     return Result<int>(0);
   }
-  if (args.export_format) {
-    // TODO(parse-export.md): port the export formats, with the CC_REPO_DIR
-    // and CC_CHANGED_FILES check of gerrit before --status, and the
-    // default review status filter of sarif.
-    return Result<int>(Error{.message = std::format(
-                                 "Exporting to '{}' is not supported yet.",
-                                 *args.export_format)});
-  }
-  return ParseReports(args, context.value()->checker_labels());
+  return ParseReports(args, *context.value());
 }
 
 }  // namespace

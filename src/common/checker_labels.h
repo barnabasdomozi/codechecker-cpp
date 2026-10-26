@@ -64,6 +64,14 @@ class CheckerLabels {
                                    std::optional<std::string_view> analyzer)
       const;
 
+  // Returns the values of the label `key` of `checker`, of `analyzer` or of
+  // all analyzers, without repetitions, in the order of the label files
+  // (Python: label_of_checker() for labels that are not unique). Checkers
+  // without labels of their own are found as by UniqueLabelOfChecker().
+  std::vector<std::string> LabelsOfChecker(
+      const std::string& checker, std::string_view key,
+      std::optional<std::string_view> analyzer) const;
+
   // Returns the values of the label `key` with their descriptions from
   // descriptions.json, in the file's order (Python: get_description()).
   const std::vector<std::pair<std::string, std::string>>& Description(
@@ -81,6 +89,12 @@ class CheckerLabels {
   };
 
   CheckerLabels() = default;
+
+  // Returns the checker of `data` that has the labels of `checker`: the one
+  // with that name, else the first whose name is a prefix of it; null if
+  // there is none.
+  static const Checker* FindChecker(const Analyzer& data,
+                                    const std::string& checker);
 
   std::vector<Analyzer> analyzers_;
   std::vector<std::string> label_keys_;
