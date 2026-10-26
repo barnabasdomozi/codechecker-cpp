@@ -4,8 +4,10 @@
 //   constexpr util::Logger kLog("system");
 //   kLog.Info(std::format("Reading config: {}", path));
 //
-// All loggers share one configuration, set by SetupLogger(). Lines are
-// written whole, so lines from different threads never mix.
+// All loggers share one configuration, set by SetupLogger(). Before it is
+// called, WARNING and above go to stderr as the bare message, like Python's
+// logging.lastResort handler. Lines are written whole, so lines from
+// different threads never mix.
 
 #ifndef CC_UTIL_LOGGING_H_
 #define CC_UTIL_LOGGING_H_
@@ -29,8 +31,7 @@ enum class LogLevel {
 
 // Configures every logger like Python's logger.setup_logger(). `verbose` is
 // the value of --verbose ("info", "debug_analyzer" or "debug"; nullopt if
-// it was not given), and `stream` is where log lines go. Without a call, the
-// loggers log INFO and above to stdout in the brief format. Call it before
+// it was not given), and `stream` is where log lines go. Call it before
 // other threads start.
 void SetupLogger(std::optional<std::string_view> verbose, Stream stream);
 
@@ -55,6 +56,11 @@ class Logger {
   void Debug(std::string_view message,
              std::source_location location =
                  std::source_location::current()) const;
+  // Python: CCLogger.debug_analyzer(), the custom level between DEBUG and
+  // INFO.
+  void DebugAnalyzer(std::string_view message,
+                     std::source_location location =
+                         std::source_location::current()) const;
   void Info(std::string_view message,
             std::source_location location =
                 std::source_location::current()) const;

@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/cli/verbose.h"
 #include "common/version.h"
 #include "util/argparse.h"
 #include "util/json.h"
@@ -21,12 +22,6 @@ namespace cc::common::cli {
 namespace {
 
 constexpr util::Logger kLog("system");
-
-// Returns the value of --verbose, or nullopt if it was not given.
-std::optional<std::string_view> Verbose(const util::argparse::Namespace& args) {
-  if (!args.Has("verbose")) return std::nullopt;
-  return args.Get("verbose");
-}
 
 // Python: Version.to_list(). nullopt values are printed as empty cells.
 std::vector<std::vector<std::string>> VersionRows(const VersionInfo& info) {
@@ -102,12 +97,7 @@ void SetUpVersionParser(util::argparse::Parser& parser,
                       .choices = {"rows", "table", "csv", "json"},
                       .default_value = "table",
                       .help = "The format to use when printing the version."});
-  // Python: logger.add_verbose_arguments().
-  parser.AddArgument({.flags = {"--verbose"},
-                      .dest = "verbose",
-                      .choices = {"info", "debug_analyzer", "debug"},
-                      .default_value = std::nullopt,
-                      .help = "Set verbosity level."});
+  AddVerboseArgument(parser);
 }
 
 void AddVersionArguments(util::argparse::Parser& parser) {

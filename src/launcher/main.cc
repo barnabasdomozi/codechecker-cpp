@@ -2,17 +2,30 @@
 // and runs a subcommand (architecture.md §5.2). Port of
 // codechecker_common/cli.py.
 
+#include <stdlib.h>
+
+#include <algorithm>
 #include <exception>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "common/cli/verbose.h"
+#include "common/cmd_config.h"
 #include "common/package.h"
 #include "launcher/subcommands.h"
+#include "platform/filesystem.h"
 #include "platform/process.h"
+#include "platform/subprocess.h"
 #include "util/argparse.h"
+#include "util/file.h"
+#include "util/logging.h"
+#include "util/print.h"
+#include "util/pypath.h"
 #include "util/result.h"
+#include "util/strings.h"
 
 namespace cc::launcher {
 namespace {
@@ -50,8 +63,60 @@ constexpr std::string_view kEpilog =
 // default of each subcommand parser).
 constexpr std::string_view kSubcommandDest = "func";
 
-int Main(const std::vector<std::string>& arguments) {
-  std::vector<std::string> args = arguments;
+// Replaces --config FILE in `argv` with the options of the file and parses
+// the command line again (Python: the func_process_config_file part of
+// cli.main()). Returns the parse result.
+Result<util::argparse::Namespace> SpliceConfigFile(
+    util::argparse::Parser& parser, const util::argparse::Namespace& values,
+    std::vector<std::string>* argv) {
+  util::SetupLogger(common::cli::Verbose(values), util::Stream::kStderr);
+  constexpr util::Logger kLog("system");
+  const Result<std::vector<std::string>> options =
+      common::ProcessConfigFile(values, (*argv)[1]);
+  if (!options.ok()) {
+    return Result<util::argparse::Namespace>(options.error());
+  }
+  if (options.value().empty()) {
+    return Result<util::argparse::Namespace>(values);
+  }
+  std::vector<std::string> expanded;
+  for (const std::string& option : options.value()) {
+    expanded.push_back(util::pypath::Expandvars(option));
+  }
+  const auto config = std::ranges::find(*argv, "--config");
+  // Python: sys.argv.index() raises an exception for --config=FILE.
+  if (config == argv->end() || config + 1 == argv->end()) std::terminate();
+  const auto at = argv->erase(config, config + 2);
+  argv->insert(at, expanded.begin(), expanded.end());
+  Result<util::argparse::Namespace> parsed = parser.ParseArgs(
+      std::vector<std::string>(argv->begin() + 1, argv->end()));
+  if (parsed.ok()) {
+    kLog.Info("Full extended command: " + util::Join(*argv, " "));
+  }
+  return parsed;
+}
+
+// The entry point in the child process (architecture.md §5.2). `argv`
+// starts with the program name.
+int Main(std::vector<std::string> argv) {
+  // The package root is the parent of the bin/ folder.
+  if (const std::optional<std::string> bin_dir =
+          platform::GetEnv("CC_BIN_DIR")) {
+    setenv("CC_DATA_FILES_DIR", util::pypath::Dirname(*bin_dir).c_str(), 1);
+  } else {
+    setenv("CC_DATA_FILES_DIR", common::DataFilesDir().c_str(), 1);
+  }
+  if (platform::GetEnv("CC_LIB_DIR").value_or("").empty()) {
+    setenv("CC_LIB_DIR",
+           util::pypath::Join({common::DataFilesDir(), "lib", "codechecker"})
+               .c_str(),
+           1);
+  }
+  platform::ExitOnTerminationSignals();
+  platform::IgnoreBrokenPipes();
+  common::SetCommandLine(argv);
+
+  std::vector<std::string> args(argv.begin() + 1, argv.end());
   std::vector<Subcommand> subcommands;
   for (const std::span<const Subcommand> part :
        {AnalyzerSubcommands(), WebSubcommands()}) {
@@ -78,8 +143,14 @@ int Main(const std::vector<std::string>& arguments) {
     subcommand.add_arguments(subparser);
   }
 
-  const Result<util::argparse::Namespace> parsed = parser.ParseArgs(args);
+  Result<util::argparse::Namespace> parsed = parser.ParseArgs(args);
   if (!parsed.ok()) return parsed.error().exit_code;
+  if (subcommands.size() == 1 && subcommands[0].config_file &&
+      parsed.value().Has(kSubcommandDest)) {
+    parsed = SpliceConfigFile(parser, parsed.value(), &argv);
+    if (!parsed.ok()) return parsed.error().exit_code;
+    common::SetCommandLine(argv);
+  }
   const util::argparse::Namespace& values = parsed.value();
   if (!values.Has(kSubcommandDest)) {
     // Without a subcommand, the top-level help is printed.
@@ -99,8 +170,31 @@ int Main(const std::vector<std::string>& arguments) {
 }  // namespace
 }  // namespace cc::launcher
 
+// The launcher (architecture.md §5.1): saves the environment for the
+// commands that run the build, then runs the entry point in a child process
+// and removes the saved environment when it ends.
 int main(int argc, char* argv[]) {
   cc::platform::InstallTerminateHandler();
-  cc::platform::ExitOnTerminationSignals();
-  return cc::launcher::Main(std::vector<std::string>(argv + 1, argv + argc));
+  const std::vector<std::string> args(argv, argv + argc);
+  const std::optional<std::string> temp_dir = cc::platform::MakeTempDir();
+  if (temp_dir) {
+    const std::string env_file =
+        cc::util::pypath::Join({*temp_dir, "original_env"});
+    std::string content;
+    for (const std::string& item : cc::platform::CurrentEnvironment()) {
+      content += item;
+      content.push_back('\0');
+    }
+    if (cc::util::WriteFile(env_file, content).ok()) {
+      setenv("CODECHECKER_ORIGINAL_BUILD_ENV", env_file.c_str(), 1);
+    } else {
+      cc::util::Print("Saving original build environment failed.");
+    }
+  }
+  setenv("CC_BIN_DIR",
+         cc::util::pypath::Dirname(cc::platform::ExecutablePath()).c_str(), 1);
+  const int exit_code =
+      cc::platform::RunForked([&args] { return cc::launcher::Main(args); });
+  if (temp_dir) cc::platform::RemoveTree(*temp_dir);
+  return exit_code;
 }

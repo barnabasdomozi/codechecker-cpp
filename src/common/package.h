@@ -6,6 +6,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace cc::common {
 
@@ -15,6 +16,13 @@ inline constexpr std::string_view kProgramName = "codechecker-cpp";
 // Returns the package root: the parent of the bin/ folder that holds the
 // running program (Python: CC_DATA_FILES_DIR).
 std::string DataFilesDir();
+
+// Sets the argument vector of the command, after --config files are spliced
+// into it (Python: sys.argv). Call it before other threads start.
+void SetCommandLine(std::vector<std::string> args);
+
+// Returns what SetCommandLine() set.
+const std::vector<std::string>& CommandLine();
 
 }  // namespace cc::common
 

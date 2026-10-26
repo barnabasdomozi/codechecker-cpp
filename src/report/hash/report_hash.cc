@@ -79,9 +79,21 @@ std::vector<std::string> PathSensitiveParts(const Report& report) {
 }  // namespace
 
 std::string GetReportHash(const Report& report, HashType type) {
-  const std::vector<std::string> parts = type == HashType::kContextFree
-                                             ? ContextFreeParts(report)
-                                             : PathSensitiveParts(report);
+  std::vector<std::string> parts;
+  switch (type) {
+    case HashType::kContextFree:
+      parts = ContextFreeParts(report);
+      break;
+    case HashType::kPathSensitive:
+      parts = PathSensitiveParts(report);
+      break;
+    case HashType::kDiagnosticMessage:
+      parts = ContextFreeParts(report);
+      for (const BugPathEvent& event : report.bug_path_events) {
+        parts.push_back(event.message);
+      }
+      break;
+  }
   return util::Md5Hex(util::Join(parts, "|||"));
 }
 

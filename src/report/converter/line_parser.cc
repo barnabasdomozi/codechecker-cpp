@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "report/model/report.h"
@@ -42,6 +43,13 @@ Result<std::vector<Report>> ParseLines(const std::string& path,
   for (const std::string_view line : util::SplitLines(text)) {
     lines.emplace_back(line);
   }
+  return ParseLineList(std::move(lines), parse_line);
+}
+
+Result<std::vector<Report>> ParseLineList(std::vector<std::string> lines,
+                                          const ParseLineFunction& parse_line) {
+  using Reports = std::vector<Report>;
+  Reports reports;
   LineReader reader(std::move(lines));
   std::optional<std::string> line = reader.Next();
   while (line) {

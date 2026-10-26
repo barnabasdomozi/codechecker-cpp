@@ -77,7 +77,14 @@ void AppendReal(double value, std::string* out) {
   }
 }
 
-void AppendValue(yyjson_mut_val* value, std::string* out) {
+// Appends `value` as json.dumps() writes it. With `indent` >= 0, items are
+// on their own lines, indented by `indent` spaces per `level`.
+void AppendValue(yyjson_mut_val* value, int indent, int level,
+                 std::string* out) {
+  const auto new_line = [indent, out](int line_level) {
+    if (indent >= 0) *out += "\n" + std::string(indent * line_level, ' ');
+  };
+  const std::string_view item_separator = indent >= 0 ? "," : ", ";
   switch (yyjson_mut_get_type(value)) {
     case YYJSON_TYPE_NULL:
       *out += "null";
@@ -103,26 +110,38 @@ void AppendValue(yyjson_mut_val* value, std::string* out) {
                    out);
       break;
     case YYJSON_TYPE_ARR: {
+      if (yyjson_mut_arr_size(value) == 0) {
+        *out += "[]";
+        break;
+      }
       yyjson_mut_arr_iter iter = yyjson_mut_arr_iter_with(value);
       *out += '[';
       for (size_t i = 0; yyjson_mut_val* item = yyjson_mut_arr_iter_next(&iter);
            ++i) {
-        if (i > 0) *out += ", ";
-        AppendValue(item, out);
+        if (i > 0) *out += item_separator;
+        new_line(level + 1);
+        AppendValue(item, indent, level + 1, out);
       }
+      new_line(level);
       *out += ']';
       break;
     }
     case YYJSON_TYPE_OBJ: {
+      if (yyjson_mut_obj_size(value) == 0) {
+        *out += "{}";
+        break;
+      }
       yyjson_mut_obj_iter iter = yyjson_mut_obj_iter_with(value);
       *out += '{';
       for (size_t i = 0; yyjson_mut_val* key = yyjson_mut_obj_iter_next(&iter);
            ++i) {
-        if (i > 0) *out += ", ";
-        AppendValue(key, out);
+        if (i > 0) *out += item_separator;
+        new_line(level + 1);
+        AppendValue(key, indent, level + 1, out);
         *out += ": ";
-        AppendValue(yyjson_mut_obj_iter_get_val(key), out);
+        AppendValue(yyjson_mut_obj_iter_get_val(key), indent, level + 1, out);
       }
+      new_line(level);
       *out += '}';
       break;
     }
@@ -159,9 +178,25 @@ MutableJsonDocument NewJsonDocument() {
   return MutableJsonDocument(yyjson_mut_doc_new(nullptr));
 }
 
+std::string JsonString(yyjson_val* value) {
+  if (!yyjson_is_str(value)) return "";
+  return std::string(yyjson_get_str(value), yyjson_get_len(value));
+}
+
+std::string JsonString(yyjson_mut_val* value) {
+  if (!yyjson_mut_is_str(value)) return "";
+  return std::string(yyjson_mut_get_str(value), yyjson_mut_get_len(value));
+}
+
 std::string DumpJson(yyjson_mut_val* value) {
   std::string out;
-  AppendValue(value, &out);
+  AppendValue(value, -1, 0, &out);
+  return out;
+}
+
+std::string DumpJsonIndent(yyjson_mut_val* value, int indent) {
+  std::string out;
+  AppendValue(value, indent, 0, &out);
   return out;
 }
 
@@ -175,6 +210,27 @@ yyjson_val* JsonGet(yyjson_val* value, std::string_view key) {
     }
   }
   return found;
+}
+
+bool JsonTruthy(yyjson_val* value) {
+  switch (yyjson_get_type(value)) {
+    case YYJSON_TYPE_NONE:
+    case YYJSON_TYPE_NULL:
+      return false;
+    case YYJSON_TYPE_BOOL:
+      return yyjson_get_bool(value);
+    case YYJSON_TYPE_NUM:
+      return yyjson_get_num(value) != 0;
+    case YYJSON_TYPE_STR:
+      return yyjson_get_len(value) > 0;
+    case YYJSON_TYPE_ARR:
+      return yyjson_arr_size(value) > 0;
+    case YYJSON_TYPE_OBJ:
+      return yyjson_obj_size(value) > 0;
+    default:
+      // A raw number, too big for 64 bits, so not 0.
+      return true;
+  }
 }
 
 std::optional<int64_t> JsonToInt(yyjson_val* value) {
@@ -200,7 +256,7 @@ std::string JsonToStr(yyjson_val* value) {
   if (value == nullptr) return "None";
   switch (yyjson_get_type(value)) {
     case YYJSON_TYPE_STR:
-      return std::string(yyjson_get_str(value), yyjson_get_len(value));
+      return JsonString(value);
     case YYJSON_TYPE_NULL:
       return "None";
     case YYJSON_TYPE_BOOL:
@@ -215,6 +271,35 @@ std::string JsonToStr(yyjson_val* value) {
       const MutableJsonDocument copy = NewJsonDocument();
       return DumpJson(yyjson_val_mut_copy(copy.get(), value));
     }
+  }
+}
+
+std::string JsonToRepr(yyjson_val* value) {
+  switch (yyjson_get_type(value)) {
+    case YYJSON_TYPE_STR:
+      return Repr(
+          std::string_view(yyjson_get_str(value), yyjson_get_len(value)));
+    case YYJSON_TYPE_ARR: {
+      std::string result = "[";
+      yyjson_arr_iter iter = yyjson_arr_iter_with(value);
+      for (size_t i = 0; yyjson_val* item = yyjson_arr_iter_next(&iter); ++i) {
+        if (i > 0) result += ", ";
+        result += JsonToRepr(item);
+      }
+      return result + "]";
+    }
+    case YYJSON_TYPE_OBJ: {
+      std::string result = "{";
+      yyjson_obj_iter iter = yyjson_obj_iter_with(value);
+      for (size_t i = 0; yyjson_val* key = yyjson_obj_iter_next(&iter); ++i) {
+        if (i > 0) result += ", ";
+        result += JsonToRepr(key) + ": " +
+                  JsonToRepr(yyjson_obj_iter_get_val(key));
+      }
+      return result + "}";
+    }
+    default:
+      return JsonToStr(value);
   }
 }
 

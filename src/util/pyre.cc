@@ -125,12 +125,29 @@ std::optional<RegexMatch> Regex::Search(std::string_view text) const {
   return Run(text, 0);
 }
 
-std::optional<RegexMatch> Regex::Run(std::string_view text,
-                                     uint32_t options) const {
+std::vector<RegexMatch> Regex::FindAll(std::string_view text) const {
+  std::vector<RegexMatch> matches;
+  size_t start = 0;
+  while (start <= text.size()) {
+    std::optional<RegexMatch> match = Run(text, 0, start);
+    if (!match) break;
+    // After an empty match the search goes on one character later.
+    start = match->End() > match->Start() ? match->End() : match->End() + 1;
+    while (start < text.size() &&
+           (static_cast<unsigned char>(text[start]) & 0xC0) == 0x80) {
+      ++start;
+    }
+    matches.push_back(std::move(*match));
+  }
+  return matches;
+}
+
+std::optional<RegexMatch> Regex::Run(std::string_view text, uint32_t options,
+                                     size_t start) const {
   const std::unique_ptr<pcre2_match_data, MatchDataDeleter> data(
       pcre2_match_data_create_from_pattern(code_.get(), nullptr));
   // Errors other than "no match" (match limits) also count as no match.
-  if (pcre2_match(code_.get(), Bytes(text), text.size(), 0, options,
+  if (pcre2_match(code_.get(), Bytes(text), text.size(), start, options,
                   data.get(), nullptr) < 0) {
     return std::nullopt;
   }
@@ -167,6 +184,16 @@ std::string Regex::ReplaceAll(std::string_view text,
     result.assign(size, '\0');
   }
   return std::string(text);
+}
+
+std::string RegexEscape(std::string_view text) {
+  constexpr std::string_view kSpecial = "()[]{}?*+-|^$\\.&~# \t\n\r\v\f";
+  std::string result;
+  for (const char c : text) {
+    if (kSpecial.find(c) != std::string_view::npos) result += '\\';
+    result += c;
+  }
+  return result;
 }
 
 }  // namespace cc::util

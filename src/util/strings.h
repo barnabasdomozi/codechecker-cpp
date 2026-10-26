@@ -43,6 +43,25 @@ std::string TranslateNewlines(std::string_view text);
 // lines point into `text`.
 std::vector<std::string_view> SplitLines(std::string_view text);
 
+// Returns the lines of `text` without their line terminators, split at
+// every line boundary Python's str.splitlines() knows: "\n", "\r", "\r\n",
+// "\v", "\f", "\x1c", "\x1d", "\x1e", U+0085, U+2028 and U+2029. The
+// lines point into `text`.
+std::vector<std::string_view> StrSplitLines(std::string_view text);
+
+// Returns the words of `text`, separated by runs of whitespace (Python:
+// str.split()).
+std::vector<std::string> SplitWhitespace(std::string_view text);
+
+// Returns the parts of `text` between occurrences of `separator`, which must
+// not be empty (Python: str.split(separator)).
+std::vector<std::string> Split(std::string_view text,
+                               std::string_view separator);
+
+// Returns `text` with the ASCII letters lower-cased (Python: str.lower() on
+// ASCII text).
+std::string AsciiLower(std::string_view text);
+
 // Returns `value` as Python's repr(float) writes it, for example "1.0",
 // "1e-05", "inf" and "nan".
 std::string FloatRepr(double value);

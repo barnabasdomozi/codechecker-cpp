@@ -20,6 +20,20 @@ TEST(StringsTest, Repr) {
   EXPECT_EQ(Repr("\x01é"), "'\\x01é'");
 }
 
+TEST(StringsTest, StrSplitLines) {
+  EXPECT_EQ(StrSplitLines("a\rb\r\nc\x0b" "d\x1c" "e\xe2\x80\xa8" "f\n"),
+            (std::vector<std::string_view>{"a", "b", "c", "d", "e", "f"}));
+}
+
+TEST(StringsTest, SplitWhitespace) {
+  EXPECT_EQ(SplitWhitespace(" a  b\tc "),
+            (std::vector<std::string>{"a", "b", "c"}));
+}
+
+TEST(StringsTest, Split) {
+  EXPECT_EQ(Split("a::b:", ":"), (std::vector<std::string>{"a", "", "b", ""}));
+}
+
 TEST(StringsTest, ParseInt) {
   EXPECT_EQ(ParseInt("80"), 80);
   EXPECT_EQ(ParseInt(" -3\n"), -3);

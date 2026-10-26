@@ -6,6 +6,7 @@
 #define CC_REPORT_CONVERTER_CLANG_TIDY_H_
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "report/model/report.h"
@@ -17,6 +18,11 @@ namespace cc::report {
 // the Python version, a line after a diagnostic that is not a fix-it, note
 // or diagnostic line is an error ("Expected a FixIt line!").
 Result<std::vector<Report>> GetClangTidyReports(const std::string& path);
+
+// Returns the reports in `output`, clang-tidy's console output, split into
+// lines like Python's str.splitlines() (the clang-tidy result handler of
+// `analyze`).
+Result<std::vector<Report>> ParseClangTidyOutput(std::string_view output);
 
 // Returns the reports in the clang-tidy -export-fixes YAML file at `path`.
 // Offsets are counted in characters of the source files. A file that cannot

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <exception>
 #include <format>
 #include <limits>
 #include <map>
@@ -16,6 +17,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include "util/json.h"
@@ -142,14 +144,6 @@ double ConstructFloat(std::string value) {
   return sign * result;
 }
 
-std::string Lower(std::string_view text) {
-  std::string result(text);
-  std::ranges::transform(result, result.begin(), [](char c) {
-    return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
-  });
-  return result;
-}
-
 // Returns the value of a scalar of `type` as Python's str() writes it, for
 // mapping keys.
 std::string KeyText(ScalarType type, const std::string& value) {
@@ -157,7 +151,7 @@ std::string KeyText(ScalarType type, const std::string& value) {
     case ScalarType::kNull:
       return "None";
     case ScalarType::kBool: {
-      const std::string lower = Lower(value);
+      const std::string lower = AsciiLower(value);
       return lower == "yes" || lower == "true" || lower == "on" ? "True"
                                                                 : "False";
     }
@@ -212,8 +206,11 @@ Error ParserError(const yaml_parser_t& parser, std::string_view name) {
 // and SafeConstructor.
 class YamlBuilder {
  public:
-  explicit YamlBuilder(std::string_view name)
-      : name_(name), document_(NewJsonDocument()) {}
+  // With `resolve_types` false, every scalar is a string (BaseLoader).
+  YamlBuilder(std::string_view name, bool resolve_types)
+      : name_(name),
+        resolve_types_(resolve_types),
+        document_(NewJsonDocument()) {}
 
   YamlBuilder(const YamlBuilder&) = delete;
   YamlBuilder& operator=(const YamlBuilder&) = delete;
@@ -236,6 +233,7 @@ class YamlBuilder {
                      const std::string& anchor);
 
   std::string_view name_;
+  bool resolve_types_;
   MutableJsonDocument document_;
   yyjson_mut_val* root_ = nullptr;
   int documents_ = 0;
@@ -250,7 +248,9 @@ Result<yyjson_mut_val*> YamlBuilder::Scalar(const yaml_event_t& event,
       event.data.scalar.length);
   const std::string tag = Text(event.data.scalar.tag);
   ScalarType type = ScalarType::kString;
-  if (tag.empty() || tag == "!") {
+  if (!resolve_types_) {
+    // BaseLoader: the value is the string, whatever the tag.
+  } else if (tag.empty() || tag == "!") {
     if (event.data.scalar.plain_implicit) type = ResolvePlain(value);
   } else if (tag == std::string(kTagPrefix) + "null") {
     type = ScalarType::kNull;
@@ -378,17 +378,16 @@ JsonDocument YamlBuilder::Finish() {
   return JsonDocument(yyjson_mut_doc_imut_copy(document_.get(), nullptr));
 }
 
-}  // namespace
-
-Result<JsonDocument> SafeLoadYaml(std::string_view text,
-                                  std::string_view name) {
+// Python: the Loader classes; see SafeLoadYaml() and LoadYamlStrings().
+Result<JsonDocument> LoadYaml(std::string_view text, std::string_view name,
+                              bool resolve_types) {
   const std::unique_ptr<yaml_parser_t, ParserDeleter> parser(
       new yaml_parser_t);
   yaml_parser_initialize(parser.get());
   yaml_parser_set_input_string(
       parser.get(), reinterpret_cast<const unsigned char*>(text.data()),
       text.size());
-  YamlBuilder builder(name);
+  YamlBuilder builder(name, resolve_types);
   while (true) {
     const std::unique_ptr<yaml_event_t, EventDeleter> event(new yaml_event_t);
     if (!yaml_parser_parse(parser.get(), event.get())) {
@@ -400,6 +399,139 @@ Result<JsonDocument> SafeLoadYaml(std::string_view text,
     if (event->type == YAML_STREAM_END_EVENT) break;
   }
   return Result<JsonDocument>(builder.Finish());
+}
+
+struct EmitterDeleter {
+  void operator()(yaml_emitter_t* emitter) const {
+    yaml_emitter_delete(emitter);
+    delete emitter;
+  }
+};
+
+// Collects the emitter's output in the std::string `data`.
+int AppendOutput(void* data, unsigned char* buffer, size_t size) {
+  static_cast<std::string*>(data)->append(reinterpret_cast<char*>(buffer),
+                                          size);
+  return 1;
+}
+
+yaml_char_t* Chars(const std::string& text) {
+  return reinterpret_cast<yaml_char_t*>(const_cast<char*>(text.c_str()));
+}
+
+// Returns the text PyYAML's Representer gives a scalar, and whether it is a
+// string (then it is quoted if it would read back as another type).
+std::pair<std::string, bool> ScalarText(yyjson_mut_val* value) {
+  switch (yyjson_mut_get_type(value)) {
+    case YYJSON_TYPE_NULL:
+      return {"null", false};
+    case YYJSON_TYPE_BOOL:
+      return {yyjson_mut_get_bool(value) ? "true" : "false", false};
+    case YYJSON_TYPE_NUM: {
+      if (yyjson_mut_is_int(value)) {
+        return {yyjson_mut_is_uint(value)
+                    ? std::to_string(yyjson_mut_get_uint(value))
+                    : std::to_string(yyjson_mut_get_sint(value)),
+                false};
+      }
+      const double real = yyjson_mut_get_real(value);
+      if (std::isnan(real)) return {".nan", false};
+      if (std::isinf(real)) return {real > 0 ? ".inf" : "-.inf", false};
+      std::string text = AsciiLower(FloatRepr(real));
+      // PyYAML: "1e+17" is not a valid float, so it writes "1.0e+17".
+      if (text.find('.') == std::string::npos) {
+        if (const size_t e = text.find('e'); e != std::string::npos) {
+          text.insert(e, ".0");
+        }
+      }
+      return {text, false};
+    }
+    default:
+      return {JsonString(value), true};
+  }
+}
+
+// Emits `value` and its items as libyaml events.
+bool EmitNode(yaml_emitter_t* emitter, yyjson_mut_val* value) {
+  yaml_event_t event;
+  if (yyjson_mut_is_arr(value)) {
+    yaml_sequence_start_event_initialize(&event, nullptr, nullptr, 1,
+                                         YAML_BLOCK_SEQUENCE_STYLE);
+    if (!yaml_emitter_emit(emitter, &event)) return false;
+    yyjson_mut_arr_iter iter = yyjson_mut_arr_iter_with(value);
+    while (yyjson_mut_val* item = yyjson_mut_arr_iter_next(&iter)) {
+      if (!EmitNode(emitter, item)) return false;
+    }
+    yaml_sequence_end_event_initialize(&event);
+    return yaml_emitter_emit(emitter, &event) != 0;
+  }
+  if (yyjson_mut_is_obj(value)) {
+    yaml_mapping_start_event_initialize(&event, nullptr, nullptr, 1,
+                                        YAML_BLOCK_MAPPING_STYLE);
+    if (!yaml_emitter_emit(emitter, &event)) return false;
+    // Pairs of key and value, sorted by key as PyYAML's sort_keys does.
+    std::vector<std::pair<yyjson_mut_val*, yyjson_mut_val*>> items;
+    yyjson_mut_obj_iter iter = yyjson_mut_obj_iter_with(value);
+    while (yyjson_mut_val* key = yyjson_mut_obj_iter_next(&iter)) {
+      items.emplace_back(key, yyjson_mut_obj_iter_get_val(key));
+    }
+    const auto key_text = [](yyjson_mut_val* key) {
+      return std::string_view(yyjson_mut_get_str(key), yyjson_mut_get_len(key));
+    };
+    std::ranges::stable_sort(items, [&key_text](const auto& a, const auto& b) {
+      return key_text(a.first) < key_text(b.first);
+    });
+    for (const auto& [key, item] : items) {
+      if (!EmitNode(emitter, key) || !EmitNode(emitter, item)) return false;
+    }
+    yaml_mapping_end_event_initialize(&event);
+    return yaml_emitter_emit(emitter, &event) != 0;
+  }
+  const auto [text, is_string] = ScalarText(value);
+  // Like PyYAML's Serializer: a string is written plain only if it reads
+  // back as a string.
+  const int plain_implicit =
+      !is_string || ResolvePlain(text) == ScalarType::kString;
+  yaml_scalar_event_initialize(&event, nullptr, nullptr, Chars(text),
+                               static_cast<int>(text.size()), plain_implicit,
+                               is_string, YAML_ANY_SCALAR_STYLE);
+  return yaml_emitter_emit(emitter, &event) != 0;
+}
+
+}  // namespace
+
+Result<JsonDocument> SafeLoadYaml(std::string_view text,
+                                  std::string_view name) {
+  return LoadYaml(text, name, /*resolve_types=*/true);
+}
+
+Result<JsonDocument> LoadYamlStrings(std::string_view text,
+                                     std::string_view name) {
+  return LoadYaml(text, name, /*resolve_types=*/false);
+}
+
+std::string DumpYaml(yyjson_mut_val* value, int width) {
+  std::string out;
+  const std::unique_ptr<yaml_emitter_t, EmitterDeleter> emitter(
+      new yaml_emitter_t);
+  yaml_emitter_initialize(emitter.get());
+  yaml_emitter_set_output(emitter.get(), AppendOutput, &out);
+  yaml_emitter_set_unicode(emitter.get(), 0);
+  yaml_emitter_set_width(emitter.get(), width);
+  yaml_emitter_set_indent(emitter.get(), 2);
+  yaml_event_t event;
+  yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+  bool ok = yaml_emitter_emit(emitter.get(), &event) != 0;
+  yaml_document_start_event_initialize(&event, nullptr, nullptr, nullptr, 1);
+  ok = ok && yaml_emitter_emit(emitter.get(), &event) != 0;
+  ok = ok && EmitNode(emitter.get(), value);
+  yaml_document_end_event_initialize(&event, 1);
+  ok = ok && yaml_emitter_emit(emitter.get(), &event) != 0;
+  yaml_stream_end_event_initialize(&event);
+  ok = ok && yaml_emitter_emit(emitter.get(), &event) != 0;
+  // The emitter fails only for documents built wrong.
+  if (!ok) std::terminate();
+  return out;
 }
 
 }  // namespace cc::util

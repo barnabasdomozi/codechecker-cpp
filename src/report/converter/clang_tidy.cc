@@ -274,31 +274,18 @@ Result<Report> ParseDiagnostic(yyjson_val* diagnostic) {
   return Result<Report>(std::move(report));
 }
 
-// Returns whether Python's bool(value) is true.
-bool Truthy(yyjson_val* value) {
-  switch (yyjson_get_type(value)) {
-    case YYJSON_TYPE_NULL:
-      return false;
-    case YYJSON_TYPE_BOOL:
-      return yyjson_get_bool(value);
-    case YYJSON_TYPE_NUM:
-      return yyjson_is_real(value) ? yyjson_get_real(value) != 0
-                                   : yyjson_get_sint(value) != 0;
-    case YYJSON_TYPE_STR:
-      return yyjson_get_len(value) > 0;
-    case YYJSON_TYPE_ARR:
-      return yyjson_arr_size(value) > 0;
-    case YYJSON_TYPE_OBJ:
-      return yyjson_obj_size(value) > 0;
-    default:
-      return false;
-  }
-}
-
 }  // namespace
 
 Result<std::vector<Report>> GetClangTidyReports(const std::string& path) {
   return ParseLines(path, ParseLine);
+}
+
+Result<std::vector<Report>> ParseClangTidyOutput(std::string_view output) {
+  std::vector<std::string> lines;
+  for (const std::string_view line : util::StrSplitLines(output)) {
+    lines.emplace_back(line);
+  }
+  return ParseLineList(std::move(lines), ParseLine);
 }
 
 Result<std::vector<Report>> GetClangTidyYamlReports(const std::string& path) {
@@ -310,7 +297,7 @@ Result<std::vector<Report>> GetClangTidyYamlReports(const std::string& path) {
   if (!document.ok()) return Result<Reports>(document.error());
   Reports reports;
   yyjson_val* root = yyjson_doc_get_root(document.value().get());
-  if (!Truthy(root)) return Result<Reports>(std::move(reports));
+  if (!util::JsonTruthy(root)) return Result<Reports>(std::move(reports));
   const Result<yyjson_val*> diagnostics =
       util::JsonSubscript(root, "Diagnostics");
   if (!diagnostics.ok()) return Result<Reports>(diagnostics.error());

@@ -32,33 +32,11 @@ std::string RequiredMember(yyjson_val* object, const char* key) {
   return std::move(*value);
 }
 
-// Returns whether Python's `not value` is true: for null, false, 0, "", []
-// and {}.
-bool IsFalsy(yyjson_val* value) {
-  switch (yyjson_get_type(value)) {
-    case YYJSON_TYPE_NULL:
-      return true;
-    case YYJSON_TYPE_BOOL:
-      return !yyjson_get_bool(value);
-    case YYJSON_TYPE_NUM:
-      return yyjson_get_num(value) == 0;
-    case YYJSON_TYPE_STR:
-      return yyjson_get_len(value) == 0;
-    case YYJSON_TYPE_ARR:
-      return yyjson_arr_size(value) == 0;
-    case YYJSON_TYPE_OBJ:
-      return yyjson_obj_size(value) == 0;
-    default:
-      // A raw number, too big for 64 bits, so not 0.
-      return false;
-  }
-}
-
 }  // namespace
 
 Result<VersionInfo> ReadVersionFile(const std::string& path) {
   const std::optional<util::JsonDocument> document = LoadJson(path);
-  if (!document || IsFalsy(yyjson_doc_get_root(document->get()))) {
+  if (!document || !util::JsonTruthy(yyjson_doc_get_root(document->get()))) {
     return Result<VersionInfo>(Error{});
   }
   yyjson_val* root = yyjson_doc_get_root(document->get());

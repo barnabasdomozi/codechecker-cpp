@@ -280,7 +280,8 @@ std::string FilesRepr(const std::vector<File>& files) {
 
 }  // namespace
 
-std::vector<Report> ReadPlistFile(const std::string& path) {
+std::vector<Report> ReadPlistFile(
+    const std::string& path, const std::optional<std::string>& source_dir) {
   std::vector<Report> reports;
   const Result<std::string> content = util::ReadFile(path);
   if (!content.ok()) {
@@ -307,12 +308,13 @@ std::vector<Report> ReadPlistFile(const std::string& path) {
     return reports;
   }
 
-  const std::string source_dir = util::pypath::Dirname(path);
+  const std::string files_dir =
+      source_dir.value_or(util::pypath::Dirname(path));
   std::vector<File> files;
   yyjson_arr_iter iter = yyjson_arr_iter_with(util::JsonGet(root, "files"));
   while (yyjson_val* file = yyjson_arr_iter_next(&iter)) {
     files.push_back(MakeFile(util::pypath::Normpath(
-        util::pypath::Join({source_dir, util::JsonToStr(file)}))));
+        util::pypath::Join({files_dir, util::JsonToStr(file)}))));
   }
   yyjson_val* metadata_analyzer =
       util::JsonGet(util::JsonGet(util::JsonGet(root, "metadata"), "analyzer"),

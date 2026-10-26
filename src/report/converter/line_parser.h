@@ -55,6 +55,11 @@ using ParseLineFunction = std::function<Result<std::optional<std::string>>(
 Result<std::vector<Report>> ParseLines(const std::string& path,
                                        const ParseLineFunction& parse_line);
 
+// Returns the reports that `parse_line` finds in `lines` (Python:
+// BaseParser.get_reports_from_iter()).
+Result<std::vector<Report>> ParseLineList(std::vector<std::string> lines,
+                                          const ParseLineFunction& parse_line);
+
 // Returns the number in `digits`, which a regular expression matched as
 // \d+ (Python: int(match.group(...))).
 int ToInt(std::string_view digits);

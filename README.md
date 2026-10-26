@@ -23,9 +23,15 @@ with all 28 input types, on the `cc_report` library (report model, report
 hashes, plist and SARIF reading and writing). Its black-box tests that read
 the results back need `codechecker-cpp parse`, which comes later; until then
 they pass with the C++ `report-converter` next to the Python `CodeChecker`.
-The launcher's second process and
-its saved build environment (architecture.md §5.1) come with `log` and
-`analyze`, the first commands that use them.
+
+`codechecker-cpp analyze` ([docs/usage/analyze.md](docs/usage/analyze.md)) is
+ported: every analyzer driver (Clang SA, Clang-Tidy, Cppcheck, GCC, Infer),
+checker selection, skip and review status handling, compiler info, CTU,
+statistics, Makefile mode and `--config` files, with the launcher's second
+process and saved build environment (architecture.md §5.1). `log`, `parse`,
+`analyzers`, `checkers` and `check` are not ported yet, so the black-box
+tests of `analyze` run with a wrapper that sends `analyze` to
+`codechecker-cpp` and the other subcommands to the Python `CodeChecker`.
 
 ## Goals
 

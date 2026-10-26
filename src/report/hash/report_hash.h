@@ -11,8 +11,9 @@
 namespace cc::report {
 
 enum class HashType {
-  kContextFree,    // File name, message, source line without whitespace.
-  kPathSensitive,  // Also the checker, and the last event and positions.
+  kContextFree,        // File name, message, source line without whitespace.
+  kPathSensitive,      // Also the checker, and the last event and positions.
+  kDiagnosticMessage,  // kContextFree and the messages of the events.
 };
 
 // Returns the report hash of `report` (Python: get_report_hash()). It reads

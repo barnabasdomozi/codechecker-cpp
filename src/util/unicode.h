@@ -28,6 +28,15 @@ std::string DecodeUtf8Ignore(std::string_view bytes);
 // becomes U+FFFD.
 std::string DecodeUtf8Replace(std::string_view bytes);
 
+// Appends `code_point` to `out`, encoded as UTF-8.
+void AppendUtf8(uint32_t code_point, std::string* out);
+
+// Returns whether Python's str.isprintable() is true for `code_point`: false
+// for control and format characters, separators other than the space,
+// surrogates and private use characters. Unassigned code points, which
+// Python also counts as not printable, are taken as printable.
+bool IsPrintable(uint32_t code_point);
+
 // Returns whether Python's str.isspace() is true for `code_point`: the
 // characters str.split() and str.strip() treat as whitespace.
 bool IsSpace(uint32_t code_point);

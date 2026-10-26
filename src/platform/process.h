@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <functional>
 #include <string>
 
 namespace cc::platform {
@@ -22,8 +23,21 @@ int ProcessId();
 uint64_t ThreadId();
 
 // Makes SIGINT and SIGTERM end the process with exit code 128 + signum, as
-// the Python entry point does. Buffered output is not flushed.
+// the Python entry point does. Running child sessions (analyzers) get
+// SIGTERM first. Buffered output is not flushed.
 void ExitOnTerminationSignals();
+
+// Makes writes to a closed pipe fail with EPIPE instead of ending the
+// process, as in Python. Child processes get the default behavior back.
+void IgnoreBrokenPipes();
+
+// Runs `child` in a forked copy of this process and waits for it,
+// forwarding SIGINT, SIGTERM, SIGHUP and SIGCHLD to it (the launcher of
+// architecture.md §5.1). The child exits with what `child` returns, after
+// writing out buffered output. Returns the child's exit code, or -N if
+// signal N ended it, as Python's Popen.wait(). Call it while the process has
+// only one thread.
+int RunForked(const std::function<int()>& child);
 
 // Makes internal errors (std::terminate(), for example an exception that
 // nothing catches) print a stack trace on stdout and exit with code 1, where

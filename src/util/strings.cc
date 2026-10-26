@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include "util/unicode.h"
@@ -133,6 +134,66 @@ std::vector<std::string_view> SplitLines(std::string_view text) {
   }
   if (start < text.size()) lines.push_back(text.substr(start));
   return lines;
+}
+
+std::vector<std::string_view> StrSplitLines(std::string_view text) {
+  std::vector<std::string_view> lines;
+  size_t start = 0;
+  size_t pos = 0;
+  while (pos < text.size()) {
+    const size_t boundary = pos;
+    const uint32_t c = NextCodePoint(text, &pos).value_or(0);
+    const bool line_break = c == '\n' || c == '\r' || c == 0x0B ||
+                            c == 0x0C || c == 0x1C || c == 0x1D ||
+                            c == 0x1E || c == 0x85 || c == 0x2028 ||
+                            c == 0x2029;
+    if (!line_break) continue;
+    lines.push_back(text.substr(start, boundary - start));
+    if (c == '\r' && pos < text.size() && text[pos] == '\n') ++pos;
+    start = pos;
+  }
+  if (start < text.size()) lines.push_back(text.substr(start));
+  return lines;
+}
+
+std::vector<std::string> SplitWhitespace(std::string_view text) {
+  std::vector<std::string> words;
+  std::string word;
+  size_t pos = 0;
+  while (pos < text.size()) {
+    const size_t start = pos;
+    const std::optional<uint32_t> c = NextCodePoint(text, &pos);
+    if (c && IsSpace(*c)) {
+      if (!word.empty()) words.push_back(std::move(word));
+      word.clear();
+    } else {
+      word.append(text.substr(start, pos - start));
+    }
+  }
+  if (!word.empty()) words.push_back(std::move(word));
+  return words;
+}
+
+std::vector<std::string> Split(std::string_view text,
+                               std::string_view separator) {
+  std::vector<std::string> parts;
+  size_t start = 0;
+  while (true) {
+    const size_t found = text.find(separator, start);
+    if (found == std::string_view::npos) break;
+    parts.emplace_back(text.substr(start, found - start));
+    start = found + separator.size();
+  }
+  parts.emplace_back(text.substr(start));
+  return parts;
+}
+
+std::string AsciiLower(std::string_view text) {
+  std::string result(text);
+  for (char& c : result) {
+    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+  }
+  return result;
 }
 
 std::string FloatRepr(double value) {

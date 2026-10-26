@@ -4,6 +4,7 @@
 #ifndef CC_REPORT_PARSER_PLIST_H_
 #define CC_REPORT_PARSER_PLIST_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -12,10 +13,13 @@
 namespace cc::report {
 
 // Returns the reports of the plist file at `path`. Paths in the file are
-// relative to its folder. Problems are logged as the Python version logs
-// them; then the reports read so far are returned. Reports without a hash
-// get the path-sensitive hash. Severities are not set (no checker labels).
-std::vector<Report> ReadPlistFile(const std::string& path);
+// relative to `source_dir`, by default the folder of the file. Problems are
+// logged as the Python version logs them; then the reports read so far are
+// returned. Reports without a hash get the path-sensitive hash. Severities
+// are not set (no checker labels).
+std::vector<Report> ReadPlistFile(
+    const std::string& path,
+    const std::optional<std::string>& source_dir = std::nullopt);
 
 }  // namespace cc::report
 

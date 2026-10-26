@@ -19,6 +19,9 @@ struct Subcommand {
   std::string_view help;  // One-line help for the top-level list.
   void (*add_arguments)(util::argparse::Parser& parser);
   int (*run)(const util::argparse::Namespace& args);  // Returns the exit code.
+  // Whether the subcommand has --config, whose options are spliced into the
+  // command line (Python: func_process_config_file).
+  bool config_file = false;
 };
 
 // Returns the subcommands of the analyzer side, `version` included, in the

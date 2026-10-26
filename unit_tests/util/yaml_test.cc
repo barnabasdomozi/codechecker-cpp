@@ -30,6 +30,31 @@ TEST(YamlTest, EmptyStreamIsNull) {
   EXPECT_TRUE(yyjson_is_null(yyjson_doc_get_root(document.value().get())));
 }
 
+TEST(YamlTest, BaseLoaderKeepsStrings) {
+  const Result<JsonDocument> document =
+      LoadYamlStrings("analyze:\n  - --x=1\n  - yes\n", "a.yaml");
+  ASSERT_TRUE(document.ok());
+  const MutableJsonDocument copy = NewJsonDocument();
+  EXPECT_EQ(DumpJson(yyjson_val_mut_copy(
+                copy.get(), yyjson_doc_get_root(document.value().get()))),
+            "{\"analyze\": [\"--x=1\", \"yes\"]}");
+}
+
+TEST(YamlTest, DumpsLikePyyaml) {
+  const Result<JsonDocument> document = SafeLoadYaml(
+      "zz: null\nfilters: {filepath: '*/x.c', b: [1, 'yes', null, 1.5, "
+      "1.0e+17, '']}\na: \"na\\xEFve\"\n",
+      "a.yaml");
+  ASSERT_TRUE(document.ok()) << document.error().message;
+  const MutableJsonDocument copy = NewJsonDocument();
+  EXPECT_EQ(
+      DumpYaml(yyjson_val_mut_copy(copy.get(),
+                                   yyjson_doc_get_root(document.value().get())),
+               80),
+      "a: \"na\\xEFve\"\nfilters:\n  b:\n  - 1\n  - 'yes'\n  - null\n"
+      "  - 1.5\n  - 1.0e+17\n  - ''\n  filepath: '*/x.c'\nzz: null\n");
+}
+
 TEST(YamlTest, Errors) {
   EXPECT_FALSE(SafeLoadYaml("a: [1", "a.yaml").ok());
   EXPECT_FALSE(SafeLoadYaml("a: 1\n---\nb: 2\n", "a.yaml").ok());

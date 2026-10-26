@@ -41,6 +41,7 @@ class [[nodiscard]] Result {
 
   // The value; only valid if ok().
   const T& value() const& { return std::get<0>(content_); }
+  T& value() & { return std::get<0>(content_); }
   T&& value() && { return std::get<0>(std::move(content_)); }
 
   // The error; only valid if !ok().

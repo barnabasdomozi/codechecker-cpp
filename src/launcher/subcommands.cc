@@ -2,6 +2,7 @@
 
 #include <span>
 
+#include "analyzer/cli/analyze.h"
 #include "analyzer/cli/analyzer_version.h"
 #include "common/cli/version.h"
 #include "util/argparse.h"
@@ -18,6 +19,9 @@ int RunVersion(const util::argparse::Namespace& args) {
 constexpr Subcommand kAnalyzerSubcommands[] = {
     {"version", common::cli::kVersionHelp, &common::cli::AddVersionArguments,
      &RunVersion},
+    {"analyze", analyzer::cli::kAnalyzeHelp,
+     &analyzer::cli::AddAnalyzeArguments, &analyzer::cli::RunAnalyze,
+     /*config_file=*/true},
     {"analyzer-version", analyzer::cli::kAnalyzerVersionHelp,
      &analyzer::cli::AddAnalyzerVersionArguments,
      &analyzer::cli::RunAnalyzerVersion},

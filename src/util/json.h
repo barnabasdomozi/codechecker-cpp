@@ -44,10 +44,22 @@ MutableJsonDocument NewJsonDocument();
 // ", " and ": " separators, and non-ASCII characters as \uXXXX escapes.
 std::string DumpJson(yyjson_mut_val* value);
 
+// Returns `value` as Python's json.dumps(value, indent=indent) writes it:
+// each item on its own line, indented by `indent` spaces per level.
+std::string DumpJsonIndent(yyjson_mut_val* value, int indent);
+
+// Returns the text of the string `value`; "" if `value` is not a string.
+std::string JsonString(yyjson_val* value);
+std::string JsonString(yyjson_mut_val* value);
+
 // Returns the member `key` of the object `value`, or null if `value` is not
 // an object or has no such member. Of duplicate members the last one
 // counts, as in json.loads(). Lookups are linear.
 yyjson_val* JsonGet(yyjson_val* value, std::string_view key);
+
+// Returns Python's bool(value): false for a missing value, null, false, 0,
+// "", [] and {}.
+bool JsonTruthy(yyjson_val* value);
 
 // Returns `value` as Python's int(value) converts it: integers, floats
 // (truncated), booleans and strings that int() accepts; nullopt for the
@@ -58,6 +70,11 @@ std::optional<int64_t> JsonToInt(yyjson_val* value);
 // numbers like repr(), true as "True", null as "None", and arrays and
 // objects as JSON.
 std::string JsonToStr(yyjson_val* value);
+
+// Returns `value` as Python's repr() writes the value json.loads() or
+// yaml.safe_load() gives: {'a': [1, 'b', None, True]}.
+std::string JsonToRepr(yyjson_val* value);
+
 // Returns the member `key` of the object `value` (Python: value[key]), or
 // an error with the text of the exception Python raises: "KeyError: 'key'"
 // if it is missing, a TypeError if `value` is not an object.

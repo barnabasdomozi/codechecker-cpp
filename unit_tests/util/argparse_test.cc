@@ -226,6 +226,7 @@ void SetUpListParser(Parser& parser) {
   parser.AddArgument({.flags = {"-c"},
                       .dest = "clean",
                       .action = ArgumentAction::kStoreTrue,
+                      .default_value = "False",
                       .help = "Clean."});
 }
 
@@ -295,7 +296,8 @@ TEST_F(ArgparseTest, CustomActionReplacesTheValues) {
   parser.AddArgument(
       {.dest = "input",
        .nargs = Nargs::kOneOrMore,
-       .custom_action = [](const std::vector<std::string>& values) {
+       .custom_action = [](const std::vector<std::string>& values,
+                           const std::vector<std::string>* /*previous*/) {
          return Result<std::vector<std::string>>(
              std::vector<std::string>{values.back()});
        }});

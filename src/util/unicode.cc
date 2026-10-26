@@ -123,6 +123,42 @@ std::string DecodeUtf8Replace(std::string_view bytes) {
   return text;
 }
 
+void AppendUtf8(uint32_t c, std::string* out) {
+  if (c < 0x80) {
+    *out += static_cast<char>(c);
+  } else if (c < 0x800) {
+    *out += static_cast<char>(0xC0 | (c >> 6));
+    *out += static_cast<char>(0x80 | (c & 0x3F));
+  } else if (c < 0x10000) {
+    *out += static_cast<char>(0xE0 | (c >> 12));
+    *out += static_cast<char>(0x80 | ((c >> 6) & 0x3F));
+    *out += static_cast<char>(0x80 | (c & 0x3F));
+  } else {
+    *out += static_cast<char>(0xF0 | (c >> 18));
+    *out += static_cast<char>(0x80 | ((c >> 12) & 0x3F));
+    *out += static_cast<char>(0x80 | ((c >> 6) & 0x3F));
+    *out += static_cast<char>(0x80 | (c & 0x3F));
+  }
+}
+
+bool IsPrintable(uint32_t c) {
+  if (c == ' ') return true;
+  // Separators (Zs, Zl, Zp) and control characters (Cc).
+  if (c < 0x20 || (c >= 0x7F && c <= 0xA0) || IsSpace(c)) return false;
+  // Format characters (Cf).
+  if (c == 0xAD || (c >= 0x600 && c <= 0x605) || c == 0x61C || c == 0x6DD ||
+      c == 0x70F || c == 0x180E || (c >= 0x200B && c <= 0x200F) ||
+      (c >= 0x202A && c <= 0x202E) || (c >= 0x2060 && c <= 0x2064) ||
+      (c >= 0x2066 && c <= 0x206F) || c == 0xFEFF ||
+      (c >= 0xFFF9 && c <= 0xFFFB) || c == 0xE0001 ||
+      (c >= 0xE0020 && c <= 0xE007F)) {
+    return false;
+  }
+  // Surrogates (Cs), private use (Co) and the noncharacters U+FFFE, U+FFFF.
+  return !((c >= 0xD800 && c <= 0xF8FF) || c >= 0xF0000 || c == 0xFFFE ||
+           c == 0xFFFF);
+}
+
 bool IsSpace(uint32_t code_point) {
   // The code points of the Unicode database of Python 3.13 for which
   // str.isspace() is true.

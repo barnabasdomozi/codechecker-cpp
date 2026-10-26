@@ -73,7 +73,8 @@ std::vector<std::string> SortedTypeNames() {
 // Prints how to produce input for a type, then ends the parse with exit
 // code 0 (Python: PrintExampleCmdAction).
 Result<std::vector<std::string>> PrintExample(
-    const std::vector<std::string>& values) {
+    const std::vector<std::string>& values,
+    const std::vector<std::string>* /*previous*/) {
   const report::AnalyzerType& type = *report::FindAnalyzerType(values[0]);
   if (type.example_command.empty()) {
     kLog.Warning("No usage example is available yet for '" + values[0] +
@@ -91,7 +92,8 @@ Result<std::vector<std::string>> PrintExample(
 // Returns every file of the given files and folders (Python: CollectFiles).
 // Missing paths are logged and end the program with exit code 1.
 Result<std::vector<std::string>> CollectFiles(
-    const std::vector<std::string>& paths) {
+    const std::vector<std::string>& paths,
+    const std::vector<std::string>* /*previous*/) {
   using Files = Result<std::vector<std::string>>;
   std::vector<std::string> files;
   bool missing = false;
@@ -176,10 +178,12 @@ void AddArguments(argparse::Parser& parser) {
   parser.AddArgument({.flags = {"-c", "--clean"},
                       .dest = "clean",
                       .action = argparse::ArgumentAction::kStoreTrue,
+                      .default_value = "False",
                       .help = "Delete files stored in the output directory."});
   parser.AddArgument({.flags = {"-v", "--verbose"},
                       .dest = "verbose",
                       .action = argparse::ArgumentAction::kStoreTrue,
+                      .default_value = "False",
                       .help = "Set verbosity level."});
 }
 

@@ -27,6 +27,7 @@ struct LogConfig {
     kBrief,    // [INFO 2026-10-25 09:57:50] - message
     kPrecise,  // The debug format, with logger, process, file and line.
     kTool,     // [INFO] - message
+    kBare,     // message
   };
 
   LogLevel level;
@@ -35,10 +36,10 @@ struct LogConfig {
 };
 
 // Changed only by SetupLogger() and SetupToolLogger(), before other threads
-// start.
-constinit LogConfig log_config = {.level = LogLevel::kInfo,
-                                  .format = LogConfig::Format::kBrief,
-                                  .stream = Stream::kStdout};
+// start. Until then, Python's logging.lastResort handler.
+constinit LogConfig log_config = {.level = LogLevel::kWarning,
+                                  .format = LogConfig::Format::kBare,
+                                  .stream = Stream::kStderr};
 
 std::string_view LevelName(LogLevel level) {
   switch (level) {
@@ -120,6 +121,11 @@ void Logger::Debug(std::string_view message,
   Log(LogLevel::kDebug, message, location);
 }
 
+void Logger::DebugAnalyzer(std::string_view message,
+                           std::source_location location) const {
+  Log(LogLevel::kDebugAnalyzer, message, location);
+}
+
 void Logger::Info(std::string_view message,
                   std::source_location location) const {
   Log(LogLevel::kInfo, message, location);
@@ -153,6 +159,9 @@ void Logger::Log(LogLevel level, std::string_view message,
       break;
     case LogConfig::Format::kTool:
       line = std::format("[{}] - {}\n", LevelName(level), message);
+      break;
+    case LogConfig::Format::kBare:
+      line = std::format("{}\n", message);
       break;
   }
   static std::mutex& mutex = *new std::mutex;

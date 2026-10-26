@@ -1,16 +1,20 @@
 #include "util/argparse.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
+#include <charconv>
 #include <exception>
 #include <format>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -97,6 +101,7 @@ NargsKind NargsOf(const Action& action) {
   switch (action.kind) {
     case Action::Kind::kHelp:
     case Action::Kind::kStoreTrue:
+    case Action::Kind::kStoreConst:
       return NargsKind::kZero;
     case Action::Kind::kSubparsers:
       return NargsKind::kParser;
@@ -161,6 +166,13 @@ std::string FormatArgs(const Action& action, std::string_view default_metavar) {
 // The default shown in help texts: nullopt for argparse.SUPPRESS.
 std::optional<std::string> HelpDefault(const Action& action) {
   if (action.default_none) return "None";
+  if (action.default_list) {
+    std::vector<std::string> items;
+    for (const std::string& item : *action.default_list) {
+      items.push_back(Repr(item));
+    }
+    return "[" + Join(items, ", ") + "]";
+  }
   return action.default_value;
 }
 
@@ -189,12 +201,15 @@ class HelpFormatter {
 
   // Returns "usage: ...\n\n" (Python: _format_usage()).
   std::string Usage() const;
-  // Returns a description or an epilog followed by a blank line, or nothing
-  // for an empty text (Python: _format_text()).
-  std::string Text(std::string_view text) const;
-  // Returns a section of argument help: a heading and its arguments, or
-  // nothing if there are no arguments.
-  std::string Section(std::string_view heading, bool positional) const;
+  // Returns a description or an epilog indented by `indent`, followed by a
+  // blank line, or nothing for an empty text (Python: _format_text()).
+  std::string Text(std::string_view text, int indent) const;
+  // Returns a section of argument help: a heading, the description of the
+  // group and the arguments for which `in_section` is true, or nothing if
+  // there are no arguments.
+  std::string Section(std::string_view heading, std::string_view description,
+                      const std::function<bool(const Action&)>& in_section)
+      const;
 
   // Returns the final text from the pieces above (Python: format_help()).
   static std::string Finish(const std::string& help);
@@ -202,12 +217,17 @@ class HelpFormatter {
  private:
   bool RawText() const {
     return format_ == HelpFormat::kRawDescription ||
-           format_ == HelpFormat::kRawDescriptionArgumentDefaults;
+           format_ == HelpFormat::kRawDescriptionArgumentDefaults ||
+           format_ == HelpFormat::kCodeChecker;
   }
   bool ShowDefaults() const {
     return format_ == HelpFormat::kArgumentDefaults ||
-           format_ == HelpFormat::kRawDescriptionArgumentDefaults;
+           format_ == HelpFormat::kRawDescriptionArgumentDefaults ||
+           format_ == HelpFormat::kCodeChecker;
   }
+  // Python: _split_lines() of the formatter.
+  std::vector<std::string> SplitLines(const std::string& help,
+                                      int width) const;
   std::vector<std::string> UsageParts(bool positional) const;
   std::string Invocation(const Action& action) const;
   std::string ExpandHelp(const Action& action) const;
@@ -242,18 +262,39 @@ HelpFormatter::HelpFormatter(std::string_view prog, HelpFormat format,
 }
 
 std::vector<std::string> HelpFormatter::UsageParts(bool positional) const {
-  std::vector<std::string> parts;
+  std::vector<const Action*> actions;
   for (const Action& action : *actions_) {
-    if (action.option_strings.empty() != positional) continue;
+    if (action.option_strings.empty() == positional) actions.push_back(&action);
+  }
+  std::vector<std::string> parts;
+  for (const Action* action : actions) {
     if (positional) {
-      parts.push_back(FormatArgs(action, action.dest));
+      parts.push_back(FormatArgs(*action, action->dest));
       continue;
     }
-    std::string part = action.option_strings[0];
-    if (NargsOf(action) != NargsKind::kZero) {
-      part += " " + FormatArgs(action, Upper(action.dest));
+    std::string part = action->option_strings[0];
+    if (NargsOf(*action) != NargsKind::kZero) {
+      part += " " + FormatArgs(*action, Upper(action->dest));
     }
-    parts.push_back(action.required ? part : "[" + part + "]");
+    // Options of a mutually exclusive group get brackets as a group.
+    const bool bracket = !action->required && action->exclusive_group == 0;
+    parts.push_back(bracket ? "[" + part + "]" : part);
+  }
+  // Python: the group part of _get_actions_usage_parts(), for groups of
+  // consecutive options that are not required.
+  for (size_t start = 0; start < actions.size(); ++start) {
+    const int group = actions[start]->exclusive_group;
+    if (group == 0 ||
+        (start > 0 && actions[start - 1]->exclusive_group == group)) {
+      continue;
+    }
+    size_t end = start;
+    while (end < actions.size() && actions[end]->exclusive_group == group) {
+      ++end;
+    }
+    parts[start] = "[" + parts[start];
+    parts[end - 1] += "]";
+    for (size_t i = start; i + 1 < end; ++i) parts[i] += " |";
   }
   return parts;
 }
@@ -322,25 +363,32 @@ std::string HelpFormatter::Usage() const {
   return std::format("{}{}\n\n", kPrefix, Join(lines, "\n"));
 }
 
-std::string HelpFormatter::Text(std::string_view text) const {
+std::string HelpFormatter::Text(std::string_view text, int indent) const {
   if (text.empty()) return "";
   std::string expanded(text);
   if (expanded.find("%(prog)") != std::string::npos) {
     expanded = ExpandPercent(expanded, {{"prog", std::string(prog_)}});
   }
-  if (RawText()) return expanded + "\n\n";
-  const int text_width = std::max(width_, 11);
-  return Join(Wrap(NormalizeWhitespace(expanded), text_width), "\n") +
+  const std::string spaces = Spaces(indent);
+  if (RawText()) {
+    std::string result;
+    for (const std::string_view line : util::SplitLines(expanded)) {
+      result += spaces;
+      result += line;
+    }
+    return result + "\n\n";
+  }
+  const int text_width = std::max(width_ - indent, 11);
+  return Join(Wrap(NormalizeWhitespace(expanded), text_width, spaces), "\n") +
          "\n\n";
 }
 
-std::string HelpFormatter::Section(std::string_view heading,
-                                   bool positional) const {
-  std::string items;
+std::string HelpFormatter::Section(
+    std::string_view heading, std::string_view description,
+    const std::function<bool(const Action&)>& in_section) const {
+  std::string items = Text(description, 2);
   for (const Action& action : *actions_) {
-    if (action.option_strings.empty() == positional) {
-      items += FormatAction(action, 2);
-    }
+    if (in_section(action)) items += FormatAction(action, 2);
   }
   if (items.empty()) return "";
   return std::format("\n{}:\n{}\n", heading, items);
@@ -390,10 +438,9 @@ std::string HelpFormatter::FormatAction(const Action& action,
     result = Spaces(indent) + invocation + "\n";
     indent_first = help_position;
   }
-  const std::string help =
-      action.help.empty() ? "" : NormalizeWhitespace(ExpandHelp(action));
   const std::vector<std::string> lines =
-      help.empty() ? std::vector<std::string>() : Wrap(help, help_width);
+      action.help.empty() ? std::vector<std::string>()
+                          : SplitLines(ExpandHelp(action), help_width);
   for (size_t i = 0; i < lines.size(); ++i) {
     result += Spaces(i == 0 ? indent_first : help_position) + lines[i] + "\n";
   }
@@ -402,6 +449,25 @@ std::string HelpFormatter::FormatAction(const Action& action,
     result += FormatAction(subaction, indent + 2);
   }
   return result;
+}
+
+std::vector<std::string> HelpFormatter::SplitLines(const std::string& help,
+                                                   int width) const {
+  if (format_ == HelpFormat::kCodeChecker && help.starts_with("R|")) {
+    // The lines are kept, and each is wrapped on its own.
+    std::vector<std::string> lines;
+    std::string_view text = std::string_view(help).substr(2);
+    text = text.substr(
+        std::min(text.size(), text.find_first_not_of(" \t\n\r\f\v")));
+    for (const std::string_view line : StrSplitLines(text)) {
+      for (std::string& part : Wrap(line, width)) {
+        lines.push_back(std::move(part));
+      }
+    }
+    return lines;
+  }
+  const std::string text = NormalizeWhitespace(help);
+  return text.empty() ? std::vector<std::string>() : Wrap(text, width);
 }
 
 std::string HelpFormatter::Finish(const std::string& help) {
@@ -515,25 +581,41 @@ Parser::Parser(std::string prog) : prog_(std::move(prog)) {
 }
 
 void Parser::AddArgument(Argument argument) {
-  const bool store_true = argument.action == ArgumentAction::kStoreTrue;
+  Action::Kind kind = Action::Kind::kStore;
+  if (argument.action == ArgumentAction::kStoreTrue) {
+    kind = Action::Kind::kStoreTrue;
+  } else if (argument.action == ArgumentAction::kStoreConst) {
+    kind = Action::Kind::kStoreConst;
+  }
   // Python makes positionals required unless nargs is '?' or '*'.
   const bool required =
       argument.required ||
       (argument.flags.empty() && argument.nargs != Nargs::kZeroOrMore);
-  actions_.push_back(
-      {.kind = store_true ? Action::Kind::kStoreTrue : Action::Kind::kStore,
-       .option_strings = std::move(argument.flags),
-       .dest = std::move(argument.dest),
-       .nargs = argument.nargs,
-       .metavar = std::move(argument.metavar),
-       .choices = std::move(argument.choices),
-       .default_value =
-           store_true ? "False" : std::move(argument.default_value),
-       .default_none = argument.default_none,
-       .required = required,
-       .help = std::move(argument.help),
-       .custom_action = std::move(argument.custom_action)});
+  actions_.push_back({.kind = kind,
+                      .option_strings = std::move(argument.flags),
+                      .dest = std::move(argument.dest),
+                      .nargs = argument.nargs,
+                      .metavar = std::move(argument.metavar),
+                      .choices = std::move(argument.choices),
+                      .default_value = std::move(argument.default_value),
+                      .default_list = std::move(argument.default_list),
+                      .default_none = argument.default_none,
+                      .required = required,
+                      .help = std::move(argument.help),
+                      .const_value = std::move(argument.const_value),
+                      .type = std::move(argument.type),
+                      .custom_action = std::move(argument.custom_action),
+                      .group = argument.group,
+                      .exclusive_group = argument.exclusive_group});
 }
+
+int Parser::AddArgumentGroup(std::string title, std::string description) {
+  groups_.push_back(
+      {.title = std::move(title), .description = std::move(description)});
+  return static_cast<int>(groups_.size());
+}
+
+int Parser::AddMutuallyExclusiveGroup() { return ++exclusive_groups_; }
 
 void Parser::SetDefault(std::string dest, std::string value) {
   defaults_.emplace_back(std::move(dest), std::move(value));
@@ -572,18 +654,34 @@ std::string Parser::FormatUsage() const {
 
 std::string Parser::FormatHelp() const {
   const HelpFormatter formatter(prog_, help_format_, &actions_);
-  return HelpFormatter::Finish(
-      formatter.Usage() + formatter.Text(description_) +
-      formatter.Section("positional arguments", true) +
-      formatter.Section("options", false) + formatter.Text(epilog_));
+  std::string help = formatter.Usage() + formatter.Text(description_, 0) +
+                     formatter.Section("positional arguments", "",
+                                       [](const Action& action) {
+                                         return action.group == 0 &&
+                                                action.option_strings.empty();
+                                       }) +
+                     formatter.Section("options", "", [](const Action& action) {
+                       return action.group == 0 &&
+                              !action.option_strings.empty();
+                     });
+  for (size_t i = 0; i < groups_.size(); ++i) {
+    const int group = static_cast<int>(i) + 1;
+    help += formatter.Section(groups_[i].title, groups_[i].description,
+                              [group](const Action& action) {
+                                return action.group == group;
+                              });
+  }
+  return HelpFormatter::Finish(help + formatter.Text(epilog_, 0));
 }
 
 Result<Parser::KnownArgs> Parser::ParseKnownArgs(
     const std::vector<std::string>& args) const {
   KnownArgs known;
   for (const Action& action : actions_) {
-    if (!action.dest.empty() && action.default_value &&
-        !known.values.Has(action.dest)) {
+    if (action.dest.empty() || known.values.Has(action.dest)) continue;
+    if (action.default_list) {
+      known.values.SetList(action.dest, *action.default_list);
+    } else if (action.default_value) {
       known.values.Set(action.dest, *action.default_value);
     }
   }
@@ -611,6 +709,16 @@ Result<Parser::KnownArgs> Parser::ParseKnownArgs(
       [&](const Action& action,
           const std::vector<std::string>& values) -> std::optional<Error> {
     seen_actions.insert(&action);
+    // An option of a mutually exclusive group conflicts with the others.
+    if (action.exclusive_group != 0) {
+      for (const Action* seen : seen_actions) {
+        if (seen != &action &&
+            seen->exclusive_group == action.exclusive_group) {
+          return Fail(ArgumentError(
+              action, "not allowed with argument " + ActionName(*seen)));
+        }
+      }
+    }
     return TakeAction(action, values, &known);
   };
 
@@ -845,25 +953,41 @@ std::optional<Error> Parser::TakeAction(const Action& action,
     Write(Stream::kStdout, FormatHelp());
     return Error{.exit_code = 0};
   }
-  if (action.kind == Action::Kind::kStoreTrue) {
-    known->values.Set(action.dest, "True");
+  if (action.kind == Action::Kind::kStoreTrue ||
+      action.kind == Action::Kind::kStoreConst) {
+    known->values.Set(action.dest, action.kind == Action::Kind::kStoreTrue
+                                       ? "True"
+                                       : action.const_value);
     return std::nullopt;
   }
   // Python's _get_values(): PARSER checks only the subcommand name.
   const size_t checked =
       action.kind == Action::Kind::kSubparsers ? 1 : values.size();
+  std::vector<std::string> converted = values;
   for (size_t i = 0; i < checked; ++i) {
+    if (action.type) {
+      Result<std::string> value = action.type(values[i]);
+      if (!value.ok()) {
+        return Fail(ArgumentError(action, value.error().message));
+      }
+      converted[i] = std::move(value).value();
+    }
     if (!action.choices.empty() &&
-        std::ranges::find(action.choices, values[i]) == action.choices.end()) {
+        std::ranges::find(action.choices, converted[i]) ==
+            action.choices.end()) {
       return Fail(ArgumentError(
           action, std::format("invalid choice: {} (choose from {})",
-                              Repr(values[i]), Join(action.choices, ", "))));
+                              Repr(converted[i]), Join(action.choices, ", "))));
     }
   }
   if (action.kind == Action::Kind::kStore) {
-    std::vector<std::string> stored = values;
+    std::vector<std::string> stored = converted;
     if (action.custom_action) {
-      Result<std::vector<std::string>> result = action.custom_action(values);
+      const std::vector<std::string>* previous =
+          known->values.Has(action.dest) ? &known->values.GetList(action.dest)
+                                         : nullptr;
+      Result<std::vector<std::string>> result =
+          action.custom_action(converted, previous);
       if (!result.ok()) return result.error();
       stored = std::move(result).value();
     }
@@ -884,6 +1008,40 @@ std::optional<Error> Parser::TakeAction(const Action& action,
                              sub.value().extras.begin(),
                              sub.value().extras.end());
   return std::nullopt;
+}
+
+Result<std::string> IntType(const std::string& value) {
+  const std::optional<int64_t> number = ParseInt(value);
+  if (!number) {
+    return Result<std::string>(
+        Error{.message = "invalid int value: " + Repr(value)});
+  }
+  return Result<std::string>(std::to_string(*number));
+}
+
+Result<std::string> FloatType(const std::string& value) {
+  std::string text(Strip(value));
+  std::erase(text, '_');
+  const std::string lower = AsciiLower(text);
+  const std::string_view unsigned_text =
+      std::string_view(lower).substr(lower.starts_with('+') ||
+                                             lower.starts_with('-')
+                                         ? 1
+                                         : 0);
+  bool valid = unsigned_text == "inf" || unsigned_text == "infinity" ||
+               unsigned_text == "nan";
+  if (!valid && !text.empty()) {
+    double number = 0;
+    const char* begin = text.data() + (text[0] == '+' ? 1 : 0);
+    const std::from_chars_result result =
+        std::from_chars(begin, text.data() + text.size(), number);
+    valid = result.ec == std::errc() && result.ptr == text.data() + text.size();
+  }
+  if (!valid) {
+    return Result<std::string>(
+        Error{.message = "invalid float value: " + Repr(value)});
+  }
+  return Result<std::string>(value);
 }
 
 Error Parser::Fail(std::string_view message) const {

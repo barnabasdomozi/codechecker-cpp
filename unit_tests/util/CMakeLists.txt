@@ -4,10 +4,12 @@
 
 add_executable(util_test
   argparse_test.cc
+  fnmatch_test.cc
   json_test.cc
   plist_test.cc
   pypath_test.cc
   pyre_test.cc
+  shlex_test.cc
   strings_test.cc
   textwrap_test.cc
   twodim_test.cc

@@ -13,11 +13,13 @@
 //   Print(args.value().Get("output_format"));
 //
 // Supported so far: options and positional arguments with nargs None, '*'
-// and '+', store_true, required options, metavars, custom actions,
-// -h/--help, choices, defaults (including argparse.SUPPRESS and None),
-// set_defaults(), one level of subcommands, allow_abbrev, the error exit
+// and '+', store_true, store_const, type conversions, required options,
+// metavars, custom actions, -h/--help, choices, defaults (including
+// argparse.SUPPRESS and None), set_defaults(), argument groups, mutually
+// exclusive groups, one level of subcommands, allow_abbrev, the error exit
 // code, and the HelpFormatter, RawDescriptionHelpFormatter and
-// ArgumentDefaultsHelpFormatter layouts.
+// ArgumentDefaultsHelpFormatter layouts, and CodeChecker's
+// RawDescriptionDefaultHelpFormatter.
 
 #ifndef CC_UTIL_ARGPARSE_H_
 #define CC_UTIL_ARGPARSE_H_
@@ -45,6 +47,9 @@ enum class HelpFormat {
   kArgumentDefaults,  // ArgumentDefaultsHelpFormatter: option help ends with
                       // "(default: <value>)".
   kRawDescriptionArgumentDefaults,  // Both of the above.
+  // CodeChecker's RawDescriptionDefaultHelpFormatter: both of the above,
+  // and an option help that starts with "R|" keeps its line breaks.
+  kCodeChecker,
 };
 
 // How many command line arguments an argument takes (Python: nargs).
@@ -56,15 +61,30 @@ enum class Nargs {
 
 // What an argument does when it is given (Python: action).
 enum class ArgumentAction {
-  kStore,      // Stores its value or values.
-  kStoreTrue,  // Takes no value and stores "True"; its default is "False".
+  kStore,       // Stores its value or values.
+  kStoreTrue,   // Takes no value and stores "True".
+  kStoreConst,  // Takes no value and stores Argument::const_value.
 };
 
 // The values of an argument given by a custom action, or the error that
 // ends the parse with the error's exit code (Python: an argparse.Action
-// subclass, which can also print and exit).
+// subclass, which can also print and exit). `previous` holds the values the
+// destination has so far; null if it has none.
 using CustomAction = std::function<Result<std::vector<std::string>>(
-    const std::vector<std::string>& values)>;
+    const std::vector<std::string>& values,
+    const std::vector<std::string>* previous)>;
+
+// Converts one value of an argument (Python: the `type` of an argument).
+// The error message is the text after "argument <name>: ", for example
+// "invalid int value: 'x'".
+using ArgumentType =
+    std::function<Result<std::string>(const std::string& value)>;
+
+// Converts like type=int; the result is the number in decimal.
+Result<std::string> IntType(const std::string& value);
+
+// Converts like type=float; the result is the value as given.
+Result<std::string> FloatType(const std::string& value);
 
 // An argument, like add_argument(*flags, dest=dest, nargs=nargs,
 // action=action, metavar=metavar, choices=choices, default=default_value,
@@ -75,6 +95,10 @@ struct Argument {
   std::string dest = {};  // The name of the value in the Namespace.
   Nargs nargs = Nargs::kOne;
   ArgumentAction action = ArgumentAction::kStore;
+  // kStoreConst only: the value to store (Python: const).
+  std::string const_value = {};
+  // Converts each value before it is checked and stored (Python: type).
+  ArgumentType type = {};
   // The name of the value in usage and help; empty: from the choices or
   // `dest`.
   std::string metavar = {};
@@ -82,6 +106,8 @@ struct Argument {
   // The value if the argument is not given. nullopt is argparse.SUPPRESS:
   // then the Namespace has no value for `dest`.
   std::optional<std::string> default_value = {};
+  // A list as the default, for example [] (instead of `default_value`).
+  std::optional<std::vector<std::string>> default_list = {};
   // The default is Python's None: the Namespace has no value for `dest`,
   // but the help says "(default: None)".
   bool default_none = false;
@@ -89,6 +115,11 @@ struct Argument {
   std::string help = {};
   // Runs instead of storing the values, and returns what to store.
   CustomAction custom_action = {};
+  // The help section that lists the argument: an id from
+  // Parser::AddArgumentGroup(); 0: "positional arguments" or "options".
+  int group = 0;
+  // An id from Parser::AddMutuallyExclusiveGroup(); 0: none.
+  int exclusive_group = 0;
 };
 
 // The values of a parsed command line by their destination names (Python:
@@ -119,7 +150,7 @@ namespace internal_argparse {
 
 // One argument of a parser (Python: argparse.Action).
 struct Action {
-  enum class Kind { kStore, kStoreTrue, kHelp, kSubparsers };
+  enum class Kind { kStore, kStoreTrue, kStoreConst, kHelp, kSubparsers };
 
   Kind kind = Kind::kStore;
   std::vector<std::string> option_strings = {};  // Empty for positionals.
@@ -128,12 +159,23 @@ struct Action {
   std::string metavar = {};
   std::vector<std::string> choices = {};
   std::optional<std::string> default_value = {};
+  std::optional<std::vector<std::string>> default_list = {};
   bool default_none = false;
   bool required = false;
   std::string help = {};
+  std::string const_value = {};  // kStoreConst only.
+  ArgumentType type = {};
   CustomAction custom_action = {};
+  int group = 0;
+  int exclusive_group = 0;
   // kSubparsers only: one help entry per subcommand, listed under it.
   std::vector<Action> subactions = {};
+};
+
+// A help section of user-defined arguments (Python: an argument group).
+struct Group {
+  std::string title;
+  std::string description;  // Empty: none.
 };
 
 }  // namespace internal_argparse
@@ -161,6 +203,16 @@ class Parser {
   void set_error_exit_code(int exit_code) { error_exit_code_ = exit_code; }
 
   void AddArgument(Argument argument);
+
+  // Adds a help section with `title` and `description` (empty: none), and
+  // returns its id for Argument::group (Python: add_argument_group()).
+  int AddArgumentGroup(std::string title, std::string description);
+
+  // Adds a group of options of which at most one may be given, and returns
+  // its id for Argument::exclusive_group (Python:
+  // add_mutually_exclusive_group()). The options must be added one after
+  // the other.
+  int AddMutuallyExclusiveGroup();
 
   // Sets `dest` to `value` in the result of every parse with this parser
   // (Python: set_defaults(dest=value)).
@@ -218,6 +270,8 @@ class Parser {
   bool allow_abbrev_ = true;
   int error_exit_code_ = 1;
   std::vector<Action> actions_;
+  std::vector<internal_argparse::Group> groups_;
+  int exclusive_groups_ = 0;
   std::vector<std::pair<std::string, std::string>> defaults_;
   // The index of the subcommand argument in `actions_`, if there is one.
   std::optional<size_t> subparsers_action_;

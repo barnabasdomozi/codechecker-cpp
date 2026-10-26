@@ -1,21 +1,40 @@
 #include "platform/process.h"
 
+#include <errno.h>
 #include <execinfo.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <cstdio>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <system_error>
+
+#include "platform/subprocess.h"
 
 namespace cc::platform {
 namespace {
 
-void ExitWithSignalCode(int signum) { _exit(128 + signum); }
+// The child process of RunForked(), for the signal handler; 0 if none.
+constinit std::atomic<int> forked_child = 0;
+
+void ExitWithSignalCode(int signum) {
+  SignalRunningSessions(SIGTERM);
+  _exit(128 + signum);
+}
+
+void ForwardSignal(int signum) {
+  const int child = forked_child.load();
+  if (child > 0) kill(child, signum);
+}
 
 void PrintStackTraceAndExit() {
   std::fflush(nullptr);
@@ -51,6 +70,32 @@ void ExitOnTerminationSignals() {
   sigemptyset(&action.sa_mask);
   sigaction(SIGINT, &action, nullptr);
   sigaction(SIGTERM, &action, nullptr);
+}
+
+void IgnoreBrokenPipes() {
+  struct sigaction action = {};
+  action.sa_handler = SIG_IGN;
+  sigemptyset(&action.sa_mask);
+  sigaction(SIGPIPE, &action, nullptr);
+}
+
+int RunForked(const std::function<int()>& child) {
+  const pid_t pid = fork();
+  if (pid == 0) std::exit(child());
+  if (pid < 0) return child();
+  forked_child.store(pid);
+  struct sigaction action = {};
+  action.sa_handler = ForwardSignal;
+  sigemptyset(&action.sa_mask);
+  for (const int signum : {SIGINT, SIGTERM, SIGHUP, SIGCHLD}) {
+    sigaction(signum, &action, nullptr);
+  }
+  int status = 0;
+  while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+  }
+  forked_child.store(0);
+  if (WIFSIGNALED(status)) return -WTERMSIG(status);
+  return WEXITSTATUS(status);
 }
 
 void InstallTerminateHandler() { std::set_terminate(PrintStackTraceAndExit); }

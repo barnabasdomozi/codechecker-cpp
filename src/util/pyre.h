@@ -88,6 +88,9 @@ class Regex {
   std::optional<RegexMatch> FullMatch(std::string_view text) const;
   // Python: regex.search(text).
   std::optional<RegexMatch> Search(std::string_view text) const;
+  // Returns the non-overlapping matches in `text`, from left to right
+  // (Python: regex.finditer(text)).
+  std::vector<RegexMatch> FindAll(std::string_view text) const;
   // Returns `text` with every match replaced by `replacement`, which is used
   // as it is: it has no backslash escapes or group references (Python:
   // regex.sub(replacement, text)).
@@ -97,10 +100,15 @@ class Regex {
  private:
   explicit Regex(pcre2_code* code) : code_(code) {}
 
-  std::optional<RegexMatch> Run(std::string_view text, uint32_t options) const;
+  std::optional<RegexMatch> Run(std::string_view text, uint32_t options,
+                                size_t start = 0) const;
 
   std::unique_ptr<pcre2_code, internal_pyre::CodeDeleter> code_;
 };
+
+// Returns `text` with the characters that are special in a pattern escaped,
+// so the pattern matches `text` literally (Python: re.escape(text)).
+std::string RegexEscape(std::string_view text);
 
 }  // namespace cc::util
 
