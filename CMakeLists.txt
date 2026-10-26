@@ -1,6 +1,7 @@
 # The CodeChecker C++ port (docs/implementation/build-system.md §4). Build
-# the third-party libraries first (§3), then use a preset:
+# the third-party libraries first (§3), then the project:
 #
+#   cmake --preset deps && cmake --build --preset deps --parallel
 #   cmake --preset dev && cmake --build --preset dev && ctest --preset dev
 
 cmake_minimum_required(VERSION 3.28)
@@ -9,6 +10,14 @@ cmake_minimum_required(VERSION 3.28)
 # candidate.
 project(CodeChecker VERSION 6.30.0 LANGUAGES C CXX)
 set(CC_VERSION_RC "")
+
+# The deps preset builds only the third-party libraries (§3), into
+# build/deps/install.
+option(CC_DEPS_ONLY "Build only the third-party libraries" OFF)
+if(CC_DEPS_ONLY)
+  add_subdirectory(third_party)
+  return()
+endif()
 
 option(CC_BUILD_WEB "Build the web side (store, cmd, server)" ON)
 option(CC_BUILD_TESTS "Build the unit tests" ON)

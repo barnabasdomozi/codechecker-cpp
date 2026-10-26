@@ -1,8 +1,9 @@
 # Builds the third-party libraries from the submodules into one prefix, which
-# the project then uses (docs/implementation/build-system.md §3):
+# the project then uses (docs/implementation/build-system.md §3). The deps
+# preset of the main project builds it into build/deps:
 #
-#   cmake -S third_party -B build/deps
-#   cmake --build build/deps --parallel
+#   cmake --preset deps
+#   cmake --build --preset deps --parallel
 
 cmake_minimum_required(VERSION 3.28)
 project(cc_third_party LANGUAGES C CXX)

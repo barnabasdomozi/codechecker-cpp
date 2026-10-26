@@ -10,28 +10,74 @@ documentation here is based on package version 6.30.0, commit
 
 ## Status
 
-The build system is set up (see [Building](#building)): the third-party
-libraries, ldlogger and a test of the libraries build.
-
 The main program is `codechecker-cpp` (the Python version's `CodeChecker`).
-Ported so far: the version commands of
-[docs/usage/version.md](docs/usage/version.md), `codechecker-cpp version`,
-`analyzer-version` and `web-version`, with the building blocks they need
-(argument parsing, logging, tables, JSON). `report-converter`
-([docs/usage/report-converter.md](docs/usage/report-converter.md)) is ported
-with all 28 input types, on the `cc_report` library (report model, report
-hashes, plist and SARIF reading and writing). Its black-box tests that read
-the results back need `codechecker-cpp parse`, which comes later; until then
-they pass with the C++ `report-converter` next to the Python `CodeChecker`.
+The porting order is in
+[architecture.md](docs/implementation/architecture.md#14-porting-order).
 
-`codechecker-cpp analyze` ([docs/usage/analyze.md](docs/usage/analyze.md)) is
-ported: every analyzer driver (Clang SA, Clang-Tidy, Cppcheck, GCC, Infer),
-checker selection, skip and review status handling, compiler info, CTU,
-statistics, Makefile mode and `--config` files, with the launcher's second
-process and saved build environment (architecture.md §5.1). `log`, `parse`,
-`analyzers`, `checkers` and `check` are not ported yet, so the black-box
-tests of `analyze` run with a wrapper that sends `analyze` to
-`codechecker-cpp` and the other subcommands to the Python `CodeChecker`.
+| Mark | Meaning |
+|------|---------|
+| ✅ | Ported |
+| 🟡 | Partly ported (the note says what is missing) |
+| ❌ | Not started |
+
+| Area | Component | Usage page | Status | Notes |
+|------|-----------|------------|--------|-------|
+| Foundation | Build system, third-party libraries | [build-system.md](docs/implementation/build-system.md) | ✅ | CMake presets, deps build, unit tests |
+| Foundation | `cc_platform`, `cc_util` | | ✅ | Processes, files, argument parsing, logging, tables, JSON, YAML, plist, Python-compatible helpers |
+| Foundation | `cc_report` | [report-format](docs/reference/report-format.md), [report-hash](docs/reference/report-hash.md) | ✅ | Report model, report hashes, plist and SARIF reading and writing |
+| Foundation | `cc_common`, launcher | | ✅ | Checker labels, skip lists, review status handling, `--config` files, the launcher's second process |
+| Information | `version`, `analyzer-version`, `web-version` | [version.md](docs/usage/version.md) | ✅ | |
+| Information | `analyzers` | [analyzers.md](docs/usage/analyzers.md) | ❌ | |
+| Information | `checkers` | [checkers.md](docs/usage/checkers.md) | ❌ | |
+| Analysis | `log`, `ldlogger` | [log.md](docs/usage/log.md) | 🟡 | `ldlogger` and `ldlogger.so` are built; the `log` subcommand is not ported |
+| Analysis | `analyze` | [analyze.md](docs/usage/analyze.md) | ✅ | |
+| Analysis | Analyzer drivers | [analyzers.md](docs/usage/analyzers.md) | ✅ | Clang SA, Clang-Tidy, Cppcheck, GCC, Infer |
+| Analysis | Checker selection | [checker-selection.md](docs/usage/checker-selection.md) | ✅ | |
+| Analysis | Analyzer configuration | [analyzer-configuration.md](docs/usage/analyzer-configuration.md) | ✅ | |
+| Analysis | Compiler info | [compiler-info.md](docs/usage/compiler-info.md) | ✅ | |
+| Analysis | `--config` files | [config-file.md](docs/usage/config-file.md) | 🟡 | `analyze` only; `parse`, `check`, `store` and `server` come with those commands |
+| Analysis | Skip and file filters | [skip-and-file-filters.md](docs/usage/skip-and-file-filters.md) | 🟡 | `analyze` only; `parse` filters come with `parse` |
+| Analysis | CTU analysis | [ctu-analysis.md](docs/usage/ctu-analysis.md) | ✅ | |
+| Analysis | Statistical analysis | [statistical-analysis.md](docs/usage/statistical-analysis.md) | 🟡 | `analyze --stats` is ported; the `post-process-stats` program is not |
+| Analysis | Makefile mode | [makefile-mode.md](docs/usage/makefile-mode.md) | ✅ | |
+| Analysis | Analysis debugging | [analysis-debugging.md](docs/usage/analysis-debugging.md) | ✅ | |
+| Analysis | `check` | [check.md](docs/usage/check.md) | ❌ | |
+| Local results | `parse` | [parse.md](docs/usage/parse.md) | ❌ | |
+| Local results | `parse --export` | [parse-export.md](docs/usage/parse-export.md) | ❌ | HTML, JSON, Code Climate, SARIF, Gerrit, baseline |
+| Local results | Review status and suppression | [review-status-and-suppression.md](docs/usage/review-status-and-suppression.md) | 🟡 | Review status handling is ported for `analyze` results; `parse`, `check` and suppress files are not |
+| Local results | `fixit` | [fixit.md](docs/usage/fixit.md) | ❌ | |
+| Local results | Local diff (`cmd diff` on folders) | [local-diff.md](docs/usage/local-diff.md) | ❌ | |
+| Server | Thrift API (`cc_api`) | [server-api](docs/reference/server-api.md) | 🟡 | `api_version.json` only; no generated stubs yet |
+| Server | `server` | [server.md](docs/usage/server.md) | ❌ | |
+| Server | Server database | [server-database.md](docs/usage/server-database.md) | ❌ | |
+| Server | Authentication | [server-authentication.md](docs/usage/server-authentication.md) | ❌ | |
+| Server | `store` | [store.md](docs/usage/store.md) | ❌ | |
+| Server | Web UI | [web-ui.md](docs/usage/web-ui.md) | ❌ | |
+| `cmd` client | `cmd runs`, `cmd history` | [cmd-runs-history.md](docs/usage/cmd-runs-history.md) | ❌ | |
+| `cmd` client | `cmd results` | [cmd-results.md](docs/usage/cmd-results.md) | ❌ | |
+| `cmd` client | `cmd sum` | [cmd-sum.md](docs/usage/cmd-sum.md) | ❌ | |
+| `cmd` client | `cmd diff` | [cmd-diff.md](docs/usage/cmd-diff.md) | ❌ | |
+| `cmd` client | Run management | [cmd-run-management.md](docs/usage/cmd-run-management.md) | ❌ | |
+| `cmd` client | `cmd suppress` | [cmd-suppress.md](docs/usage/cmd-suppress.md) | ❌ | |
+| `cmd` client | Export and import | [cmd-export-import.md](docs/usage/cmd-export-import.md) | ❌ | |
+| `cmd` client | `cmd products` | [cmd-products.md](docs/usage/cmd-products.md) | ❌ | |
+| `cmd` client | `cmd components` | [cmd-components.md](docs/usage/cmd-components.md) | ❌ | |
+| `cmd` client | `cmd filter-preset` | [cmd-filter-preset.md](docs/usage/cmd-filter-preset.md) | ❌ | |
+| `cmd` client | `cmd serverside-tasks` | [cmd-serverside-tasks.md](docs/usage/cmd-serverside-tasks.md) | ❌ | |
+| Tools | `report-converter` | [report-converter.md](docs/usage/report-converter.md) | ✅ | All 28 input types |
+| Tools | `tu_collector` | [tu-collector.md](docs/usage/tu-collector.md) | 🟡 | The library is ported and used by `analyze`; the standalone program is not |
+| Tools | `merge-clang-extdef-mappings` | [merge-clang-extdef-mappings.md](docs/usage/merge-clang-extdef-mappings.md) | 🟡 | The merge is ported inside `analyze` (CTU); the standalone program is not |
+| Tools | Gerrit integration | [gerrit-integration.md](docs/usage/gerrit-integration.md) | ❌ | |
+| Tools | `memory_safety_reporter` | [memory-safety-reporter.md](docs/usage/memory-safety-reporter.md) | ❌ | |
+| Tools | `bazel-compile-commands` | [bazel-compile-commands.md](docs/usage/bazel-compile-commands.md) | ❌ | |
+| Reference | Environment variables | [environment-variables.md](docs/usage/environment-variables.md) | 🟡 | Supported by the ported commands |
+| Reference | Exit codes | [exit-codes.md](docs/usage/exit-codes.md) | 🟡 | Supported by the ported commands |
+
+Some black-box tests need commands that are not ported yet. The
+`report-converter` tests that read results back need `parse`; they pass with
+the C++ `report-converter` next to the Python `CodeChecker`. The `analyze`
+tests run with a wrapper that sends `analyze` to `codechecker-cpp` and the
+other subcommands to the Python `CodeChecker`.
 
 ## Goals
 
@@ -84,19 +130,20 @@ Linux only. The host tools are listed in
 
 ```sh
 third_party/checkout.sh                  # the submodules, about 1 GB
-cmake -S third_party -B build/deps       # the third-party libraries, once
-cmake --build build/deps --parallel
+cmake --preset deps                      # the third-party libraries, once
+cmake --build --preset deps --parallel
 cmake --preset dev                       # the project
 cmake --build --preset dev --parallel
 ctest --preset dev
 build/dev/bin/codechecker-cpp version    # runs from the build folder
 ```
 
-To run the black-box tests of a page on an installed build:
+Every preset builds in `build/<preset>`; no folder needs to be given. To run
+the black-box tests of a page on an installed build:
 
 ```sh
-cmake --install build/dev --prefix /tmp/cc-root
-cd blackbox_tests && CODECHECKER_BIN=/tmp/cc-root/bin/codechecker-cpp npx jest tests/version.test.ts
+cmake --build --preset dev --target install   # into build/dev/install
+cd blackbox_tests && CODECHECKER_BIN=$PWD/../build/dev/install/bin/codechecker-cpp npx jest tests/version.test.ts
 ```
 
 Other presets: `dev-clang`, `asan`, `release` and `analyzer` (the analyzer

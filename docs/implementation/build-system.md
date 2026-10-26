@@ -163,17 +163,17 @@ not matter: the server splits long `IN` lists into chunks of 999 itself
 ```sh
 git clone https://<host>/codechecker-cpp.git
 cd codechecker-cpp
-third_party/checkout.sh                 # or: third_party/checkout.sh --analyzer-only
+third_party/checkout.sh
 ```
 
 `checkout.sh` runs these commands:
 
 ```sh
 git submodule sync
-git submodule update --init --depth 1 --jobs 8 [<analyzer-side paths only>]
+git submodule update --init --depth 1 --jobs 8
 git -C third_party/pcre2 submodule update --init --depth 1 deps/sljit
 git -C third_party/boost submodule update --init --depth 1 --jobs 8 \
-    $(grep -v '^#' third_party/boost-libraries.txt)      # skipped with --analyzer-only
+    $(grep -v '^#' third_party/boost-libraries.txt)
 ```
 
 **Never use `--recursive` or `git clone --recurse-submodules`.** That would
@@ -207,9 +207,12 @@ largest are PostgreSQL (147 MB), OpenSSL (140 MB), Boost with 51 libraries
 ### 3.1 How the deps build works
 
 ```sh
-cmake -S third_party -B build/deps      # -DCC_DEPS_WEB=OFF for the analyzer side only
-cmake --build build/deps --parallel
+cmake --preset deps                     # -DCC_DEPS_WEB=OFF for the analyzer side only
+cmake --build --preset deps --parallel
 ```
+
+The `deps` preset configures the main project with `CC_DEPS_ONLY=ON` in
+`build/deps/`, which builds only `third_party/CMakeLists.txt`.
 
 - **One `ExternalProject_Add` per library.** `SOURCE_DIR` is the
   submodule, there is no download or update step, and each library builds
@@ -411,6 +414,7 @@ ssl.
 | `CC_WERROR` | `OFF` (`ON` in CI) | warnings are errors in project code |
 | `CC_SANITIZE` | empty | for example `address;undefined` |
 | `CC_DEPS_PREFIX` | `build/deps/install` | §4.1 |
+| `CC_DEPS_ONLY` | `OFF` (`ON` in the `deps` preset) | build only the third-party libraries (§3.1) |
 
 - C++: `CMAKE_CXX_STANDARD 20`, `CMAKE_CXX_STANDARD_REQUIRED ON`,
   `CMAKE_CXX_EXTENSIONS OFF`, with `-Wall -Wextra -Wpedantic` for project
@@ -510,8 +514,8 @@ without `www/`.
 
 ```sh
 third_party/checkout.sh                          # once, and after a submodule update
-cmake -S third_party -B build/deps               # the libraries
-cmake --build build/deps --parallel
+cmake --preset deps                              # the libraries
+cmake --build --preset deps --parallel
 cmake --preset dev                               # the project
 cmake --build --preset dev
 ctest --preset dev                               # unit tests
@@ -521,18 +525,23 @@ cmake --build --preset dev --target blackbox     # black-box suite (architecture
 The deps build is a separate step on purpose. It is slow, it is needed only
 when a submodule changes, and every preset below shares it.
 
-`CMakePresets.json` (binary folder `build/<preset>`, all with
-`CC_DEPS_PREFIX=${sourceDir}/build/deps/install`):
+`CMakePresets.json` (binary folder `build/<preset>`, install folder
+`build/<preset>/install`, all but `deps` with
+`CC_DEPS_PREFIX=${sourceDir}/build/deps/install`). Build and test commands
+take the preset, never a folder:
 
 | Preset | Settings |
 |---|---|
+| `deps` | the third-party libraries only (§3.1), in `build/deps/` |
 | `dev` | `Debug`, unit tests on |
 | `dev-clang` | `dev` with Clang |
 | `asan` | `dev` with `CC_SANITIZE=address;undefined` |
 | `release` | `RelWithDebInfo` |
 | `analyzer` | `CC_BUILD_WEB=OFF` |
 
-**Install.** `cmake --install build/release --prefix <root>` creates the
+**Install.** `cmake --build --preset release --target install` installs
+into `build/release/install/` (another root: `cmake --install build/release
+--prefix <root>`). The install creates the
 layout of [architecture.md](architecture.md#4-programs-and-install-layout)
 §4. The tree can be moved: it has no RPATHs and no third-party shared
 libraries, and programs find `<root>` from `/proc/self/exe`. Because
@@ -553,12 +562,12 @@ notice to come with binaries.
 | GCC | full | default | `dev` with `CC_WERROR=ON`; unit tests, black-box suite |
 | Clang | full | the GCC job's prefix | `dev-clang` with `CC_WERROR=ON`; unit tests |
 | Sanitizers | full | the GCC job's prefix | `asan`; unit tests, black-box suite |
-| Analyzer only | `--analyzer-only` | `CC_DEPS_WEB=OFF` | `analyzer` |
+| Analyzer only | full | `CC_DEPS_WEB=OFF` | `analyzer` |
 
 - The deps prefix is cached under a key made from the manifest inputs, so CI
   rebuilds the libraries only when a submodule or the deps build changes.
-- The analyzer-only job does not even check out the web side's submodules.
-  So the analyzer side cannot pick up a web library by accident (rule 5 of
+- The analyzer-only job's deps prefix has no web library in it, so the
+  analyzer side cannot pick one up by accident (rule 5 of
   [libraries.md](libraries.md#how-we-decide)).
 - Every job checks that each submodule is at a release tag (§2.4).
 

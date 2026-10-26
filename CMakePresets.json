@@ -2,9 +2,16 @@
   "version": 6,
   "configurePresets": [
     {
+      "name": "deps",
+      "displayName": "The third-party libraries, built once for every preset",
+      "binaryDir": "${sourceDir}/build/deps",
+      "cacheVariables": { "CC_DEPS_ONLY": "ON" }
+    },
+    {
       "name": "dev",
       "displayName": "Debug build with unit tests",
       "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/build/${presetName}/install",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
     },
     {
@@ -36,6 +43,7 @@
     }
   ],
   "buildPresets": [
+    { "name": "deps", "configurePreset": "deps" },
     { "name": "dev", "configurePreset": "dev" },
     { "name": "dev-clang", "configurePreset": "dev-clang" },
     { "name": "asan", "configurePreset": "asan" },

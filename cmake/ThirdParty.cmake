@@ -17,8 +17,8 @@ if(NOT CC_DEPS_SOURCES STREQUAL sources)
     "The third-party libraries in ${CC_DEPS_PREFIX} are missing or were "
     "built from other sources. Build them with:\n"
     "  third_party/checkout.sh\n"
-    "  cmake -S third_party -B build/deps\n"
-    "  cmake --build build/deps --parallel")
+    "  cmake --preset deps\n"
+    "  cmake --build --preset deps --parallel")
 endif()
 if(CC_BUILD_WEB AND NOT CC_DEPS_WEB)
   message(FATAL_ERROR "CC_BUILD_WEB=ON needs the third-party libraries "
