@@ -16,10 +16,10 @@
 // and '+', store_true, store_const, type conversions, required options,
 // metavars, custom actions, -h/--help, choices, defaults (including
 // argparse.SUPPRESS and None), set_defaults(), argument groups, mutually
-// exclusive groups, one level of subcommands, allow_abbrev, the error exit
-// code, and the HelpFormatter, RawDescriptionHelpFormatter and
-// ArgumentDefaultsHelpFormatter layouts, and CodeChecker's
-// RawDescriptionDefaultHelpFormatter.
+// exclusive groups (also required ones), one level of subcommands,
+// allow_abbrev, the error exit code, and the HelpFormatter,
+// RawDescriptionHelpFormatter and ArgumentDefaultsHelpFormatter layouts, and
+// CodeChecker's RawDescriptionDefaultHelpFormatter.
 
 #ifndef CC_UTIL_ARGPARSE_H_
 #define CC_UTIL_ARGPARSE_H_
@@ -64,6 +64,13 @@ enum class ArgumentAction {
   kStore,       // Stores its value or values.
   kStoreTrue,   // Takes no value and stores "True".
   kStoreConst,  // Takes no value and stores Argument::const_value.
+};
+
+// Whether an option of a mutually exclusive group must be given (Python:
+// add_mutually_exclusive_group(required=...)).
+enum class ExclusiveGroup {
+  kOptional,  // At most one of its options may be given.
+  kRequired,  // Exactly one of its options must be given.
 };
 
 // The values of an argument given by a custom action, or the error that
@@ -208,11 +215,12 @@ class Parser {
   // returns its id for Argument::group (Python: add_argument_group()).
   int AddArgumentGroup(std::string title, std::string description);
 
-  // Adds a group of options of which at most one may be given, and returns
-  // its id for Argument::exclusive_group (Python:
-  // add_mutually_exclusive_group()). The options must be added one after
-  // the other.
-  int AddMutuallyExclusiveGroup();
+  // Adds a group of options of which at most one may be given, or exactly
+  // one if `kind` is kRequired, and returns its id for
+  // Argument::exclusive_group (Python: add_mutually_exclusive_group()). The
+  // options must be added one after the other.
+  int AddMutuallyExclusiveGroup(
+      ExclusiveGroup kind = ExclusiveGroup::kOptional);
 
   // Sets `dest` to `value` in the result of every parse with this parser
   // (Python: set_defaults(dest=value)).
@@ -272,6 +280,8 @@ class Parser {
   std::vector<Action> actions_;
   std::vector<internal_argparse::Group> groups_;
   int exclusive_groups_ = 0;
+  // The ids of the mutually exclusive groups that are required.
+  std::vector<int> required_exclusive_groups_;
   std::vector<std::pair<std::string, std::string>> defaults_;
   // The index of the subcommand argument in `actions_`, if there is one.
   std::optional<size_t> subparsers_action_;

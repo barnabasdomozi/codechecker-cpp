@@ -4,6 +4,7 @@
 
 #include "analyzer/cli/analyze.h"
 #include "analyzer/cli/analyzer_version.h"
+#include "analyzer/cli/check.h"
 #include "analyzer/cli/log.h"
 #include "analyzer/cli/parse.h"
 #include "common/cli/version.h"
@@ -27,6 +28,8 @@ constexpr Subcommand kAnalyzerSubcommands[] = {
     {"analyzer-version", analyzer::cli::kAnalyzerVersionHelp,
      &analyzer::cli::AddAnalyzerVersionArguments,
      &analyzer::cli::RunAnalyzerVersion},
+    {"check", analyzer::cli::kCheckHelp, &analyzer::cli::AddCheckArguments,
+     &analyzer::cli::RunCheck, /*config_file=*/true},
     {"log", analyzer::cli::kLogHelp, &analyzer::cli::AddLogArguments,
      &analyzer::cli::RunLog},
     {"parse", analyzer::cli::kParseHelp, &analyzer::cli::AddParseArguments,

@@ -60,73 +60,8 @@ constexpr std::string_view kDescription =
     "analysis on\nthe project, outputting analysis results in a "
     "machine-readable format.";
 
-constexpr std::string_view kEpilog = R"(
-Environment variables
-------------------------------------------------
-
-  CC_ANALYZERS_FROM_PATH   Set to `yes` or `1` to enforce taking the analyzers
-                           from the `PATH` instead of the given binaries.
-  CC_ANALYZER_BIN          Set the absolute paths of an analyzer binaries.
-                           Overrides other means of CodeChecker getting hold of
-                           binary.
-                           Format: CC_ANALYZER_BIN='<analyzer1>:/path/to/bin1;
-                                                    <analyzer2>:/path/to/bin2'
-  CC_CLANGSA_PLUGIN_DIR    If the CC_ANALYZERS_FROM_PATH environment variable
-                           is set you can configure the plugin directory of the
-                           Clang Static Analyzer by using this environment
-                           variable.
-
-
-
-Issue hashes
-------------------------------------------------
-- By default the issue hash calculation method for 'Clang Static Analyzer' is
-context sensitive. It means the hash will be generated based on the following
-information:
-  * signature of the enclosing function declaration, type declaration or
-    namespace.
-  * content of the line where the bug is.
-  * unique name of the checker.
-  * position (column) within the line.
-
-- By default the issue hash calculation method for 'Clang Tidy' is context
-insensitive. It means the hash will be generated based on the following
-information:
-  * 'file name' from the main diag section.
-  * 'checker name'.
-  * 'checker message'.
-  * 'line content' from the source file if can be read up.
-  * 'column numbers' from the main diag section.
-  * 'range column numbers' only from the control diag sections if column number
-    in the range is not the same as the previous control diag section number in
-    the bug path. If there are no control sections event section column numbers
-    are used.
-
-- context-free: there was a bug and for Clang Tidy the default hash was
-generated and not the context free hash (kept for backward compatibility). Use
-'context-free-v2' instead of this.
-
-- context-free-v2:
-  * 'file name' from the main diag section.
-  * 'checker message'.
-  * 'line content' from the source file if can be read up. All the whitespaces
-    from the source content are removed.
-  * 'column numbers' from the main diag sections location.
-
-- diagnostic-message:
-  * Same as 'context-free-v2' (file name, checker message etc.)
-  * 'bug step messages' from all events.
-
-  Be careful with this hash because it can change easily for example on
-  variable / function renames.
-
-OUR RECOMMENDATION: we recommend you to use 'context-free-v2' hash because the
-hash will not be changed so easily for example on code indentation or when a
-checker is renamed.
-
-For more information see:
-https://github.com/Ericsson/codechecker/blob/master/docs/analyzer/report_identification.md
-
+// The end of the help, after the issue hashes.
+constexpr std::string_view kEpilogExitStatus = R"(
 
 
 Exit status
@@ -1231,8 +1166,8 @@ void RemoveResultsOfDeletedSources(
   kLog.Debug("Cleanup metadata file finished.");
 }
 
-// Python: analyze.main().
-Result<int> Analyze(AnalyzeArgs args) {
+// Python: analyze.main(), after the logger is set up.
+Result<int> AnalyzeMain(AnalyzeArgs args) {
   if (Result<void> checked = CheckArgs(&args); !checked.ok()) {
     return Result<int>(checked.error());
   }
@@ -1280,7 +1215,8 @@ Result<int> Analyze(AnalyzeArgs args) {
     kLog.Warning("No analysis is required.");
     kLog.Warning("There were no compilation commands in the provided "
                  "compilation database or all of them were skipped.");
-    return Result<int>(0);
+    // Python: sys.exit(0), so `check` does not parse.
+    return Result<int>(Error{.exit_code = 0});
   }
   if (args.dump_compiler_info_file) {
     // Python ends with an uncaught exception here.
@@ -1290,7 +1226,7 @@ Result<int> Analyze(AnalyzeArgs args) {
       util::Print(written.error().message);
       return Result<int>(Error{});
     }
-    return Result<int>(0);
+    return Result<int>(Error{.exit_code = 0});
   }
   (void)util::WriteFile(
       util::pypath::Join({args.output_path, "compiler_info.json"}),
@@ -1341,77 +1277,92 @@ Result<int> Analyze(AnalyzeArgs args) {
   return Result<int>(0);
 }
 
-}  // namespace
-
-void AddAnalyzeArguments(argparse::Parser& parser) {
-  parser.set_help_format(argparse::HelpFormat::kCodeChecker);
-  parser.set_allow_abbrev(false);
-  parser.set_description(std::string(kDescription));
-  parser.set_epilog(std::string(kEpilog));
-
-  // The defaults below run the analyzers; Python ends here on errors of the
-  // context.
+// Ends the program with exit code 1 if the analyzer context cannot be set
+// up, as Python does. The argument defaults that run Clang need it.
+void ExitIfNoContext() {
   if (!GetContext().ok()) {
     util::Flush(util::Stream::kStdout);
     std::exit(1);
   }
-  const bool z3_refutation = IsZ3RefutationCapable();
-  const bool stats_capable = IsStatisticsCapable();
+}
 
-  parser.AddArgument(
-      {.dest = "input",
-       .type = ExistingAbspath,
-       .help = "The input of the analysis can be either a compilation "
-               "database JSON file, a path to a source file or a path to a "
-               "directory containing source files."});
+}  // namespace
+
+void AddJobsArgument(argparse::Parser& parser, int group) {
   parser.AddArgument(
       {.flags = {"-j", "--jobs"},
        .dest = "jobs",
        .type = argparse::IntType,
        .default_value = std::to_string(platform::CpuCount()),
        .help = "Number of threads to use in analysis. More threads mean "
-               "faster analysis at the cost of using more memory."});
+               "faster analysis at the cost of using more memory.",
+       .group = group});
+}
 
-  const int skip_group = parser.AddArgumentGroup("file filter arguments", "");
+void AddCleanArgument(argparse::Parser& parser, int group) {
   parser.AddArgument(
-      {.flags = {"-i", "--ignore", "--skip"},
-       .dest = "skipfile",
-       .help = "Path to the Skipfile dictating which project files should be "
-               "omitted from analysis. Please consult the User guide on how a "
-               "Skipfile should be laid out.",
-       .group = skip_group});
-  parser.AddArgument(
-      {.flags = {"--drop-reports-from-skipped-files"},
-       .dest = "drop_skipped_reports",
+      {.flags = {"-c", "--clean"},
+       .dest = "clean",
        .action = argparse::ArgumentAction::kStoreTrue,
-       .default_value = "False",
-       .help = "Filter our reports from files that were  skipped from the "
-               "analysis.",
-       .group = skip_group});
-  parser.AddArgument(
-      {.flags = {"--file"},
-       .dest = "files",
-       .nargs = argparse::Nargs::kOneOrMore,
-       .metavar = "FILE",
-       .help = "Analyze only the given file(s) not the whole compilation "
-               "database. Absolute directory paths should start with '/', "
-               "relative directory paths should start with '*' and it can "
-               "contain path glob pattern. Example: '/path/to/main.cpp', "
-               "'lib/*.cpp', */test*'.",
-       .group = skip_group});
+       .help = "Delete analysis reports stored in the output directory. (By "
+               "default, CodeChecker would keep reports and overwrites only "
+               "those files that were update by the current build command).",
+       .group = group});
+}
 
+void AddOutputFormatArgument(argparse::Parser& parser) {
+  parser.AddArgument(
+      {.flags = {"-t", "--type", "--output-format"},
+       .dest = "output_format",
+       .choices = {"plist"},
+       .default_value = "plist",
+       .help = "Specify the format the analysis results should use."});
+}
+
+void AddCompileUniqueingArgument(argparse::Parser& parser) {
+  parser.AddArgument({.flags = {"--compile-uniqueing"},
+                      .dest = "compile_uniqueing",
+                      .default_value = "none",
+                      .help = std::string(kCompileUniqueingHelp)});
+}
+
+void AddReportHashArgument(argparse::Parser& parser, int group) {
+  parser.AddArgument(
+      {.flags = {"--report-hash"},
+       .dest = "report_hash",
+       .choices = {"context-free", "context-free-v2", "diagnostic-message"},
+       .help = std::string(kReportHashHelp),
+       .group = group});
+}
+
+void AddReviewStatusConfigArgument(argparse::Parser& parser, int group) {
   parser.AddArgument(
       {.flags = {"--review-status-config"},
        .dest = "review_status_config",
        .type = ExistingAbspath,
        .help = "Path of review_status.yaml config file which contains review "
                "status settings assigned to specific directories, checkers, "
-               "bug hashes."});
+               "bug hashes.",
+       .group = group});
+}
+
+void AddZ3RefutationArgument(argparse::Parser& parser, int group) {
+  ExitIfNoContext();
+  const bool z3_refutation = IsZ3RefutationCapable();
   parser.AddArgument(
-      {.flags = {"-o", "--output"},
-       .dest = "output_path",
-       .required = true,
-       .help = "Store the analysis output in the given folder."});
+      {.flags = {"--z3-refutation"},
+       .dest = "enable_z3_refutation",
+       .choices = {"on", "off"},
+       .default_value = z3_refutation ? "on" : "off",
+       .help = "Switch on/off the Z3 SMT Solver backend to reduce false "
+               "positives. The results of the ranged based constraint solver "
+               "in the Clang Static Analyzer will be cross checked with the Z3 "
+               "SMT solver. This should not cause that much of a slowdown "
+               "compared to using only the Z3 solver.",
+       .group = group});
+}
+
+void AddCompilerInfoArguments(argparse::Parser& parser) {
   parser.AddArgument(
       {.flags = {"--compiler-info-file"},
        .dest = "compiler_info_file",
@@ -1453,51 +1404,39 @@ void AddAnalyzeArguments(argparse::Parser& parser) {
        .help = "Implicit include directories are appended to the analyzer "
                "command with -idirafter. If -isystem is needed instead, as it "
                "was used before CodeChecker 6.24.1, this flag can be used."});
+}
+
+void AddFileFilterArguments(argparse::Parser& parser) {
+  const int skip_group = parser.AddArgumentGroup("file filter arguments", "");
   parser.AddArgument(
-      {.flags = {"-t", "--type", "--output-format"},
-       .dest = "output_format",
-       .choices = {"plist"},
-       .default_value = "plist",
-       .help = "Specify the format the analysis results should use."});
+      {.flags = {"-i", "--ignore", "--skip"},
+       .dest = "skipfile",
+       .help = "Path to the Skipfile dictating which project files should be "
+               "omitted from analysis. Please consult the User guide on how a "
+               "Skipfile should be laid out.",
+       .group = skip_group});
   parser.AddArgument(
-      {.flags = {"--makefile"},
-       .dest = "makefile",
+      {.flags = {"--drop-reports-from-skipped-files"},
+       .dest = "drop_skipped_reports",
        .action = argparse::ArgumentAction::kStoreTrue,
        .default_value = "False",
-       .help =
-           "Generate a Makefile in the given output directory from the "
-           "analyzer commands and do not execute the analysis. The "
-           "analysis can be executed by calling the make command like "
-           "'make -f output_dir/Makefile'. You can ignore errors with the "
-           "-i/--ignore-errors options: 'make -f output_dir/Makefile -i'."});
+       .help = "Filter our reports from files that were  skipped from the "
+               "analysis.",
+       .group = skip_group});
   parser.AddArgument(
-      {.flags = {"-q", "--quiet"},
-       .dest = "quiet",
-       .action = argparse::ArgumentAction::kStoreTrue,
-       .help = "Do not print the output or error of the analyzers to the "
-               "standard output of CodeChecker."});
-  parser.AddArgument(
-      {.flags = {"-c", "--clean"},
-       .dest = "clean",
-       .action = argparse::ArgumentAction::kStoreTrue,
-       .help = "Delete analysis reports stored in the output directory. (By "
-               "default, CodeChecker would keep reports and overwrites only "
-               "those files that were update by the current build command)."});
-  parser.AddArgument({.flags = {"--compile-uniqueing"},
-                      .dest = "compile_uniqueing",
-                      .default_value = "none",
-                      .help = std::string(kCompileUniqueingHelp)});
-  parser.AddArgument(
-      {.flags = {"--report-hash"},
-       .dest = "report_hash",
-       .choices = {"context-free", "context-free-v2", "diagnostic-message"},
-       .help = std::string(kReportHashHelp)});
-  parser.AddArgument({.flags = {"-n", "--name"},
-                      .dest = "name",
-                      .help = "Annotate the run analysis with a custom name in "
-                              "the created metadata file."});
+      {.flags = {"--file"},
+       .dest = "files",
+       .nargs = argparse::Nargs::kOneOrMore,
+       .metavar = "FILE",
+       .help = "Analyze only the given file(s) not the whole compilation "
+               "database. Absolute directory paths should start with '/', "
+               "relative directory paths should start with '*' and it can "
+               "contain path glob pattern. Example: '/path/to/main.cpp', "
+               "'lib/*.cpp', */test*'.",
+       .group = skip_group});
+}
 
-  const int analyzer_group = parser.AddArgumentGroup("analyzer arguments", "");
+void AddAnalyzerArguments(argparse::Parser& parser, int group) {
   std::vector<std::string> analyzer_names;
   for (const AnalyzerDriver* analyzer : SupportedAnalyzers()) {
     analyzer_names.emplace_back(analyzer->name());
@@ -1512,7 +1451,7 @@ void AddAnalyzeArguments(argparse::Parser& parser) {
        .help = "Run analysis only with the analyzers specified. Currently "
                "supported analyzers are: " +
                util::Join(analyzer_names, ", ") + ".",
-       .group = analyzer_group});
+       .group = group});
   parser.AddArgument(
       {.flags = {"--capture-analysis-output"},
        .dest = "capture_analysis_output",
@@ -1520,7 +1459,7 @@ void AddAnalyzeArguments(argparse::Parser& parser) {
        .help = "Store standard output and standard error of successful "
                "analyzer invocations into the '<OUTPUT_DIR>/success' "
                "directory.",
-       .group = analyzer_group});
+       .group = group});
   parser.AddArgument(
       {.flags = {"--generate-reproducer"},
        .dest = "generate_reproducer",
@@ -1529,8 +1468,8 @@ void AddAnalyzeArguments(argparse::Parser& parser) {
                "analysis action. The gathered files will be stored in a "
                "folder named 'reproducer' under the report directory. When "
                "this flag is used, 'failed' directory remains empty.",
-       .group = analyzer_group});
-  common::AddConfigOption(parser, analyzer_group);
+       .group = group});
+  common::AddConfigOption(parser, group);
   parser.AddArgument(
       {.flags = {"--cppcheckargs"},
        .dest = "cppcheck_args_cfg_file",
@@ -1538,7 +1477,7 @@ void AddAnalyzeArguments(argparse::Parser& parser) {
                "verbatim for Cppcheck. The option has been migrated under the "
                "cppcheck anayzer options: --analyzer-config "
                "cppcheck:cc-verbatim-args-file=<filepath>",
-       .group = analyzer_group});
+       .group = group});
   parser.AddArgument(
       {.flags = {"--saargs"},
        .dest = "clangsa_args_cfg_file",
@@ -1546,7 +1485,7 @@ void AddAnalyzeArguments(argparse::Parser& parser) {
                "verbatim for the Clang Static Analyzer. The opion has been "
                "migrated under the clangsa analyzer options: "
                "--analyzer-config clangsa:cc-verbatim-args-file=<filepath>",
-       .group = analyzer_group});
+       .group = group});
   parser.AddArgument(
       {.flags = {"--tidyargs"},
        .dest = "tidy_args_cfg_file",
@@ -1554,7 +1493,7 @@ void AddAnalyzeArguments(argparse::Parser& parser) {
                "verbatim for Clang-Tidy. The opion has been migrated under "
                "the clang-tidy analyzer options: --analyzer-config "
                "clang-tidy:cc-verbatim-args-file=<filepath>",
-       .group = analyzer_group});
+       .group = group});
   parser.AddArgument(
       {.flags = {"--analyzer-config"},
        .dest = "analyzer_config",
@@ -1571,7 +1510,7 @@ void AddAnalyzeArguments(argparse::Parser& parser) {
                "skip setting the '-checks' parameter of the clang-tidy "
                "binary.",
        .custom_action = OrderedConfigAction,
-       .group = analyzer_group});
+       .group = group});
   parser.AddArgument(
       {.flags = {"--checker-config"},
        .dest = "checker_config",
@@ -1581,7 +1520,7 @@ void AddAnalyzeArguments(argparse::Parser& parser) {
                "analyzer:key=value. The collection of the options can be "
                "printed with 'codechecker-cpp checkers --checker-config'.",
        .custom_action = OrderedConfigAction,
-       .group = analyzer_group});
+       .group = group});
   parser.AddArgument(
       {.flags = {"--timeout"},
        .dest = "timeout",
@@ -1590,19 +1529,12 @@ void AddAnalyzeArguments(argparse::Parser& parser) {
                "individually, to analyze the project. If the analysis of a "
                "particular file takes longer than this time, the analyzer is "
                "killed and the analysis is considered as a failed one.",
-       .group = analyzer_group});
-  parser.AddArgument(
-      {.flags = {"--z3-refutation"},
-       .dest = "enable_z3_refutation",
-       .choices = {"on", "off"},
-       .default_value = z3_refutation ? "on" : "off",
-       .help = "Switch on/off the Z3 SMT Solver backend to reduce false "
-               "positives. The results of the ranged based constraint solver "
-               "in the Clang Static Analyzer will be cross checked with the Z3 "
-               "SMT solver. This should not cause that much of a slowdown "
-               "compared to using only the Z3 solver.",
-       .group = analyzer_group});
+       .group = group});
+}
 
+void AddCtuStatisticsAndCheckerArguments(argparse::Parser& parser) {
+  ExitIfNoContext();
+  const bool stats_capable = IsStatisticsCapable();
   const int ctu_group =
       parser.AddArgumentGroup("cross translation unit analysis arguments",
                               std::string(kCtuDescription));
@@ -1760,12 +1692,72 @@ void AddAnalyzeArguments(argparse::Parser& parser) {
                "name is given to either --enable, --disable,--analyzer-config "
                "and/or --checker-config.",
        .group = checkers_group});
+}
+
+void AddAnalyzeArguments(argparse::Parser& parser) {
+  parser.set_help_format(argparse::HelpFormat::kCodeChecker);
+  parser.set_allow_abbrev(false);
+  parser.set_description(std::string(kDescription));
+  parser.set_epilog("\nEnvironment variables\n"
+                    "------------------------------------------------\n" +
+                    std::string(kAnalyzeEnvironmentVariables) + "\n\n" +
+                    std::string(kIssueHashes) + std::string(kEpilogExitStatus));
+
+  parser.AddArgument(
+      {.dest = "input",
+       .type = ExistingAbspath,
+       .help = "The input of the analysis can be either a compilation "
+               "database JSON file, a path to a source file or a path to a "
+               "directory containing source files."});
+  AddJobsArgument(parser, /*group=*/0);
+  AddFileFilterArguments(parser);
+  AddReviewStatusConfigArgument(parser, /*group=*/0);
+  parser.AddArgument(
+      {.flags = {"-o", "--output"},
+       .dest = "output_path",
+       .required = true,
+       .help = "Store the analysis output in the given folder."});
+  AddCompilerInfoArguments(parser);
+  AddOutputFormatArgument(parser);
+  parser.AddArgument(
+      {.flags = {"--makefile"},
+       .dest = "makefile",
+       .action = argparse::ArgumentAction::kStoreTrue,
+       .default_value = "False",
+       .help =
+           "Generate a Makefile in the given output directory from the "
+           "analyzer commands and do not execute the analysis. The "
+           "analysis can be executed by calling the make command like "
+           "'make -f output_dir/Makefile'. You can ignore errors with the "
+           "-i/--ignore-errors options: 'make -f output_dir/Makefile -i'."});
+  parser.AddArgument(
+      {.flags = {"-q", "--quiet"},
+       .dest = "quiet",
+       .action = argparse::ArgumentAction::kStoreTrue,
+       .help = "Do not print the output or error of the analyzers to the "
+               "standard output of CodeChecker."});
+  AddCleanArgument(parser, /*group=*/0);
+  AddCompileUniqueingArgument(parser);
+  AddReportHashArgument(parser, /*group=*/0);
+  parser.AddArgument({.flags = {"-n", "--name"},
+                      .dest = "name",
+                      .help = "Annotate the run analysis with a custom name in "
+                              "the created metadata file."});
+
+  const int analyzer_group = parser.AddArgumentGroup("analyzer arguments", "");
+  AddAnalyzerArguments(parser, analyzer_group);
+  AddZ3RefutationArgument(parser, analyzer_group);
+  AddCtuStatisticsAndCheckerArguments(parser);
   common::cli::AddVerboseArgument(parser);
 }
 
-int RunAnalyze(const argparse::Namespace& args) {
+Result<int> Analyze(const argparse::Namespace& args) {
   util::SetupLogger(common::cli::Verbose(args), util::Stream::kStdout);
-  const Result<int> result = Analyze(ToAnalyzeArgs(args));
+  return AnalyzeMain(ToAnalyzeArgs(args));
+}
+
+int RunAnalyze(const argparse::Namespace& args) {
+  const Result<int> result = Analyze(args);
   if (!result.ok()) return result.error().exit_code;
   return result.value();
 }

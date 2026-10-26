@@ -291,6 +291,68 @@ TEST_F(ArgparseTest, ListArgumentErrors) {
   }
 }
 
+// A parser with a required, an optional and a required one-option mutually
+// exclusive group.
+void SetUpExclusiveParser(Parser& parser) {
+  const int input =
+      parser.AddMutuallyExclusiveGroup(ExclusiveGroup::kRequired);
+  parser.AddArgument(
+      {.flags = {"-b"}, .dest = "command", .exclusive_group = input});
+  parser.AddArgument(
+      {.flags = {"-l"}, .dest = "logfile", .exclusive_group = input});
+  const int mode = parser.AddMutuallyExclusiveGroup();
+  parser.AddArgument({.flags = {"--x"},
+                      .dest = "x",
+                      .action = ArgumentAction::kStoreTrue,
+                      .exclusive_group = mode});
+  parser.AddArgument({.flags = {"--y"},
+                      .dest = "y",
+                      .action = ArgumentAction::kStoreTrue,
+                      .exclusive_group = mode});
+  const int single =
+      parser.AddMutuallyExclusiveGroup(ExclusiveGroup::kRequired);
+  parser.AddArgument({.flags = {"--z"},
+                      .dest = "z",
+                      .action = ArgumentAction::kStoreTrue,
+                      .exclusive_group = single});
+}
+
+TEST_F(ArgparseTest, ExclusiveGroupsUsage) {
+  Parser parser("prog");
+  SetUpExclusiveParser(parser);
+  EXPECT_EQ(parser.FormatUsage(),
+            "usage: prog [-h] (-b COMMAND | -l LOGFILE) [--x | --y] --z\n");
+}
+
+TEST_F(ArgparseTest, ExclusiveGroupErrors) {
+  constexpr std::string_view kUsage =
+      "usage: prog [-h] (-b COMMAND | -l LOGFILE) [--x | --y] --z\n";
+  const std::vector<std::pair<std::vector<std::string>, std::string>> cases =
+      {
+          {{}, "prog: error: one of the arguments -b -l is required\n"},
+          {{"-b", "make"},
+           "prog: error: one of the arguments --z is required\n"},
+          {{"-b", "m", "-l", "f", "--z"},
+           "prog: error: argument -l: not allowed with argument -b\n"},
+      };
+  for (const auto& [args, message] : cases) {
+    Parser parser("prog");
+    SetUpExclusiveParser(parser);
+    testing::internal::CaptureStderr();
+    const Result<Namespace> result = parser.ParseArgs(args);
+    const std::string output = testing::internal::GetCapturedStderr();
+    ASSERT_FALSE(result.ok());
+    EXPECT_EQ(result.error().exit_code, 1);
+    EXPECT_EQ(output, std::string(kUsage) + message);
+  }
+  Parser parser("prog");
+  SetUpExclusiveParser(parser);
+  const Result<Namespace> result = parser.ParseArgs({"-b", "make", "--z"});
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.value().Get("command"), "make");
+  EXPECT_FALSE(result.value().Has("logfile"));
+}
+
 TEST_F(ArgparseTest, CustomActionReplacesTheValues) {
   Parser parser("prog");
   parser.AddArgument(

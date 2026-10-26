@@ -192,9 +192,11 @@ std::string ArgumentError(const Action& action, std::string_view message) {
 // subclasses).
 class HelpFormatter {
  public:
-  // `actions` must outlive the formatter.
+  // `actions` and `required_groups`, the ids of the required mutually
+  // exclusive groups, must outlive the formatter.
   HelpFormatter(std::string_view prog, HelpFormat format,
-                const std::vector<Action>* actions);
+                const std::vector<Action>* actions,
+                const std::vector<int>* required_groups);
 
   HelpFormatter(const HelpFormatter&) = delete;
   HelpFormatter& operator=(const HelpFormatter&) = delete;
@@ -237,6 +239,7 @@ class HelpFormatter {
   std::string_view prog_;
   HelpFormat format_;
   const std::vector<Action>* actions_;
+  const std::vector<int>* required_groups_;
   int width_;
   int max_help_position_;
   // The longest invocation plus its indent (Python: _action_max_length).
@@ -244,10 +247,12 @@ class HelpFormatter {
 };
 
 HelpFormatter::HelpFormatter(std::string_view prog, HelpFormat format,
-                             const std::vector<Action>* actions)
+                             const std::vector<Action>* actions,
+                             const std::vector<int>* required_groups)
     : prog_(prog),
       format_(format),
       actions_(actions),
+      required_groups_(required_groups),
       width_(TerminalColumns() - 2),
       max_help_position_(std::min(24, std::max(width_ - 20, 4))) {
   // Arguments are indented by 2 in their section, subactions by 4.
@@ -281,7 +286,7 @@ std::vector<std::string> HelpFormatter::UsageParts(bool positional) const {
     parts.push_back(bracket ? "[" + part + "]" : part);
   }
   // Python: the group part of _get_actions_usage_parts(), for groups of
-  // consecutive options that are not required.
+  // consecutive options. A required group of one option has no brackets.
   for (size_t start = 0; start < actions.size(); ++start) {
     const int group = actions[start]->exclusive_group;
     if (group == 0 ||
@@ -292,8 +297,15 @@ std::vector<std::string> HelpFormatter::UsageParts(bool positional) const {
     while (end < actions.size() && actions[end]->exclusive_group == group) {
       ++end;
     }
-    parts[start] = "[" + parts[start];
-    parts[end - 1] += "]";
+    std::string_view open = "[";
+    std::string_view close = "]";
+    if (std::ranges::find(*required_groups_, group) !=
+        required_groups_->end()) {
+      open = end - start > 1 ? "(" : "";
+      close = end - start > 1 ? ")" : "";
+    }
+    parts[start] = std::string(open) + parts[start];
+    parts[end - 1] += close;
     for (size_t i = start; i + 1 < end; ++i) parts[i] += " |";
   }
   return parts;
@@ -615,7 +627,13 @@ int Parser::AddArgumentGroup(std::string title, std::string description) {
   return static_cast<int>(groups_.size());
 }
 
-int Parser::AddMutuallyExclusiveGroup() { return ++exclusive_groups_; }
+int Parser::AddMutuallyExclusiveGroup(ExclusiveGroup kind) {
+  ++exclusive_groups_;
+  if (kind == ExclusiveGroup::kRequired) {
+    required_exclusive_groups_.push_back(exclusive_groups_);
+  }
+  return exclusive_groups_;
+}
 
 void Parser::SetDefault(std::string dest, std::string value) {
   defaults_.emplace_back(std::move(dest), std::move(value));
@@ -648,12 +666,14 @@ Result<Namespace> Parser::ParseArgs(
 }
 
 std::string Parser::FormatUsage() const {
-  const HelpFormatter formatter(prog_, help_format_, &actions_);
+  const HelpFormatter formatter(prog_, help_format_, &actions_,
+                                &required_exclusive_groups_);
   return HelpFormatter::Finish(formatter.Usage());
 }
 
 std::string Parser::FormatHelp() const {
-  const HelpFormatter formatter(prog_, help_format_, &actions_);
+  const HelpFormatter formatter(prog_, help_format_, &actions_,
+                                &required_exclusive_groups_);
   std::string help = formatter.Usage() + formatter.Text(description_, 0) +
                      formatter.Section("positional arguments", "",
                                        [](const Action& action) {
@@ -867,6 +887,19 @@ Result<Parser::KnownArgs> Parser::ParseKnownArgs(
   if (!missing.empty()) {
     return Result<KnownArgs>(Fail("the following arguments are required: " +
                                   Join(missing, ", ")));
+  }
+  for (const int group : required_exclusive_groups_) {
+    std::vector<std::string> names;
+    bool given = false;
+    for (const Action& action : actions_) {
+      if (action.exclusive_group != group) continue;
+      names.push_back(ActionName(action));
+      given = given || seen_actions.contains(&action);
+    }
+    if (!given) {
+      return Result<KnownArgs>(Fail("one of the arguments " +
+                                    Join(names, " ") + " is required"));
+    }
   }
   known.extras.insert(known.extras.end(), known.unrecognized.begin(),
                       known.unrecognized.end());

@@ -90,6 +90,7 @@ add_library(cc_analyzer STATIC
   analyzer/buildlog/log_parser.cc
   analyzer/cli/analyze.cc
   analyzer/cli/analyzer_version.cc
+  analyzer/cli/check.cc
   analyzer/cli/log.cc
   analyzer/cli/parse.cc
   analyzer/context/analyzer_context.cc

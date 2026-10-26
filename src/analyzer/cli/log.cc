@@ -46,43 +46,6 @@ constexpr std::string_view kLdloggerSettings =
     "https://github.com/Ericsson/codechecker/blob/master/analyzer/tools/\n"
     "build-logger/README.md#usage";
 
-constexpr std::string_view kEpilog = R"(
-Environment variables
-------------------------------------------------
-
-  CC_LOGGER_ABS_PATH       If the environment variable is defined, all relative
-                           paths in the compilation commands after '-I,
-                           -idirafter, -imultilib, -iquote, -isysroot -isystem,
-                           -iwithprefix, -iwithprefixbefore, -sysroot,
-                           --sysroot' will be converted to absolute PATH when
-                           written into the compilation database.
-  CC_LOGGER_DEBUG_FILE     Output file to print log messages. By default if we
-                           run the log command in debug mode it will generate
-                           a 'codechecker.logger.debug' file beside the log
-                           file.
-  CC_LOGGER_DEF_DIRS       If the environment variable is defined, the logger
-                           will extend the compiler argument list in the
-                           compilation database with the pre-configured include
-                           paths of the logged compiler.
-  CC_LOGGER_GCC_LIKE       Set to to a colon separated list to change which
-                           compilers should be logged. For example (default):
-                           export CC_LOGGER_GCC_LIKE="gcc:g++:clang:clang++:
-                           /cc:c++". The logger will match any compilers with
-                           'gcc', 'g++', 'clang', 'clang++', 'cc' and 'c++' in
-                           their filenames.
-  CC_LOGGER_KEEP_LINK      If its value is not 'true' then object files will be
-                           removed from the build action. For example in case
-                           of this build command: 'gcc main.c object1.o
-                           object2.so' the 'object1.o' and 'object2.so' will be
-                           removed and only 'gcc main.c' will be captured. If
-                           only object files are provided to the compiler then
-                           the complete build action will be thrown away. This
-                           means that build actions which only perform linking
-                           will not be captured. We consider a file as object
-                           file if its extension is '.o', '.so' or '.a'.
-
-)";
-
 // Returns whether the package has ldlogger.so (Python:
 // host_check.check_ldlogger()).
 bool CheckLdlogger() {
@@ -304,7 +267,10 @@ void AddLogArguments(argparse::Parser& parser) {
       std::string(kDescriptionStart) +
       (is_intercept ? "intercept-build" : "ld-logger") + "'." +
       std::string(is_ldlogger ? "" : kLdloggerSettings) + "\n");
-  parser.set_epilog(std::string(kEpilog));
+  parser.set_epilog(
+      "\nEnvironment variables\n"
+      "------------------------------------------------\n" +
+      std::string(kLogEnvironmentVariables) + "\n");
 
   parser.AddArgument(
       {.flags = {"-o", "--output"},
