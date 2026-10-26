@@ -10,6 +10,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace cc::platform {
@@ -33,6 +34,9 @@ struct RunOptions {
   std::optional<std::string> input = std::nullopt;
   Output stdout_mode = Output::kPipe;
   Output stderr_mode = Output::kPipe;
+  // If set, the captured stdout is passed to it piece by piece as it
+  // arrives, from the calling thread, instead of going into RunResult::out.
+  std::function<void(std::string_view data)> on_stdout = {};
   // Runs the child in a new session and process group (Python:
   // preexec_fn=os.setsid). Such children are sent SIGTERM when the program
   // ends on SIGINT or SIGTERM.

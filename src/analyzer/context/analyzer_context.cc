@@ -17,6 +17,7 @@
 #include "common/package.h"
 #include "common/util.h"
 #include "common/version.h"
+#include "platform/filesystem.h"
 #include "platform/subprocess.h"
 #include "util/file.h"
 #include "util/json.h"
@@ -62,30 +63,49 @@ std::vector<std::string> ExtraPaths(yyjson_val* layout, std::string_view name,
 // Returns the environment saved by the launcher (Python:
 // env.get_original_env()), or the current one if there is none.
 Environment OriginalEnvironment() {
-  const std::optional<std::string> file =
-      platform::GetEnv("CODECHECKER_ORIGINAL_BUILD_ENV");
-  if (!file || file->empty()) return platform::CurrentEnvironment();
-  const Result<std::string> content = util::ReadFile(*file);
-  if (!content.ok()) {
-    kLog.Warning(content.error().message);
+  Result<std::vector<std::string>> env = ReadOriginalEnvironment();
+  if (!env.ok()) {
+    kLog.Warning(env.error().message);
     kLog.Warning("Failed to get saved original_env ");
     return std::nullopt;
   }
-  std::vector<std::string> env;
-  for (std::string& item : util::Split(content.value(), std::string(1, '\0'))) {
-    if (!item.empty()) env.push_back(std::move(item));
-  }
-  return env;
+  return std::move(env).value();
 }
 
-// Returns `env` with `extra` folders put in front of the variable `name`
-// (Python: env.extend()).
-void PrependPaths(std::vector<std::string>* env, const std::string& name,
-                  const std::vector<std::string>& extra) {
-  if (extra.empty()) return;
-  const std::string joined = util::Join(extra, ":");
-  const std::optional<std::string> value = platform::GetEnv(*env, name);
-  platform::SetEnv(env, name, value ? joined + ":" + *value : joined);
+// Returns the architecture folders of ld_logger/lib, for example
+// ".../lib/32bit" and ".../lib/64bit", in the order the system lists them
+// (Python: Context.logger_lib_dir_path).
+std::vector<std::string> LoggerLibFolders() {
+  const std::vector<std::string> roots = LoggerLibRoots();
+  const std::string& root =
+      util::pypath::IsDir(roots[0]) ? roots[0] : roots[1];
+  std::vector<std::string> folders;
+  for (const std::string& name : platform::ListDirectory(root)) {
+    std::string folder = util::pypath::Join({root, name});
+    if (util::pypath::IsDir(folder)) folders.push_back(std::move(folder));
+  }
+  return folders;
+}
+
+// Returns the path of ldlogger.so in the folder of `folders` that matches
+// this program's architecture. If there is none, it warns and returns the
+// path in the first folder; nullopt if `folders` is empty.
+std::optional<std::string> AbsoluteLoggerLibPath(
+    const std::vector<std::string>& folders) {
+  const std::string_view arch_dir = sizeof(void*) == 8 ? "64bit" : "32bit";
+  const auto folder =
+      std::ranges::find_if(folders, [arch_dir](const std::string& path) {
+        return path.ends_with(arch_dir);
+      });
+  if (folder != folders.end()) {
+    return util::pypath::Join({*folder, kLoggerLibName});
+  }
+  if (folders.empty()) return std::nullopt;
+  kLog.Warning(std::format(
+      "Could not find current architecture \"{}\" in list of potential "
+      "paths \"{}\", falling back to first architecture path \"{}\"!",
+      arch_dir, util::Join(folders, ":"), folders[0]));
+  return util::pypath::Join({folders[0], kLoggerLibName});
 }
 
 // Parses CC_ANALYZER_BIN (Python: __parse_cc_analyzer_bin()). Reports the
@@ -237,9 +257,9 @@ Result<AnalyzerContext*> GetContext() {
             ExtraPaths(layout_root, "ld_lib_path_extra", data_files_dir);
         result->original_env_ = OriginalEnvironment();
         result->package_env_ = platform::CurrentEnvironment();
-        PrependPaths(&result->package_env_, "PATH", result->path_env_extra_);
-        PrependPaths(&result->package_env_, "LD_LIBRARY_PATH",
-                     result->ld_lib_path_extra_);
+        PrependPaths("PATH", result->path_env_extra_, result->package_env_);
+        PrependPaths("LD_LIBRARY_PATH", result->ld_lib_path_extra_,
+                     result->package_env_);
 
         const Result<common::VersionInfo> version = common::ReadVersionFile(
             util::pypath::Join({config_dir, "analyzer_version.json"}));
@@ -263,6 +283,82 @@ Result<AnalyzerContext*> GetContext() {
         return Result<AnalyzerContext*>(result);
       }());
   return context;
+}
+
+Result<std::vector<std::string>> ReadOriginalEnvironment() {
+  const std::optional<std::string> file =
+      platform::GetEnv("CODECHECKER_ORIGINAL_BUILD_ENV");
+  if (!file || file->empty()) {
+    return Result<std::vector<std::string>>(platform::CurrentEnvironment());
+  }
+  kLog.Debug("Loading original build env from: " + *file);
+  const Result<std::string> content = util::ReadFile(*file);
+  if (!content.ok()) return Result<std::vector<std::string>>(content.error());
+  std::vector<std::string> env;
+  for (std::string& item : util::Split(content.value(), std::string(1, '\0'))) {
+    if (!item.empty()) env.push_back(std::move(item));
+  }
+  return Result<std::vector<std::string>>(std::move(env));
+}
+
+void PrependPaths(const std::string& name,
+                  const std::vector<std::string>& extra,
+                  std::vector<std::string>& env) {
+  if (extra.empty()) return;
+  const std::string joined = util::Join(extra, ":");
+  const std::optional<std::string> value = platform::GetEnv(env, name);
+  platform::SetEnv(&env, name, value ? joined + ":" + *value : joined);
+}
+
+std::vector<std::string> LoggerLibRoots() {
+  return {
+      util::pypath::Join(
+          {platform::GetEnv("CC_DATA_FILES_DIR").value_or(""), "ld_logger",
+           "lib"}),
+      util::pypath::Join({platform::GetEnv("CC_LIB_DIR").value_or(""),
+                          "codechecker_analyzer", "ld_logger", "lib"})};
+}
+
+void SetLogEnvironment(const std::string& logfile,
+                       bool use_absolute_ldpreload_path,
+                       std::vector<std::string>& env) {
+  platform::SetEnv(
+      &env, "CC_LOGGER_BIN",
+      util::pypath::Join(
+          {platform::GetEnv("CC_BIN_DIR").value_or(""), "ld_logger"}));
+  const std::vector<std::string> folders = LoggerLibFolders();
+  std::optional<std::string> ldlogger_path;
+  if (use_absolute_ldpreload_path) {
+    kLog.Debug("Trying to use absolute paths for ldlogger.so library");
+    ldlogger_path = AbsoluteLoggerLibPath(folders);
+  }
+
+  std::string preload_value;
+  if (ldlogger_path) {
+    kLog.Debug(std::format(
+        "Successfully found absolute path for ldlogger.so library: \"{}\"",
+        *ldlogger_path));
+    preload_value = *ldlogger_path;
+  } else {
+    kLog.Debug(
+        "Using LD_LIBRARY_PATH environment variable and a relative path to "
+        "load ldlogger.so library");
+    preload_value = kLoggerLibName;
+    PrependPaths("LD_LIBRARY_PATH", folders, env);
+    kLog.Debug(std::format(
+        "LD_LIBRARY_PATH environment variable set to: \"{}\"",
+        platform::GetEnv(env, "LD_LIBRARY_PATH").value_or("")));
+  }
+
+  const std::optional<std::string> preload =
+      platform::GetEnv(env, "LD_PRELOAD");
+  platform::SetEnv(&env, "LD_PRELOAD",
+                   preload && !util::Strip(*preload).empty()
+                       ? *preload + " " + preload_value
+                       : preload_value);
+  kLog.Debug(std::format("LD_PRELOAD environment variable set to: \"{}\"",
+                         platform::GetEnv(env, "LD_PRELOAD").value_or("")));
+  platform::SetEnv(&env, "CC_LOGGER_FILE", logfile);
 }
 
 Environment EnvForBinary(const std::string& binary) {

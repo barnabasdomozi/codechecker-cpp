@@ -86,6 +86,36 @@ class AnalyzerContext {
 // an error with exit code 1 and no message.
 Result<AnalyzerContext*> GetContext();
 
+// Returns the environment that the launcher saved in the file named by
+// CODECHECKER_ORIGINAL_BUILD_ENV, or the current one if that variable is
+// unset or empty. On a read error, the message is the text of Python's
+// OSError.
+Result<std::vector<std::string>> ReadOriginalEnvironment();
+
+// Puts the folders `extra` in front of the variable `name` of `env`,
+// separated by ':'; nothing if `extra` is empty (Python: env.extend()).
+void PrependPaths(const std::string& name,
+                  const std::vector<std::string>& extra,
+                  std::vector<std::string>& env);
+
+// The file name of the build logger library (Python:
+// Context.logger_lib_name).
+inline constexpr std::string_view kLoggerLibName = "ldlogger.so";
+
+// Returns the folders where the package may keep ldlogger.so: under the
+// package root, then under the library folder. Both come from environment
+// variables of the launcher (CC_DATA_FILES_DIR, CC_LIB_DIR).
+std::vector<std::string> LoggerLibRoots();
+
+// Sets the variables of `env` that preload ldlogger.so and make it write
+// `logfile` (Python: env.get_log_env()). With `use_absolute_ldpreload_path`,
+// LD_PRELOAD gets the full path of the library that matches this program's
+// architecture; otherwise it gets the library's name, and LD_LIBRARY_PATH
+// gets every architecture folder.
+void SetLogEnvironment(const std::string& logfile,
+                       bool use_absolute_ldpreload_path,
+                       std::vector<std::string>& env);
+
 // Returns the environment to run `binary` in: EnvForBin() of the context,
 // or nullopt (the current environment) if there is no context.
 Environment EnvForBinary(const std::string& binary);

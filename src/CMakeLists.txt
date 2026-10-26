@@ -80,6 +80,7 @@ add_library(cc_analyzer STATIC
   analyzer/buildlog/log_parser.cc
   analyzer/cli/analyze.cc
   analyzer/cli/analyzer_version.cc
+  analyzer/cli/log.cc
   analyzer/context/analyzer_context.cc
   analyzer/context/run_command.cc
   analyzer/ctu/ctu_manager.cc

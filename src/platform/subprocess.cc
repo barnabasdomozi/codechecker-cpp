@@ -339,6 +339,10 @@ RunResult RunProcess(const std::vector<std::string>& args,
         if (written == input.size()) stdin_pipe.CloseWrite();
       } else if (fd.fd == stdout_pipe.read_end()) {
         if (!ReadAvailable(fd.fd, &result.out)) stdout_pipe.CloseRead();
+        if (options.on_stdout && !result.out.empty()) {
+          options.on_stdout(result.out);
+          result.out.clear();
+        }
       } else if (!ReadAvailable(fd.fd, &result.err)) {
         stderr_pipe.CloseRead();
       }

@@ -4,6 +4,7 @@
 
 #include "analyzer/cli/analyze.h"
 #include "analyzer/cli/analyzer_version.h"
+#include "analyzer/cli/log.h"
 #include "common/cli/version.h"
 #include "util/argparse.h"
 
@@ -25,6 +26,8 @@ constexpr Subcommand kAnalyzerSubcommands[] = {
     {"analyzer-version", analyzer::cli::kAnalyzerVersionHelp,
      &analyzer::cli::AddAnalyzerVersionArguments,
      &analyzer::cli::RunAnalyzerVersion},
+    {"log", analyzer::cli::kLogHelp, &analyzer::cli::AddLogArguments,
+     &analyzer::cli::RunLog},
 };
 
 }  // namespace

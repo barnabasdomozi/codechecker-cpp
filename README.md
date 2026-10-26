@@ -29,7 +29,7 @@ The porting order is in
 | Information | `version`, `analyzer-version`, `web-version` | [version.md](docs/usage/version.md) | ✅ | |
 | Information | `analyzers` | [analyzers.md](docs/usage/analyzers.md) | ❌ | |
 | Information | `checkers` | [checkers.md](docs/usage/checkers.md) | ❌ | |
-| Analysis | `log`, `ldlogger` | [log.md](docs/usage/log.md) | 🟡 | `ldlogger` and `ldlogger.so` are built; the `log` subcommand is not ported |
+| Analysis | `log`, `ldlogger` | [log.md](docs/usage/log.md) | ✅ | |
 | Analysis | `analyze` | [analyze.md](docs/usage/analyze.md) | ✅ | |
 | Analysis | Analyzer drivers | [analyzers.md](docs/usage/analyzers.md) | ✅ | Clang SA, Clang-Tidy, Cppcheck, GCC, Infer |
 | Analysis | Checker selection | [checker-selection.md](docs/usage/checker-selection.md) | ✅ | |
