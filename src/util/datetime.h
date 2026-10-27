@@ -22,6 +22,15 @@ inline constexpr int64_t kMicrosecondsPerSecond = 1000000;
 // Returns the current local time (Python: datetime.now()).
 int64_t LocalNow();
 
+// Returns the local time of the Unix time `seconds` (Python:
+// datetime.fromtimestamp(seconds)).
+int64_t FromTimestamp(int64_t seconds);
+
+// Returns the Unix time, in whole seconds, of the local time `time` (Python:
+// int(time.mktime(time.timetuple()))); nullopt if mktime() fails, where
+// Python raises "mktime argument out of range".
+std::optional<int64_t> ToTimestamp(int64_t time);
+
 // Returns the current time in UTC, in the same form (Python:
 // datetime.now(timezone.utc) without its time zone).
 int64_t UtcNow();

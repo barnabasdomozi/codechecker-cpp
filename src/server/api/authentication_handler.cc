@@ -4,12 +4,12 @@
 #include <yyjson.h>
 
 #include <format>
-#include <map>
 #include <optional>
 #include <random>
 #include <string>
 #include <vector>
 
+#include "api/ordered_map.h"
 #include "api/thrift/authentication_types.h"
 #include "api/thrift/shared_types.h"
 #include "server/api/request_failed.h"
@@ -100,7 +100,7 @@ void AuthenticationHandler::getAccessControl(AccessControl& result) {
     (row.Bool(2) ? global.group : global.user)[row.Text(0)].push_back(
         row.Text(1));
   }
-  std::map<std::string, Permissions> products;
+  cc::api::OrderedMap<std::string, Permissions> products;
   for (const db::Row& row :
        ValueOrThrow(config_db.Query(
                         "SELECT products.endpoint, permissions_product.name, "

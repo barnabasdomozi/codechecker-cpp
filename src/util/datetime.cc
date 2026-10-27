@@ -1,5 +1,6 @@
 #include "util/datetime.h"
 
+#include <errno.h>
 #include <stdint.h>
 
 #include <algorithm>
@@ -45,19 +46,42 @@ std::optional<int> Digits(std::string_view text, size_t pos, size_t size) {
 }  // namespace
 
 int64_t LocalNow() {
-  const auto now = std::chrono::system_clock::now();
-  const std::time_t seconds = std::chrono::system_clock::to_time_t(now);
-  const int64_t microseconds =
-      std::chrono::duration_cast<std::chrono::microseconds>(
-          now.time_since_epoch())
-          .count() %
-      kMicrosecondsPerSecond;
-  const std::tm local = platform::LocalTime(seconds);
+  const int64_t now = UtcNow();
+  const int64_t microseconds = now % kMicrosecondsPerSecond;
+  return FromTimestamp(now / kMicrosecondsPerSecond) +
+         (microseconds < 0 ? 0 : microseconds);
+}
+
+int64_t FromTimestamp(int64_t seconds) {
+  const std::tm local = platform::LocalTime(static_cast<std::time_t>(seconds));
   return ToTime(std::chrono::year(local.tm_year + 1900) / (local.tm_mon + 1) /
                     local.tm_mday,
                 int64_t{local.tm_hour} * 3600 + local.tm_min * 60 +
                     local.tm_sec,
-                microseconds < 0 ? 0 : microseconds);
+                /*microseconds=*/0);
+}
+
+std::optional<int64_t> ToTimestamp(int64_t time) {
+  const std::chrono::sys_seconds point{
+      std::chrono::seconds(time / kMicrosecondsPerSecond)};
+  const std::chrono::sys_days days =
+      std::chrono::floor<std::chrono::days>(point);
+  const std::chrono::year_month_day date(days);
+  const std::chrono::hh_mm_ss<std::chrono::seconds> clock(point - days);
+  std::tm local = {};
+  local.tm_year = static_cast<int>(date.year()) - 1900;
+  local.tm_mon = static_cast<int>(static_cast<unsigned>(date.month())) - 1;
+  local.tm_mday = static_cast<int>(static_cast<unsigned>(date.day()));
+  local.tm_hour = static_cast<int>(clock.hours().count());
+  local.tm_min = static_cast<int>(clock.minutes().count());
+  local.tm_sec = static_cast<int>(clock.seconds().count());
+  // Python's timetuple() has tm_isdst -1: mktime() finds out.
+  local.tm_isdst = -1;
+  // -1 is also the time one second before the epoch; errno tells them apart.
+  errno = 0;
+  const std::time_t seconds = std::mktime(&local);
+  if (seconds == -1 && errno != 0) return std::nullopt;
+  return int64_t{seconds};
 }
 
 int64_t UtcNow() {

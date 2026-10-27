@@ -11,6 +11,7 @@
 #include "server/auth/session.h"
 #include "server/auth/session_manager.h"
 #include "server/database/database.h"
+#include "server/package_data.h"
 #include "server/product.h"
 #include "server/server_config.h"
 
@@ -22,13 +23,15 @@ namespace cc::server {
 class ServerContext {
  public:
   ServerContext(ServerConfig config, db::Database config_db,
-                std::string workspace, std::string package_version)
+                std::string workspace, std::string package_version,
+                PackageData package_data)
       : config_(std::move(config)),
         config_db_(std::move(config_db)),
         sessions_(&config_.authentication(), &config_db_),
         products_(&config_db_, workspace),
         workspace_(std::move(workspace)),
-        package_version_(std::move(package_version)) {}
+        package_version_(std::move(package_version)),
+        package_data_(std::move(package_data)) {}
 
   ServerContext(const ServerContext&) = delete;
   ServerContext& operator=(const ServerContext&) = delete;
@@ -42,6 +45,7 @@ class ServerContext {
   // The version that ServerInfo.getPackageVersion() returns: the git
   // describe tag of the build (server-api.md §2.4).
   const std::string& package_version() const { return package_version_; }
+  const PackageData& package_data() const { return package_data_; }
 
  private:
   ServerConfig config_;
@@ -50,14 +54,17 @@ class ServerContext {
   ProductRegistry products_;       // Uses config_db_.
   std::string workspace_;
   std::string package_version_;
+  PackageData package_data_;
 };
 
 // The request a handler serves: the server process, the caller's session
-// (null for a guest), and the product of the URL (null if none).
+// (null for a guest), the product of the URL (null if none) and the API
+// version of the client ("6.74").
 struct Request {
   ServerContext* server;
   const auth::Session* session;
   Product* product;
+  std::string api_version;
 };
 
 }  // namespace cc::server

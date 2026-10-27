@@ -20,6 +20,20 @@ TEST(StringsTest, Repr) {
   EXPECT_EQ(Repr("\x01é"), "'\\x01é'");
 }
 
+TEST(StringsTest, HtmlUnescape) {
+  EXPECT_EQ(HtmlUnescape("no refs"), "no refs");
+  EXPECT_EQ(HtmlUnescape("&amp;x &ampx &#128; &#0; &notin; &notit; "
+                         "&#x1F600; &AMP &#13;"),
+            "&x &x \u20ac \ufffd \u2209 \u00acit; \U0001f600 & \r");
+  EXPECT_EQ(HtmlUnescape("&#65;&#x42;&#99 &#xZZ; & ; &#; &lt&gt;"),
+            "ABc &#xZZ; & ; &#; <>");
+  EXPECT_EQ(HtmlUnescape("&#1; &#x7f; &#xD800; &#1114112; "
+                         "&#999999999999999999999; &nbsp; &copy &unknown; "
+                         "&amp"),
+            "  \ufffd \ufffd \ufffd \u00a0 \u00a9 &unknown; &");
+  EXPECT_EQ(HtmlUnescape("&#x80;&#x9f;&#xfffe;"), "\u20ac\u0178");
+}
+
 TEST(StringsTest, StrSplitLines) {
   EXPECT_EQ(StrSplitLines("a\rb\r\nc\x0b" "d\x1c" "e\xe2\x80\xa8" "f\n"),
             (std::vector<std::string_view>{"a", "b", "c", "d", "e", "f"}));

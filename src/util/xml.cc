@@ -1,8 +1,10 @@
 #include "util/xml.h"
 
+#include <libxml/HTMLparser.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include <libxml/xmlerror.h>
+#include <stdint.h>
 
 #include <memory>
 #include <optional>
@@ -94,6 +96,14 @@ std::optional<std::string> XmlAttribute(const xmlNode* element,
   std::string result = Chars(value);
   xmlFree(value);
   return result;
+}
+
+std::optional<uint32_t> HtmlEntityCodePoint(std::string_view name) {
+  const std::string text(name);
+  const htmlEntityDesc* entity =
+      htmlEntityLookup(reinterpret_cast<const xmlChar*>(text.c_str()));
+  if (entity == nullptr) return std::nullopt;
+  return entity->value;
 }
 
 }  // namespace cc::util

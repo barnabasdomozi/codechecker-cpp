@@ -16,6 +16,7 @@
 #include "util/shlex.h"
 #include "util/strings.h"
 #include "util/unicode.h"
+#include "util/yaml.h"
 
 namespace cc::common {
 namespace {
@@ -41,6 +42,23 @@ std::optional<util::JsonDocument> LoadJson(const std::string& path,
       kLog.Warning(std::format("{} is not a valid json file.", path));
       kLog.Warning(document.error().message);
     }
+    return std::nullopt;
+  }
+  return std::move(document).value();
+}
+
+std::optional<util::JsonDocument> LoadYaml(const std::string& path) {
+  const Result<std::string> content = util::ReadFile(path);
+  if (!content.ok()) {
+    kLog.Warning(std::format("Failed to open YAML file: {}", path));
+    kLog.Warning(content.error().message);
+    return std::nullopt;
+  }
+  Result<util::JsonDocument> document =
+      util::SafeLoadYaml(content.value(), path);
+  if (!document.ok()) {
+    kLog.Warning(std::format("Failed to parse YAML file: {}", path));
+    kLog.Warning(document.error().message);
     return std::nullopt;
   }
   return std::move(document).value();

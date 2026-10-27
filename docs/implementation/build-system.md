@@ -445,8 +445,8 @@ ssl.
   included as `"api/thrift/<file>.h"`. The output is compiled into `cc_api`
   (without the project's warnings) and regenerated when an IDL file, the
   script or the compiler changes. Nothing generated is checked in
-  ([libraries.md](libraries.md#rpc-apache-thrift)). Two adjustments make the
-  C++ code behave like the Python stubs; the IDL files stay unchanged:
+  ([libraries.md](libraries.md#rpc-apache-thrift)). Three adjustments make
+  the C++ code behave like the Python stubs; the IDL files stay unchanged:
   - `report_server.thrift` uses five structs (`DateInterval`, `BlameData`,
     `CommitAuthor`, `Commit`, `BlameInfo`) before it declares them, which the
     C++ generator cannot compile. The compiler reads a copy in
@@ -461,6 +461,13 @@ ssl.
     field left unset is Python's `None`. The arguments of a call have no
     such flag: where Python tells `None` from a value (the `limit` and
     `offset` of `getProducts()`), the handler takes `0` as `None`.
+  - The C++ generator makes Thrift maps `std::map`s, which send their
+    entries sorted; Python dicts send them in the order they were added,
+    and Python clients print them in that order (`cmd runs` lists the
+    analyzers as `clangsa (3/3), clang-tidy (3/3), ...`). The generated
+    code uses `cc::api::OrderedMap` (`src/api/ordered_map.h`) instead, a
+    map that keeps the order in which keys were added. The `std::map`s that
+    are not Thrift maps (enum names, processor tables) stay.
 
   For the web UI, the same compiler runs with `-r --gen js:node` on the
   original IDL files, as `codechecker_api/Makefile` does in the Python

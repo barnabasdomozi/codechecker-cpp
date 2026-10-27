@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <charconv>
 #include <cmath>
 #include <format>
@@ -14,6 +15,7 @@
 #include <vector>
 
 #include "util/unicode.h"
+#include "util/xml.h"
 
 namespace cc::util {
 namespace {
@@ -40,6 +42,126 @@ std::optional<int> HexDigitValue(char c) {
   return std::nullopt;
 }
 
+// The characters of the numeric character references 0x80-0x9F, which name
+// the Windows-1252 characters (Python: html._invalid_charrefs).
+constexpr uint32_t kWindows1252[] = {
+    0x20AC, 0x81,   0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
+    0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x8D,   0x017D, 0x8F,
+    0x90,   0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+    0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x9D,   0x017E, 0x0178};
+
+// The names Python's html.unescape() also accepts without ';' that are not
+// HTML 4 names, with their characters.
+constexpr std::pair<std::string_view, uint32_t> kUppercaseLegacyNames[] = {
+    {"AMP", '&'}, {"COPY", 0xA9}, {"GT", '>'},
+    {"LT", '<'},  {"QUOT", '"'},  {"REG", 0xAE}};
+
+// Returns the text of the numeric character reference with the code
+// `number`; nullopt stands for a number too big to parse, which becomes
+// U+FFFD like other numbers out of range (Python: html._replace_charref()).
+std::string NumericCharacter(std::optional<uint64_t> number) {
+  std::string text;
+  if (!number || *number > 0x10FFFF || (*number >= 0xD800 &&
+                                         *number <= 0xDFFF)) {
+    AppendUtf8(0xFFFD, &text);
+    return text;
+  }
+  const uint32_t code = static_cast<uint32_t>(*number);
+  if (code == 0) {
+    AppendUtf8(0xFFFD, &text);
+  } else if (code == '\r') {
+    text = "\r";
+  } else if (code >= 0x80 && code <= 0x9F) {
+    AppendUtf8(kWindows1252[code - 0x80], &text);
+  } else {
+    // Python: html._invalid_codepoints, which are dropped.
+    const bool invalid = (code >= 0x1 && code <= 0x8) || code == 0xB ||
+                         (code >= 0xE && code <= 0x1F) || code == 0x7F ||
+                         (code >= 0xFDD0 && code <= 0xFDEF) ||
+                         (code & 0xFFFE) == 0xFFFE;
+    if (!invalid) AppendUtf8(code, &text);
+  }
+  return text;
+}
+
+// Returns the character, in UTF-8, of the character reference name `name`;
+// nullopt if it names none. With `legacy`, only the names that may be
+// written without ';' count: those of the Latin-1 characters and a few
+// others.
+std::optional<std::string> NamedCharacter(std::string_view name,
+                                          bool legacy) {
+  std::optional<uint32_t> code = HtmlEntityCodePoint(name);
+  if (legacy && code && *code > 0xFF) code = std::nullopt;
+  for (const auto& [legacy_name, value] : kUppercaseLegacyNames) {
+    if (name == legacy_name) code = value;
+  }
+  if (!code) return std::nullopt;
+  std::string text;
+  AppendUtf8(*code, &text);
+  return text;
+}
+
+// Returns the text of the character reference `reference`, the part after
+// '&' that matches Python's html._charref (Python: _replace_charref()).
+std::string ReplaceCharacterReference(std::string_view reference) {
+  if (reference.starts_with('#')) {
+    const bool hex = reference.size() > 1 &&
+                     (reference[1] == 'x' || reference[1] == 'X');
+    std::string_view digits = reference.substr(hex ? 2 : 1);
+    if (digits.ends_with(';')) digits.remove_suffix(1);
+    uint64_t number = 0;
+    const std::from_chars_result result = std::from_chars(
+        digits.data(), digits.data() + digits.size(), number, hex ? 16 : 10);
+    return NumericCharacter(result.ec == std::errc()
+                                ? std::optional<uint64_t>(number)
+                                : std::nullopt);
+  }
+  if (reference.ends_with(';')) {
+    if (std::optional<std::string> character =
+            NamedCharacter(reference.substr(0, reference.size() - 1),
+                           /*legacy=*/false)) {
+      return *character;
+    }
+  } else if (std::optional<std::string> character =
+                 NamedCharacter(reference, /*legacy=*/true)) {
+    return *character;
+  }
+  // The longest name at the start, of those that need no ';'.
+  for (size_t size = reference.size() - 1; size > 1; --size) {
+    if (std::optional<std::string> character =
+            NamedCharacter(reference.substr(0, size), /*legacy=*/true)) {
+      return *character + std::string(reference.substr(size));
+    }
+  }
+  return "&" + std::string(reference);
+}
+
+// Returns the size of the character reference that starts at `text`, the
+// part after '&' (Python: the regular expression html._charref); 0 if none
+// starts there.
+size_t CharacterReferenceSize(std::string_view text) {
+  auto is_digit = [](char c, bool hex) {
+    return (c >= '0' && c <= '9') ||
+           (hex && ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')));
+  };
+  size_t size = 0;
+  if (text.starts_with('#')) {
+    const bool hex = text.size() > 1 && (text[1] == 'x' || text[1] == 'X');
+    const size_t start = hex ? 2 : 1;
+    size = start;
+    while (size < text.size() && is_digit(text[size], hex)) ++size;
+    if (size == start) return 0;
+  } else {
+    constexpr std::string_view kNotInName("\t\n\f <&#;");
+    while (size < text.size() && size < 32 &&
+           kNotInName.find(text[size]) == std::string_view::npos) {
+      ++size;
+    }
+    if (size == 0) return 0;
+  }
+  if (size < text.size() && text[size] == ';') ++size;
+  return size;
+}
 }  // namespace
 
 std::string Repr(std::string_view text) {
@@ -297,6 +419,26 @@ std::string HtmlEscape(std::string_view text) {
         result += c;
     }
   }
+  return result;
+}
+
+std::string HtmlUnescape(std::string_view text) {
+  std::string result;
+  size_t pos = 0;
+  while (pos < text.size()) {
+    const size_t amp = text.find('&', pos);
+    if (amp == std::string_view::npos) break;
+    result += text.substr(pos, amp - pos);
+    const std::string_view rest = text.substr(amp + 1);
+    const size_t size = CharacterReferenceSize(rest);
+    if (size == 0) {
+      result += '&';
+    } else {
+      result += ReplaceCharacterReference(rest.substr(0, size));
+    }
+    pos = amp + 1 + size;
+  }
+  result += text.substr(std::min(pos, text.size()));
   return result;
 }
 

@@ -463,7 +463,9 @@ small `main()` on top of it.
   messages (§1.2 there). This is the only place where the port uses
   exceptions ([cppguide.md](cppguide.md#project-waivers) W1): handlers call
   ordinary project code that returns `cc::Result<T>`, and convert its errors
-  into `RequestFailed`.
+  into `RequestFailed`. Code that only the handlers call and that must choose
+  the error code itself returns `ApiResult<T>` (`server/api/request_failed.h`),
+  whose `ApiError` carries the code.
 
 Because the IDL files are unchanged, field ids, types and enum values are
 the same as in the Python version and the web UI.

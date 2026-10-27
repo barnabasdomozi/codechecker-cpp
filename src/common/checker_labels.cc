@@ -225,20 +225,29 @@ const CheckerLabels::Checker* CheckerLabels::FindChecker(
   return nullptr;
 }
 
-std::vector<std::string> CheckerLabels::LabelsOfChecker(
-    const std::string& checker, std::string_view key,
+std::vector<Label> CheckerLabels::AllLabelsOfChecker(
+    const std::string& checker,
     std::optional<std::string_view> analyzer) const {
-  std::vector<std::string> values;
+  std::vector<Label> labels;
   for (const Analyzer& data : analyzers_) {
     if (analyzer && data.name != *analyzer) continue;
     const Checker* found = FindChecker(data, checker);
     if (found == nullptr) continue;
-    for (const auto& [label_key, value] : found->labels) {
-      if (label_key == key &&
-          std::ranges::find(values, value) == values.end()) {
-        values.push_back(value);
+    for (const Label& label : found->labels) {
+      if (std::ranges::find(labels, label) == labels.end()) {
+        labels.push_back(label);
       }
     }
+  }
+  return labels;
+}
+
+std::vector<std::string> CheckerLabels::LabelsOfChecker(
+    const std::string& checker, std::string_view key,
+    std::optional<std::string_view> analyzer) const {
+  std::vector<std::string> values;
+  for (const auto& [label_key, value] : AllLabelsOfChecker(checker, analyzer)) {
+    if (label_key == key) values.push_back(value);
   }
   return values;
 }

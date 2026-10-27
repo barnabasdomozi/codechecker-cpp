@@ -24,7 +24,8 @@ bool IsSupportedVersion(std::string_view version);
 // split_client_POST_request()).
 struct ApiRoute {
   std::optional<std::string> product;  // nullopt: a server-wide call.
-  std::string service;                 // For example "Products".
+  std::string version;  // The API version of the client, "6.74" for "v6.74".
+  std::string service;  // For example "Products".
 };
 
 // Returns the parts of the request path `path`; nullopt if it is not an

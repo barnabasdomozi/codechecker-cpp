@@ -58,5 +58,15 @@ TEST(DatetimeTest, Ordering) {
             kMicrosecondsPerSecond);
 }
 
+TEST(DatetimeTest, TimestampsRoundTrip) {
+  // 2023-11-14 22:13:20 UTC, in any time zone.
+  constexpr int64_t kTimestamp = 1700000000;
+  const std::optional<int64_t> timestamp =
+      ToTimestamp(FromTimestamp(kTimestamp));
+  ASSERT_TRUE(timestamp.has_value());
+  EXPECT_EQ(*timestamp, kTimestamp);
+  EXPECT_EQ(FromTimestamp(kTimestamp) % kMicrosecondsPerSecond, 0);
+}
+
 }  // namespace
 }  // namespace cc::util

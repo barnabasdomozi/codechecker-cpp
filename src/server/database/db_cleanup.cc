@@ -30,10 +30,6 @@ namespace {
 
 constexpr util::Logger kLog("server");
 
-// Run locks older than this are left behind by failed stores (Python:
-// RUN_LOCK_TIMEOUT_IN_DATABASE).
-constexpr int64_t kRunLockTimeoutSeconds = 30 * 60;
-
 // Runs the statements `sql` of one clean-up step in a transaction; logs
 // "[<endpoint>] Failed to <what>: <error>" if a statement fails.
 void RunStep(Connection& connection, std::string_view endpoint,
@@ -192,19 +188,8 @@ void CleanupProduct(Connection& connection, std::string_view endpoint,
            "DELETE FROM file_contents WHERE content_hash NOT IN "
            "(SELECT content_hash FROM files "
            "UNION SELECT content_hash FROM analysis_info_files)"});
-  RunStep(connection, endpoint, "remove dangling comments",
-          {"DELETE FROM comments WHERE id IN "
-           "(SELECT comments.id FROM comments LEFT OUTER JOIN reports "
-           "ON comments.bug_hash = reports.bug_id WHERE reports.id IS NULL)"});
-  RunStep(connection, endpoint, "remove dangling analysis info",
-          {"DELETE FROM analysis_info WHERE id IN "
-           "(SELECT analysis_info.id FROM analysis_info "
-           "LEFT OUTER JOIN run_history_analysis_info "
-           "ON run_history_analysis_info.analysis_info_id = analysis_info.id "
-           "LEFT OUTER JOIN report_analysis_info "
-           "ON report_analysis_info.analysis_info_id = analysis_info.id "
-           "WHERE run_history_analysis_info.analysis_info_id IS NULL "
-           "AND report_analysis_info.analysis_info_id IS NULL)"});
+  RemoveUnusedComments(connection, endpoint);
+  RemoveUnusedAnalysisInfo(connection, endpoint);
   RunStep(connection, endpoint, "remove checker sets",
           {"DELETE FROM checker_set WHERE id NOT IN "
            "(SELECT checker_set_id FROM analysis_info "
@@ -214,6 +199,26 @@ void CleanupProduct(Connection& connection, std::string_view endpoint,
 }
 
 }  // namespace
+
+void RemoveUnusedComments(Connection& connection, std::string_view endpoint) {
+  RunStep(connection, endpoint, "remove dangling comments",
+          {"DELETE FROM comments WHERE id IN "
+           "(SELECT comments.id FROM comments LEFT OUTER JOIN reports "
+           "ON comments.bug_hash = reports.bug_id WHERE reports.id IS NULL)"});
+}
+
+void RemoveUnusedAnalysisInfo(Connection& connection,
+                              std::string_view endpoint) {
+  RunStep(connection, endpoint, "remove dangling analysis info",
+          {"DELETE FROM analysis_info WHERE id IN "
+           "(SELECT analysis_info.id FROM analysis_info "
+           "LEFT OUTER JOIN run_history_analysis_info "
+           "ON run_history_analysis_info.analysis_info_id = analysis_info.id "
+           "LEFT OUTER JOIN report_analysis_info "
+           "ON report_analysis_info.analysis_info_id = analysis_info.id "
+           "WHERE run_history_analysis_info.analysis_info_id IS NULL "
+           "AND report_analysis_info.analysis_info_id IS NULL)"});
+}
 
 void CleanupProductDatabases(const std::vector<Product::Record>& products,
                              const std::string& workspace,

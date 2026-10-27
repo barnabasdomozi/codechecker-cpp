@@ -21,16 +21,17 @@ struct Error {
 
 // Either the value of a successful operation or an Error. Callers pass
 // errors up to the subcommand's run function, which reports them and
-// returns the exit code.
+// returns the exit code. `E` is the error type; code whose errors carry
+// more than an Error, such as the server's API errors, gives its own.
 //
 //   Result<std::string> text = ReadFile(path);
 //   if (!text.ok()) return Result<Config>(text.error());
 //   Use(text.value());
-template <typename T>
+template <typename T, typename E = Error>
 class [[nodiscard]] Result {
  public:
   explicit Result(T value) : content_(std::move(value)) {}
-  explicit Result(Error error) : content_(std::move(error)) {}
+  explicit Result(E error) : content_(std::move(error)) {}
 
   Result(const Result& other) = default;
   Result& operator=(const Result& other) = default;
@@ -45,18 +46,18 @@ class [[nodiscard]] Result {
   T&& value() && { return std::get<0>(std::move(content_)); }
 
   // The error; only valid if !ok().
-  const Error& error() const { return std::get<1>(content_); }
+  const E& error() const { return std::get<1>(content_); }
 
  private:
-  std::variant<T, Error> content_;
+  std::variant<T, E> content_;
 };
 
-// The result of an operation that has no value: success, or an Error.
-template <>
-class [[nodiscard]] Result<void> {
+// The result of an operation that has no value: success, or an error.
+template <typename E>
+class [[nodiscard]] Result<void, E> {
  public:
   Result() = default;
-  explicit Result(Error error) : error_(std::move(error)) {}
+  explicit Result(E error) : error_(std::move(error)) {}
 
   Result(const Result& other) = default;
   Result& operator=(const Result& other) = default;
@@ -66,10 +67,10 @@ class [[nodiscard]] Result<void> {
   bool ok() const { return !error_.has_value(); }
 
   // The error; only valid if !ok().
-  const Error& error() const { return *error_; }
+  const E& error() const { return *error_; }
 
  private:
-  std::optional<Error> error_;
+  std::optional<E> error_;
 };
 
 }  // namespace cc

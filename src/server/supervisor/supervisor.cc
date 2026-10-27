@@ -15,7 +15,6 @@
 #include <vector>
 
 #include "api/api_version.h"
-#include "common/checker_labels.h"
 #include "common/package.h"
 #include "platform/filesystem.h"
 #include "platform/process.h"
@@ -25,6 +24,7 @@
 #include "server/database/database.h"
 #include "server/database/db_cleanup.h"
 #include "server/http/http_server.h"
+#include "server/package_data.h"
 #include "server/product.h"
 #include "server/server_config.h"
 #include "server/server_context.h"
@@ -447,22 +447,25 @@ int StartServer(const ServerOptions& options, const db::Database& config_db) {
   const std::string secrets_file =
       util::pypath::Join({options.config_directory, "server_secrets.json"});
 
+  // Python: webserver_context.get_context(), which fails the start.
+  Result<PackageData> package_data = LoadPackageData();
+  if (!package_data.ok()) {
+    kLog.Error(package_data.error().message);
+    return 1;
+  }
+
   db::LazyConnection config_connection(config_db);
   if (!options.skip_db_cleanup) {
-    Result<common::CheckerLabels> labels =
-        common::CheckerLabels::Load(common::LabelsDirectory());
     Result<db::Connection*> connection = config_connection.Get();
     Result<std::vector<Product::Record>> products =
         connection.ok() ? LoadProducts(*connection.value())
                         : Result<std::vector<Product::Record>>(
                               connection.error());
-    if (!labels.ok()) {
-      kLog.Error(labels.error().message);
-    } else if (!products.ok()) {
+    if (!products.ok()) {
       kLog.Error(products.error().message);
     } else {
       db::CleanupProductDatabases(products.value(), options.workspace,
-                                  labels.value());
+                                  package_data.value().checker_labels);
     }
   } else {
     kLog.Debug("Skipping db_cleanup, as requested.");
@@ -493,7 +496,8 @@ int StartServer(const ServerOptions& options, const db::Database& config_db) {
   const int task_count = options.task_worker_processes.value_or(
       config.value().TaskWorkerProcesses());
   ServerContext context(std::move(config).value(), config_db,
-                        options.workspace, options.package_version);
+                        options.workspace, options.package_version,
+                        std::move(package_data).value());
   if (!options.skip_db_cleanup) {
     kLog.Info("Starting garbage collection on the config database ...");
     context.sessions().DeleteExpiredSessions(std::nullopt);

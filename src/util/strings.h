@@ -85,6 +85,13 @@ std::string LeftJustify(std::string_view text, int width);
 // references (Python: html.escape(text)).
 std::string HtmlEscape(std::string_view text);
 
+// Returns `text` with its HTML character references replaced by the
+// characters they name (Python: html.unescape()). Numeric references follow
+// Python's rules; names are those of HTML 4 (libxml2's table), the ones
+// Python also accepts without ';' included. Names that only HTML 5 has are
+// left as they are.
+std::string HtmlUnescape(std::string_view text);
+
 // Returns `text` with its %XX escapes decoded (Python:
 // urllib.parse.unquote_to_bytes()).
 std::string PercentDecode(std::string_view text);

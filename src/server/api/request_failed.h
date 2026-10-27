@@ -1,6 +1,7 @@
 // The errors of the API handlers. Handlers report errors by throwing the
 // Thrift exception RequestFailed, as the Thrift interface requires; this is
 // one of the places where the project uses exceptions (cppguide.md W1).
+// The code they call returns ApiErrors instead, which they throw.
 // Also the conversions of the handlers that fail with such an error.
 
 #ifndef CC_SERVER_API_REQUEST_FAILED_H_
@@ -24,6 +25,40 @@ inline ::RequestFailed MakeRequestFailed(ErrorCode::type code,
   failed.__set_errorCode(code);
   failed.__set_message(message);
   return failed;
+}
+
+// A failure that a handler reports as RequestFailed with `code` and
+// `message`. Code that the handlers call returns it instead of throwing
+// (cppguide.md W1).
+struct ApiError {
+  ErrorCode::type code = ErrorCode::GENERAL;
+  std::string message;
+};
+
+// The result of code that the handlers call: a value or an ApiError.
+template <typename T>
+using ApiResult = Result<T, ApiError>;
+
+// Returns the DATABASE ApiError of the failed database call `error`.
+inline ApiError DatabaseError(const Error& error) {
+  return ApiError{.code = ErrorCode::DATABASE, .message = error.message};
+}
+
+// Returns the value of `result`; throws its error as RequestFailed if it
+// failed.
+template <typename T>
+T ValueOrThrow(ApiResult<T> result) {
+  if (!result.ok()) {
+    throw MakeRequestFailed(result.error().code, result.error().message);
+  }
+  return std::move(result).value();
+}
+
+// Throws the error of `result` as RequestFailed if it failed.
+inline void ThrowIfFailed(const ApiResult<void>& result) {
+  if (!result.ok()) {
+    throw MakeRequestFailed(result.error().code, result.error().message);
+  }
 }
 
 // Returns the value of `result`; throws RequestFailed with `code` and the

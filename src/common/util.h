@@ -19,6 +19,11 @@ namespace cc::common {
 std::optional<util::JsonDocument> LoadJson(const std::string& path,
                                            bool display_warning = true);
 
+// Returns the YAML document in the file at `path`, read like Python's
+// load_yaml(path). Returns nullopt, after logging warnings that say why, if
+// the file cannot be read or is not valid YAML.
+std::optional<util::JsonDocument> LoadYaml(const std::string& path);
+
 // Returns the command line arguments in the file at `path` (Python:
 // load_args_from_file()): the stripped content with every "$(NAME)" replaced
 // by the environment variable NAME (unset ones are logged and replaced by

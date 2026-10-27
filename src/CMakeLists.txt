@@ -17,6 +17,7 @@ target_include_directories(cc_platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(cc_util STATIC
   util/argparse.cc
   util/base64.cc
+  util/compression.cc
   util/datetime.cc
   util/file.cc
   util/fnmatch.cc
@@ -42,7 +43,7 @@ add_library(cc_util STATIC
   util/zip.cc)
 target_link_libraries(cc_util PUBLIC cc_platform third_party::pcre2
   third_party::yyjson third_party::yaml third_party::xml2 third_party::crypto
-  third_party::zip)
+  third_party::zip third_party::zlib)
 
 add_library(cc_report STATIC
   report/converter/analyzer_types.cc
@@ -77,6 +78,7 @@ add_library(cc_common STATIC
   common/cli/verbose.cc
   common/cli/version.cc
   common/cmd_config.cc
+  common/guidelines.cc
   common/package.cc
   common/review_status_handler.cc
   common/skiplist_handler.cc
@@ -160,12 +162,15 @@ if(CC_BUILD_WEB)
             -P ${PROJECT_SOURCE_DIR}/cmake/ThriftGenerate.cmake
     DEPENDS ${thrift_idl_files} ${thrift_compiler}
             ${PROJECT_SOURCE_DIR}/cmake/ThriftGenerate.cmake
+            ${CMAKE_CURRENT_SOURCE_DIR}/api/ordered_map.h
     COMMENT "Generating the C++ code of the Thrift API"
     VERBATIM)
   add_library(cc_api STATIC ${thrift_sources})
   # Generated code does not follow the project's warning settings.
   set_source_files_properties(${thrift_sources} PROPERTIES COMPILE_OPTIONS -w)
-  target_include_directories(cc_api PUBLIC ${PROJECT_BINARY_DIR}/gen)
+  # The generated code includes "api/ordered_map.h".
+  target_include_directories(cc_api PUBLIC ${PROJECT_BINARY_DIR}/gen
+                             ${CMAKE_CURRENT_SOURCE_DIR})
   target_link_libraries(cc_api PUBLIC third_party::thrift)
 
   add_library(cc_web STATIC
@@ -179,6 +184,9 @@ if(CC_BUILD_WEB)
     server/api/authentication_handler.cc
     server/api/configuration_handler.cc
     server/api/product_handler.cc
+    server/api/report_filter.cc
+    server/api/report_handler.cc
+    server/api/thrift_enum_helper.cc
     server/auth/permissions.cc
     server/auth/session_manager.cc
     server/cli/server.cc
@@ -186,9 +194,11 @@ if(CC_BUILD_WEB)
     server/database/database.cc
     server/database/db_cleanup.cc
     server/database/schema.cc
+    server/database/sql.cc
     server/http/api_dispatch.cc
     server/http/http_server.cc
     server/http/routing.cc
+    server/package_data.cc
     server/product.cc
     server/server_config.cc
     server/supervisor/instance_manager.cc

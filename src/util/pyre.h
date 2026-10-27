@@ -96,6 +96,9 @@ class Regex {
   // regex.sub(replacement, text)).
   std::string ReplaceAll(std::string_view text,
                          std::string_view replacement) const;
+  // Returns the names of the named groups, in the order of the groups
+  // (Python: regex.groupindex).
+  std::vector<std::string> GroupNames() const;
 
  private:
   explicit Regex(pcre2_code* code) : code_(code) {}

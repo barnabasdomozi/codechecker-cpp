@@ -3,6 +3,7 @@
 #include <httplib.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <exception>
 #include <format>
 #include <memory>
@@ -18,6 +19,7 @@
 #include <thrift/transport/TBufferTransports.h>
 
 #include "api/thrift/codeCheckerAuthentication.h"
+#include "api/thrift/codeCheckerDBAccess.h"
 #include "api/thrift/codeCheckerProductService.h"
 #include "api/thrift/configurationService.h"
 #include "api/thrift/serverInfoService.h"
@@ -25,6 +27,7 @@
 #include "server/api/authentication_handler.h"
 #include "server/api/configuration_handler.h"
 #include "server/api/product_handler.h"
+#include "server/api/report_handler.h"
 #include "server/api/server_info_handler.h"
 #include "server/auth/session.h"
 #include "server/http/routing.h"
@@ -40,6 +43,7 @@ using apache::thrift::TApplicationException;
 using apache::thrift::TException;
 using apache::thrift::protocol::TJSONProtocol;
 using apache::thrift::protocol::TMessageType;
+using apache::thrift::protocol::TType;
 using apache::thrift::transport::TMemoryBuffer;
 
 constexpr util::Logger kLog("server");
@@ -157,10 +161,45 @@ std::string Process(const Request& request, const std::string& body) {
   return output->getBufferAsString();
 }
 
-// Returns the reply of the call `body` to `service`; nullopt if the server
-// has no such service, with the reason in `*error`.
+// Logs the RequestFailed that the reply `reply` of the CodeCheckerService
+// call `method` carries, as "<method>:\n<message>" (Python: the
+// exc_to_thrift_reqfail decorator of the methods of report_server.py).
+void LogRequestFailed(const std::string& method, const std::string& reply) {
+  // The methods that the reference does not decorate.
+  constexpr std::string_view kUndecorated[] = {
+      "getCheckCommand", "getRunReportCounts", "getPackageVersion",
+      "removeRunResults"};
+  if (std::ranges::find(kUndecorated, method) != std::end(kUndecorated)) {
+    return;
+  }
+  // A reply is a struct whose field 0 is the result and field 1 the
+  // RequestFailed of the method. The processor has just written `reply`, so
+  // it reads without errors; anything Thrift still throws is caught by
+  // HandleApiCall(), as for the call itself.
+  const std::shared_ptr<TJSONProtocol> protocol = ReadProtocol(reply);
+  std::string name;
+  TMessageType type = apache::thrift::protocol::T_REPLY;
+  int32_t seqid = 0;
+  protocol->readMessageBegin(name, type, seqid);
+  if (type != apache::thrift::protocol::T_REPLY) return;
+  protocol->readStructBegin(name);
+  TType field_type = apache::thrift::protocol::T_STOP;
+  int16_t field_id = 0;
+  protocol->readFieldBegin(name, field_type, field_id);
+  if (field_id != 1 || field_type != apache::thrift::protocol::T_STRUCT) {
+    return;
+  }
+  ::RequestFailed failed;
+  failed.read(protocol.get());
+  kLog.Warning(std::format("{}:\n{}", method, failed.message));
+}
+
+// Returns the reply of the call `body` of `method` to `service`; nullopt if
+// the server has no such service, with the reason in `*error`. `method` is
+// only used to log the errors of CodeCheckerService calls.
 std::optional<std::string> CallService(const Request& request,
                                        const std::string& service,
+                                       const std::string& method,
                                        const std::string& body,
                                        std::string* error) {
   if (service == "Authentication") {
@@ -183,7 +222,14 @@ std::optional<std::string> CallService(const Request& request,
     *error = "Requested CodeCheckerService on a nonexistent product: 'None'.";
     return std::nullopt;
   }
-  if (service == "CodeCheckerService" || service == "Tasks") {
+  if (service == "CodeCheckerService") {
+    std::string reply =
+        Process<codeCheckerDBAccessProcessor, api::ReportHandler>(request,
+                                                                  body);
+    LogRequestFailed(method, reply);
+    return reply;
+  }
+  if (service == "Tasks") {
     *error = std::format(
         "The '{}' API is not supported by this server yet.", service);
     return std::nullopt;
@@ -239,11 +285,14 @@ void HandleApiCall(ServerContext& context, const httplib::Request& request,
       return;
     }
   }
-  const Request api_request = {
-      .server = &context, .session = session, .product = product};
+  const Request api_request = {.server = &context,
+                               .session = session,
+                               .product = product,
+                               .api_version = route->version};
   try {
     std::optional<std::string> result =
-        CallService(api_request, route->service, request.body, &error);
+        CallService(api_request, route->service, header->method,
+                    request.body, &error);
     if (!result) {
       if (error.empty()) {
         error = std::format("No API endpoint named '{}'.", request.target);

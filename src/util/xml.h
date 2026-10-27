@@ -1,11 +1,13 @@
 // XML documents read into a tree with libxml2, with accessors that give the
 // results of Python's xml.etree.ElementTree (libraries.md, "XML and plist").
-// Nodes are libxml2's xmlNode; only element nodes are passed around.
+// Nodes are libxml2's xmlNode; only element nodes are passed around. Also
+// libxml2's table of the HTML 4 character entities.
 
 #ifndef CC_UTIL_XML_H_
 #define CC_UTIL_XML_H_
 
 #include <libxml/tree.h>
+#include <stdint.h>
 
 #include <memory>
 #include <optional>
@@ -49,6 +51,10 @@ std::optional<std::string> XmlText(const xmlNode* element);
 // element.attrib.get(name)).
 std::optional<std::string> XmlAttribute(const xmlNode* element,
                                         std::string_view name);
+
+// Returns the code point of the HTML 4 character entity `name`, for example
+// 0xA0 for "nbsp"; nullopt if there is no such entity.
+std::optional<uint32_t> HtmlEntityCodePoint(std::string_view name);
 
 }  // namespace cc::util
 

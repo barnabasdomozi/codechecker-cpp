@@ -16,6 +16,10 @@
 #     struct writers are changed to send such a field only if it is set
 #     (`__set_<field>()`, or read from a message), as Python does, and the
 #     setters of such fields mark them as set.
+#   - The C++ generator makes Thrift maps std::maps, which send their
+#     entries sorted, while Python dicts send them in the order they were
+#     added. Thrift maps become cc::api::OrderedMaps (src/api/ordered_map.h),
+#     which keep that order.
 #
 # js: the JavaScript stubs of the web UI, as codechecker_api/Makefile
 # generates them in the Python project.
@@ -71,6 +75,33 @@ foreach(idl IN LISTS idl_copies)
   if(NOT result EQUAL 0)
     message(FATAL_ERROR "thrift failed on ${idl}:\n${errors}")
   endif()
+endforeach()
+
+# The std::maps of the generated code that are not Thrift maps: the names
+# of enum values and the method tables of the processors.
+set(std_maps "std::map<int, const char*>"
+             "std::map<std::string, ProcessFunction>")
+file(GLOB generated_files ${OUT_DIR}/*.h ${OUT_DIR}/*.cpp)
+foreach(file IN LISTS generated_files)
+  file(READ ${file} text)
+  set(index 0)
+  foreach(std_map IN LISTS std_maps)
+    string(REPLACE "${std_map}" "@std_map_${index}@" text "${text}")
+    math(EXPR index "${index} + 1")
+  endforeach()
+  string(REPLACE "std::map<" "::cc::api::OrderedMap<" text "${text}")
+  set(index 0)
+  foreach(std_map IN LISTS std_maps)
+    string(REPLACE "@std_map_${index}@" "${std_map}" text "${text}")
+    math(EXPR index "${index} + 1")
+  endforeach()
+  # Every other generated header includes a *_types.h header.
+  if(file MATCHES "_types\\.h$")
+    string(REPLACE "#include <thrift/Thrift.h>"
+                   "#include <thrift/Thrift.h>\n#include \"api/ordered_map.h\""
+                   text "${text}")
+  endif()
+  file(WRITE ${file} "${text}")
 endforeach()
 
 # In the struct writers, the fields that are not `optional` are the ones at

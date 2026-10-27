@@ -57,11 +57,15 @@ std::optional<ApiRoute> SplitApiPath(std::string_view path) {
   if (parts.size() < 2) return std::nullopt;
   if (IsValidProductEndpoint(parts[1]) && parts.size() == 4) {
     if (!IsSupportedVersion(parts[2])) return std::nullopt;
-    return ApiRoute{.product = parts[1], .service = parts[3]};
+    return ApiRoute{.product = parts[1],
+                    .version = std::string(StripVersionPrefix(parts[2])),
+                    .service = parts[3]};
   }
   if (parts[1].starts_with('v') && parts.size() == 3) {
     if (!IsSupportedVersion(parts[1])) return std::nullopt;
-    return ApiRoute{.product = std::nullopt, .service = parts[2]};
+    return ApiRoute{.product = std::nullopt,
+                    .version = std::string(StripVersionPrefix(parts[1])),
+                    .service = parts[2]};
   }
   return std::nullopt;
 }

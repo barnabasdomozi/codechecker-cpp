@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <exception>
 #include <memory>
 #include <optional>
@@ -184,6 +185,27 @@ std::string Regex::ReplaceAll(std::string_view text,
     result.assign(size, '\0');
   }
   return std::string(text);
+}
+
+std::vector<std::string> Regex::GroupNames() const {
+  uint32_t count = 0;
+  uint32_t entry_size = 0;
+  PCRE2_SPTR table = nullptr;
+  pcre2_pattern_info(code_.get(), PCRE2_INFO_NAMECOUNT, &count);
+  pcre2_pattern_info(code_.get(), PCRE2_INFO_NAMEENTRYSIZE, &entry_size);
+  pcre2_pattern_info(code_.get(), PCRE2_INFO_NAMETABLE, &table);
+  // Each entry is the group number in two bytes, then the name; the table
+  // is sorted by name.
+  std::vector<std::pair<int, std::string>> groups;
+  for (uint32_t i = 0; i < count; ++i) {
+    const PCRE2_SPTR entry = table + size_t{i} * entry_size;
+    groups.emplace_back((entry[0] << 8) | entry[1],
+                        reinterpret_cast<const char*>(entry + 2));
+  }
+  std::ranges::sort(groups);
+  std::vector<std::string> names;
+  for (auto& [number, name] : groups) names.push_back(std::move(name));
+  return names;
 }
 
 std::string RegexEscape(std::string_view text) {
