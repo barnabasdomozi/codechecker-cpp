@@ -60,6 +60,10 @@ std::string DumpJsonIndent(yyjson_mut_val* value, int indent);
 std::string JsonString(yyjson_val* value);
 std::string JsonString(yyjson_mut_val* value);
 
+// Returns the text of the string `value`; nullopt if `value` is not a
+// string.
+std::optional<std::string> JsonOptionalString(yyjson_val* value);
+
 // Returns the member `key` of the object `value`, or null if `value` is not
 // an object or has no such member. Of duplicate members the last one
 // counts, as in json.loads(). Lookups are linear.

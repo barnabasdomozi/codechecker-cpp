@@ -10,11 +10,17 @@
 #include <string_view>
 #include <vector>
 
+#include "util/result.h"
+
 namespace cc::util {
 
 // Returns `text` as Python's repr() of a str shows it, quotes included, for
 // example 'foo' or "it's".
 std::string Repr(std::string_view text);
+
+// Returns the error of a Python KeyError for `key`, with the message that
+// str() gives it: the repr of `key`.
+Error KeyError(std::string_view key);
 
 // Parses `text` like Python's int(): optional surrounding whitespace and
 // sign, then decimal digits. Returns nullopt where int() raises ValueError.

@@ -325,6 +325,32 @@ int64_t ServerConfig::KeepaliveValue(const char* key) const {
   return JsonNumber(util::JsonGet(keepalive, key)).value_or(0);
 }
 
+std::optional<int64_t> ServerConfig::MaxRunCount() const {
+  return JsonNumber(
+      util::JsonGet(yyjson_doc_get_root(document_.get()), "max_run_count"));
+}
+
+std::optional<std::string> ServerConfig::AnalysisStatisticsDir() const {
+  yyjson_val* store =
+      util::JsonGet(yyjson_doc_get_root(document_.get()), "store");
+  return util::JsonOptionalString(
+      util::JsonGet(store, "analysis_statistics_dir"));
+}
+
+std::optional<int64_t> ServerConfig::StoreLimit(const char* key) const {
+  yyjson_val* store =
+      util::JsonGet(yyjson_doc_get_root(document_.get()), "store");
+  return JsonNumber(util::JsonGet(util::JsonGet(store, "limit"), key));
+}
+
+std::optional<int64_t> ServerConfig::FailureZipSizeLimit() const {
+  return StoreLimit("failure_zip_size");
+}
+
+std::optional<int64_t> ServerConfig::CompilationDatabaseSizeLimit() const {
+  return StoreLimit("compilation_database_size");
+}
+
 int64_t ServerConfig::KeepaliveIdle() const { return KeepaliveValue("idle"); }
 
 int64_t ServerConfig::KeepaliveInterval() const {

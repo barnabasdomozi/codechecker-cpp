@@ -325,6 +325,17 @@ std::optional<db::Sql> AnnotationCondition(const ReportFilter& filter,
 
 }  // namespace
 
+ComponentValues ParseComponentValues(std::string_view value) {
+  ComponentValues values;
+  for (const std::string& line : util::Split(value, "\n")) {
+    const std::string_view path = util::Strip(line);
+    if (path.empty()) continue;
+    if (path.front() == '+') values.include.emplace_back(path.substr(1));
+    if (path.front() == '-') values.skip.emplace_back(path.substr(1));
+  }
+  return values;
+}
+
 std::string Conv(std::string_view filter) {
   std::string converted(filter);
   std::ranges::replace(converted, '*', '%');

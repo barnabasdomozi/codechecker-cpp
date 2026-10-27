@@ -34,18 +34,26 @@ Error ZlibError(const z_stream& stream, int code) {
                                       code, message)};
 }
 
-}  // namespace
+// What Inflate() did.
+struct Inflated {
+  std::string data;
+  bool ended = false;       // Whether the end of the stream was reached.
+  bool input_left = false;  // Whether input was left when it stopped.
+};
 
-Result<std::string> ZlibDecompress(std::string_view data) {
+// Inflates the zlib stream `data` until the stream ends, the input runs out
+// or `max_length` (> 0) bytes are written. A stream that is cut off is not
+// an error.
+Result<Inflated> Inflate(std::string_view data, size_t max_length) {
   z_stream stream = {};
   int code = inflateInit(&stream);
-  if (code != Z_OK) return Result<std::string>(ZlibError(stream, code));
+  if (code != Z_OK) return Result<Inflated>(ZlibError(stream, code));
   // zlib does not change the input; its API predates const.
   stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(data.data()));
   // The part of the input not given to zlib yet: avail_in is a uInt, so
   // input above its range is given in parts.
   size_t remaining = data.size();
-  std::string output;
+  Inflated result;
   char buffer[16384];
   do {
     if (stream.avail_in == 0 && remaining > 0) {
@@ -54,19 +62,55 @@ Result<std::string> ZlibDecompress(std::string_view data) {
       stream.avail_in = static_cast<uInt>(part);
       remaining -= part;
     }
+    const size_t room =
+        std::min(sizeof(buffer), max_length - result.data.size());
     stream.next_out = reinterpret_cast<Bytef*>(buffer);
-    stream.avail_out = sizeof(buffer);
+    stream.avail_out = static_cast<uInt>(room);
     code = inflate(&stream, Z_NO_FLUSH);
-    output.append(buffer, sizeof(buffer) - stream.avail_out);
-  } while (code == Z_OK);
+    result.data.append(buffer, room - stream.avail_out);
+  } while (code == Z_OK && result.data.size() < max_length);
+  result.ended = code == Z_STREAM_END;
+  result.input_left = stream.avail_in > 0 || remaining > 0;
   // Z_BUF_ERROR: the input ended before the stream did.
-  if (code != Z_STREAM_END) {
+  if (code != Z_OK && code != Z_STREAM_END && code != Z_BUF_ERROR) {
+    // The message points into the state that inflateEnd() frees.
     Error error = ZlibError(stream, code);
     inflateEnd(&stream);
-    return Result<std::string>(std::move(error));
+    return Result<Inflated>(std::move(error));
   }
   inflateEnd(&stream);
-  return Result<std::string>(std::move(output));
+  return Result<Inflated>(std::move(result));
+}
+
+}  // namespace
+
+Result<std::string> ZlibDecompress(std::string_view data) {
+  Result<Inflated> inflated = Inflate(data, std::numeric_limits<size_t>::max());
+  if (!inflated.ok()) return Result<std::string>(inflated.error());
+  if (!inflated.value().ended) {
+    return Result<std::string>(ZlibError(z_stream{}, Z_BUF_ERROR));
+  }
+  return Result<std::string>(std::move(inflated.value().data));
+}
+
+Result<ZlibPart> ZlibDecompressPart(std::string_view data, size_t max_length) {
+  Result<Inflated> inflated = Inflate(data, max_length);
+  if (!inflated.ok()) return Result<ZlibPart>(inflated.error());
+  const bool limited =
+      !inflated.value().ended && inflated.value().input_left;
+  return Result<ZlibPart>(
+      ZlibPart{.data = std::move(inflated.value().data), .limited = limited});
+}
+
+std::string ZlibCompress(std::string_view data) {
+  uLongf size = compressBound(static_cast<uLong>(data.size()));
+  std::string output(size, '\0');
+  // compress2() fails only without memory or with a bad level.
+  (void)compress2(reinterpret_cast<Bytef*>(output.data()), &size,
+                  reinterpret_cast<const Bytef*>(data.data()),
+                  static_cast<uLong>(data.size()), Z_BEST_COMPRESSION);
+  output.resize(size);
+  return output;
 }
 
 }  // namespace cc::util

@@ -121,6 +121,15 @@ class ProductRegistry {
   std::map<std::string, std::unique_ptr<Product>> products_;
 };
 
+// Changes the summaries of the product `endpoint` with `id` that the
+// configuration database keeps: its number of runs by `runs_change`, and,
+// if given, the time of its latest store (Python:
+// Product.set_cached_run_data()).
+Result<void> SetCachedRunData(db::LazyConnection& config_db, int64_t id,
+                              const std::string& endpoint,
+                              int64_t runs_change,
+                              std::optional<int64_t> latest_storage_date);
+
 // Returns the products of the configuration database, ordered by endpoint.
 Result<std::vector<Product::Record>> LoadProducts(db::Connection& config_db);
 

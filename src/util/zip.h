@@ -1,10 +1,11 @@
-// ZIP archives written with libzip (libraries.md, "ZIP archives: libzip"),
-// like Python's zipfile writes them. An archive never holds two entries
-// with the same name: adding a name that exists replaces the entry.
+// ZIP archives read and written with libzip (libraries.md, "ZIP archives:
+// libzip"), like Python's zipfile does it. An archive never holds two
+// entries with the same name: adding a name that exists replaces the entry.
 
 #ifndef CC_UTIL_ZIP_H_
 #define CC_UTIL_ZIP_H_
 
+#include <stdint.h>
 #include <zip.h>
 
 #include <memory>
@@ -56,6 +57,24 @@ class ZipArchive {
   // The texts of AddText(), which libzip reads only in Close().
   std::vector<std::unique_ptr<std::string>> texts_;
 };
+
+// An entry of an archive (Python: a ZipInfo).
+struct ZipEntry {
+  std::string name;
+  int64_t size = 0;  // Uncompressed.
+};
+
+// Returns the entries of the archive at `path`, in their order (Python:
+// ZipFile(path).infolist()). The error message is libzip's.
+Result<std::vector<ZipEntry>> ListZipEntries(const std::string& path);
+
+// Writes the entries of the archive at `path` into the folder `directory`,
+// creating the folders they need (Python: ZipFile(path).extractall(
+// directory)). As in Python, a name loses its leading slashes and its "."
+// and ".." parts, so nothing is written outside `directory`, and a name
+// that ends with "/" is a folder. The error message is libzip's, or the
+// one of the file that cannot be written.
+Result<void> ExtractZip(const std::string& path, const std::string& directory);
 
 }  // namespace cc::util
 

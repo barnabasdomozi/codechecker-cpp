@@ -408,33 +408,6 @@ Result<void> PrintStatus(const std::string& report_dir, bool detailed,
 
 // --- Printing the reports ---
 
-// The paths of the source files after --trim-path-prefix, by original path.
-// Python shares one File object per path between all reports, so a path is
-// trimmed again for each report that refers to it, and the reports read
-// later see the trimmed path (in their path hashes too).
-using TrimmedPaths = std::unordered_map<std::string, std::string>;
-
-// Sets the files of `report` to their trimmed paths in `paths`.
-void ApplyTrimmedPaths(const TrimmedPaths& paths, report::Report* report) {
-  for (report::File* file : report::FilesOf(report)) {
-    if (const auto it = paths.find(file->original_path); it != paths.end()) {
-      file->path = it->second;
-    }
-  }
-}
-
-// Trims the paths of the files of `report` in `paths` with `patterns`
-// (Python: Report.trim_path_prefixes() on the shared File objects).
-void TrimPaths(const std::vector<util::Regex>& patterns,
-               report::Report* report, TrimmedPaths* paths) {
-  for (report::File* file : report::FilesOf(report)) {
-    std::string& path =
-        paths->try_emplace(file->original_path, file->original_path)
-            .first->second;
-    path = report::TrimPathPrefixes(path, patterns);
-  }
-}
-
 // What `parse` uses and collects while it reads the result files.
 struct ParseState {
   // The labels of the analyzer context, which outlives the run.
@@ -450,7 +423,7 @@ struct ParseState {
   std::set<std::string> processed_file_paths;
   // The patterns of --trim-path-prefix; empty: the paths are not trimmed.
   std::vector<util::Regex> trim_patterns;
-  TrimmedPaths trimmed_paths;
+  report::TrimmedPaths trimmed_paths;
   // The absolute path of -o: a folder for HTML, else a file.
   std::optional<std::string> output_path;
   // The HTML pages; only for --export html.
@@ -524,7 +497,7 @@ Result<void> ProcessResultFile(
   for (report::Report& report : reports) {
     report.severity = state->checker_labels->UniqueLabelOfChecker(
         report.checker_name, "severity", std::nullopt);
-    if (trim) ApplyTrimmedPaths(state->trimmed_paths, &report);
+    if (trim) report::ApplyTrimmedPaths(state->trimmed_paths, &report);
     // Only the comments of the reports that are shown are read, as in
     // Python, because an ambiguous comment ends the command.
     if (common::ShouldSkip(state->skip_handlers, report.file.original_path)) {
@@ -540,11 +513,14 @@ Result<void> ProcessResultFile(
   for (report::Report& report : kept) {
     state->changed_files.merge(report::ChangedFiles(report));
     state->statistics.AddReport(report);
-    if (trim) TrimPaths(state->trim_patterns, &report, &state->trimmed_paths);
+    if (trim) {
+      report::TrimPaths(state->trim_patterns, &report,
+                        &state->trimmed_paths);
+    }
   }
   if (trim) {
     for (report::Report& report : kept) {
-      ApplyTrimmedPaths(state->trimmed_paths, &report);
+      report::ApplyTrimmedPaths(state->trimmed_paths, &report);
     }
   }
   if (!args.export_format) {
@@ -754,7 +730,7 @@ Result<void> ExportReports(const ParseArgs& args,
   // The reports read first see the paths trimmed for the later ones, as
   // they do through Python's shared File objects.
   for (report::Report& report : reports) {
-    ApplyTrimmedPaths(state->trimmed_paths, &report);
+    report::ApplyTrimmedPaths(state->trimmed_paths, &report);
   }
   const std::string& format = *args.export_format;
   if (format == "baseline") {

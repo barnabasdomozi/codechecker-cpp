@@ -94,6 +94,21 @@ class ServerConfig {
 
   const AuthenticationConfig& authentication() const { return auth_; }
 
+  // Returns the maximum number of runs of a product; nullopt for no limit
+  // (Python: get_max_run_count()).
+  std::optional<int64_t> MaxRunCount() const;
+
+  // Returns the store.analysis_statistics_dir folder, where the analysis
+  // statistics of stores are kept; nullopt if they are not kept (Python:
+  // get_analysis_statistics_dir()).
+  std::optional<std::string> AnalysisStatisticsDir() const;
+
+  // Returns store.limit.failure_zip_size and
+  // store.limit.compilation_database_size, in bytes; nullopt if not set
+  // (Python: get_failure_zip_size(), get_compilation_database_size()).
+  std::optional<int64_t> FailureZipSizeLimit() const;
+  std::optional<int64_t> CompilationDatabaseSizeLimit() const;
+
  private:
   ServerConfig(util::JsonDocument document, AuthenticationConfig auth,
                int api_handler_processes, int task_worker_processes)
@@ -104,6 +119,9 @@ class ServerConfig {
 
   // Returns keepalive.<key> as an integer; 0 if it is missing.
   int64_t KeepaliveValue(const char* key) const;
+
+  // Returns store.limit.<key> as an integer; nullopt if it is missing.
+  std::optional<int64_t> StoreLimit(const char* key) const;
 
   util::JsonDocument document_;  // The configuration, variables resolved.
   AuthenticationConfig auth_;

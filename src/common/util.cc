@@ -94,4 +94,10 @@ Result<std::vector<std::string>> LoadArgsFromFile(const std::string& path) {
   return util::ShlexSplit(expanded);
 }
 
+std::string PathForFakeRoot(const std::string& full_path,
+                            const std::string& root_path) {
+  return util::pypath::Abspath(util::pypath::Join(
+      {root_path, util::pypath::Relpath(full_path, "/")}));
+}
+
 }  // namespace cc::common

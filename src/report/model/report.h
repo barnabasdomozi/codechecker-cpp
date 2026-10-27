@@ -10,6 +10,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -139,6 +140,21 @@ std::vector<util::Regex> PathPrefixPatterns(
 // match of only "/" is not removed.
 std::string TrimPathPrefixes(const std::string& path,
                              const std::vector<util::Regex>& patterns);
+
+// The paths of source files after --trim-path-prefix, by original path.
+// Python shares one File object per path between the reports of a result
+// file (and `parse` between all reports), so a path is trimmed again for
+// each report that refers to it, and the reports read later see the
+// trimmed path (in their path hashes too).
+using TrimmedPaths = std::unordered_map<std::string, std::string>;
+
+// Sets the files of `report` to their trimmed paths in `paths`.
+void ApplyTrimmedPaths(const TrimmedPaths& paths, Report* report);
+
+// Trims the paths of the files of `report` in `paths` with `patterns`
+// (Python: Report.trim_path_prefixes() on the shared File objects).
+void TrimPaths(const std::vector<util::Regex>& patterns, Report* report,
+               TrimmedPaths* paths);
 
 // Returns `report` as Report.to_json() builds it, in `document`.
 yyjson_mut_val* ReportToJson(const Report& report, yyjson_mut_doc* document);

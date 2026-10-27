@@ -32,5 +32,30 @@ TEST(CompressionTest, ErrorsHavePythonsMessages) {
             "stream");
 }
 
+TEST(CompressionTest, DecompressesAPart) {
+  Result<ZlibPart> part = ZlibDecompressPart(kCompressed, 5);
+  ASSERT_TRUE(part.ok());
+  EXPECT_EQ(part.value().data, "hello");
+  EXPECT_TRUE(part.value().limited);
+  part = ZlibDecompressPart(kCompressed, 10);
+  EXPECT_EQ(part.value().data, "hello zlib");
+  EXPECT_FALSE(part.value().limited);
+  // A stream that is cut off gives what it has.
+  part = ZlibDecompressPart(kCompressed.substr(0, 15), 100);
+  ASSERT_TRUE(part.ok());
+  EXPECT_FALSE(part.value().limited);
+  EXPECT_EQ(ZlibDecompressPart("not zlib", 100).error().message,
+            "Error -3 while decompressing data: incorrect header check");
+}
+
+TEST(CompressionTest, CompressesAtTheBestLevel) {
+  // Python: zlib.compress(b'hello zlib', 9).
+  EXPECT_EQ(ZlibCompress("hello zlib"),
+            std::string("\x78\xda\xcb\x48\xcd\xc9\xc9\x57\xa8\xca\xc9"
+                        "\x4c\x02\x00\x15\x95\x03\xe6",
+                        18));
+  EXPECT_EQ(ZlibDecompress(ZlibCompress("")).value(), "");
+}
+
 }  // namespace
 }  // namespace cc::util

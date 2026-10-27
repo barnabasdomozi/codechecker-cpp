@@ -16,6 +16,7 @@
 #include "server/database/connection.h"
 #include "server/database/database.h"
 #include "server/database/schema.h"
+#include "util/datetime.h"
 #include "util/logging.h"
 #include "util/result.h"
 
@@ -211,6 +212,29 @@ Result<bool> ProductRegistry::IsDatabaseUsed(const db::ConnectionUrl& url) {
     }
   }
   return Result<bool>(false);
+}
+
+Result<void> SetCachedRunData(db::LazyConnection& config_db, int64_t id,
+                              const std::string& endpoint,
+                              int64_t runs_change,
+                              std::optional<int64_t> latest_storage_date) {
+  if (runs_change != 0) {
+    kLog.Info(std::format(
+        "{}: Changing 'num_of_runs' in CONFIG database by {}{}.", endpoint,
+        runs_change > 0 ? '+' : '-',
+        runs_change > 0 ? runs_change : -runs_change));
+    Result<db::QueryResult> updated = config_db.Query(
+        "UPDATE products SET num_of_runs = num_of_runs + ? WHERE id = ?",
+        {runs_change, id});
+    if (!updated.ok()) return Result<void>(updated.error());
+  }
+  if (latest_storage_date) {
+    Result<db::QueryResult> updated = config_db.Query(
+        "UPDATE products SET latest_storage_date = ? WHERE id = ?",
+        {util::FormatDatabaseTime(*latest_storage_date), id});
+    if (!updated.ok()) return Result<void>(updated.error());
+  }
+  return Result<void>();
 }
 
 Result<std::vector<Product::Record>> LoadProducts(db::Connection& config_db) {

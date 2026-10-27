@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "report/model/report.h"
@@ -20,7 +21,12 @@ namespace cc::common {
 // threads at the same time; the others need exclusive access.
 class ReviewStatusHandler {
  public:
+  // Reads the source files of the reports where they are; with
+  // `source_root`, from that folder, which stands for "/" (Python:
+  // ReviewStatusHandler(source_root)).
   ReviewStatusHandler() = default;
+  explicit ReviewStatusHandler(std::string source_root)
+      : source_root_(std::move(source_root)) {}
   ReviewStatusHandler(ReviewStatusHandler&& other) = default;
   ReviewStatusHandler& operator=(ReviewStatusHandler&& other) = default;
 
@@ -56,6 +62,7 @@ class ReviewStatusHandler {
   std::optional<report::ReviewStatus> ReviewStatusFromConfig(
       const report::Report& report) const;
 
+  std::string source_root_;  // Empty: the files are where they are.
   std::optional<util::JsonDocument> data_;
   std::string path_;
   std::vector<std::string> source_comment_warnings_;

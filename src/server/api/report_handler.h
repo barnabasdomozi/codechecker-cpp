@@ -1,13 +1,8 @@
 // Port of codechecker_server/api/report_server.py: the CodeCheckerService of
 // a product: runs, reports, review statuses, comments, source components,
-// cleanup plans and filter presets (the cmd-*.md pages and web-ui.md in
-// docs/reference).
-//
-// Storing is not ported yet: massStoreRun(), massStoreRunAsynchronous() and
-// the calls only `store` makes (getMissingContentHashes(),
-// getMissingContentHashesForBlameInfo(), allowsStoringAnalysisStatistics(),
-// getAnalysisStatisticsLimits(), storeAnalysisStatistics()) fail with
-// GENERAL.
+// cleanup plans, filter presets and stores (the cmd-*.md pages, store.md
+// and web-ui.md in docs/reference). The stores themselves are in
+// mass_store_run.h.
 
 #ifndef CC_SERVER_API_REPORT_HANDLER_H_
 #define CC_SERVER_API_REPORT_HANDLER_H_
@@ -295,6 +290,11 @@ class ReportHandler final : public codeCheckerDBAccessIf {
   // Changes the cached number of runs of the product by `change` (Python:
   // Product.set_cached_run_data()).
   Result<void> ChangeCachedRunCount(int64_t change);
+
+  // Returns the hashes of `hashes` whose file content the product does not
+  // have, or, with `for_blame`, has without blame information.
+  std::vector<std::string> MissingContentHashes(
+      const std::vector<std::string>& hashes, bool for_blame);
 
   // Returns whether the client's API version is at least 6.`minor`.
   bool ClientAtLeast(int minor) const;

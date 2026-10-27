@@ -4,6 +4,7 @@
 
 add_library(cc_platform STATIC
   platform/filesystem.cc
+  platform/ipc.cc
   platform/local_time.cc
   platform/locked_file.cc
   platform/process.cc
@@ -183,9 +184,11 @@ if(CC_BUILD_WEB)
   add_library(cc_server STATIC
     server/api/authentication_handler.cc
     server/api/configuration_handler.cc
+    server/api/mass_store_run.cc
     server/api/product_handler.cc
     server/api/report_filter.cc
     server/api/report_handler.cc
+    server/api/task_handler.cc
     server/api/thrift_enum_helper.cc
     server/auth/permissions.cc
     server/auth/session_manager.cc
@@ -198,12 +201,15 @@ if(CC_BUILD_WEB)
     server/http/api_dispatch.cc
     server/http/http_server.cc
     server/http/routing.cc
+    server/metadata.cc
     server/package_data.cc
     server/product.cc
     server/server_config.cc
     server/supervisor/instance_manager.cc
     server/supervisor/supervisor.cc
-    server/tasks/task_manager.cc)
+    server/tasks/task_manager.cc
+    server/tasks/task_record.cc
+    server/tasks/task_worker.cc)
   target_link_libraries(cc_server PUBLIC cc_web third_party::httplib
     third_party::sqlite3 third_party::pq third_party::ssl)
 endif()

@@ -140,7 +140,12 @@ std::string TempDir() {
 }
 
 std::optional<std::string> MakeTempDir() {
-  std::string path = TempDir() + "/tmpXXXXXX";
+  return MakeTempDir(TempDir(), "tmp");
+}
+
+std::optional<std::string> MakeTempDir(const std::string& dir,
+                                       const std::string& prefix) {
+  std::string path = dir + "/" + prefix + "XXXXXX";
   if (mkdtemp(path.data()) == nullptr) return std::nullopt;
   return path;
 }

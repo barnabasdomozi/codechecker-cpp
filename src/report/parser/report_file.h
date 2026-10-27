@@ -18,6 +18,10 @@ struct ResultFolder {
   std::vector<std::string> files;
 };
 
+// Returns whether `path` is an analyzer result file of a supported format,
+// .plist or .sarif (Python: is_supported()).
+bool IsSupported(const std::string& path);
+
 // Returns the analyzer result files (.plist and .sarif) of `inputs`, by
 // folder (Python: analyzer_result_files()). A file input is itself in its
 // folder, or nothing if its format is not supported. A folder input gives

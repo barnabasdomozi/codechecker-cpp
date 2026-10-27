@@ -13,6 +13,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -23,6 +24,8 @@
 #include "api/thrift/shared_types.h"
 #include "common/checker_labels.h"
 #include "common/guidelines.h"
+#include "platform/filesystem.h"
+#include "server/api/mass_store_run.h"
 #include "server/api/report_filter.h"
 #include "server/api/request_failed.h"
 #include "server/api/thrift_enum_helper.h"
@@ -32,12 +35,16 @@
 #include "server/database/sql.h"
 #include "server/package_data.h"
 #include "server/product.h"
+#include "server/server_config.h"
 #include "server/server_context.h"
+#include "server/tasks/task_record.h"
 #include "util/base64.h"
 #include "util/compression.h"
 #include "util/datetime.h"
+#include "util/file.h"
 #include "util/json.h"
 #include "util/logging.h"
+#include "util/pypath.h"
 #include "util/pyre.h"
 #include "util/result.h"
 #include "util/shlex.h"
@@ -48,10 +55,6 @@ namespace cc::server::api {
 namespace {
 
 constexpr util::Logger kLog("server");
-
-// The size of the chunks of long value lists (Python:
-// SQLITE_MAX_VARIABLE_NUMBER).
-constexpr size_t kChunkSize = 999;
 
 // The kinds of comments (Python: CommentKindValue).
 constexpr int64_t kUserComment = 0;
@@ -214,18 +217,6 @@ int64_t VerifyLimitRange(int64_t limit) {
     return max_limit;
   }
   return limit;
-}
-
-// Returns `values` in chunks of at most kChunkSize (Python: util.chunks()).
-template <typename T>
-std::vector<std::vector<T>> Chunks(const std::vector<T>& values) {
-  std::vector<std::vector<T>> chunks;
-  for (size_t i = 0; i < values.size(); i += kChunkSize) {
-    chunks.emplace_back(values.begin() + i,
-                        values.begin() + std::min(values.size(),
-                                                  i + kChunkSize));
-  }
-  return chunks;
 }
 
 // Returns the text of the zlib-compressed `data`; throws GENERAL with
@@ -606,15 +597,9 @@ Result<void> ReportHandler::CheckRemoveRunsLock(
 }
 
 Result<void> ReportHandler::ChangeCachedRunCount(int64_t change) {
-  if (change == 0) return Result<void>();
-  kLog.Info(std::format("{}: Changing 'num_of_runs' in CONFIG database by "
-                        "{}{}.",
-                        request_.product->endpoint(), change > 0 ? '+' : '-',
-                        change > 0 ? change : -change));
-  Result<db::QueryResult> updated = request_.server->config_db().Query(
-      "UPDATE products SET num_of_runs = num_of_runs + ? WHERE id = ?",
-      {change, request_.product->id()});
-  return updated.ok() ? Result<void>() : Result<void>(updated.error());
+  return SetCachedRunData(request_.server->config_db(),
+                          request_.product->id(),
+                          request_.product->endpoint(), change, std::nullopt);
 }
 
 db::Row ReportHandler::CleanupPlanRow(int64_t id) {
@@ -961,7 +946,8 @@ void ReportHandler::getDiffResultsHash(
       if (new_client) select.where.emplace_back("reports.fixed_at IS NULL");
       in_runs_and_tags(&select);
       std::set<std::string> found;
-      for (const std::vector<std::string>& chunk : Chunks(report_hashes)) {
+      for (const std::vector<std::string>& chunk :
+           db::Chunks(report_hashes)) {
         db::Select chunk_select = select;
         chunk_select.where.push_back(db::In("reports.bug_id", chunk));
         for (const db::Row& row : Run(db::Build(chunk_select)).rows) {
@@ -2000,7 +1986,7 @@ void ReportHandler::getLinesInSourceFileContents(
   Require({Permission::PRODUCT_VIEW, Permission::PERMISSION_VIEW});
   std::map<int64_t, std::vector<std::string>> lines_of_file;
   for (const std::vector<LinesInFilesRequested>& chunk :
-       Chunks(lines_in_files_requested)) {
+       db::Chunks(lines_in_files_requested)) {
     std::vector<int64_t> file_ids;
     for (const LinesInFilesRequested& request : chunk) {
       file_ids.push_back(request.fileId);
@@ -2181,7 +2167,8 @@ void ReportHandler::getReviewStatusRules(
     add_rules(filter);
     return;
   }
-  for (const std::vector<std::string>& hashes : Chunks(filter.reportHashes)) {
+  for (const std::vector<std::string>& hashes :
+       db::Chunks(filter.reportHashes)) {
     ReviewStatusRuleFilter chunk = filter;
     chunk.__set_reportHashes(hashes);
     add_rules(chunk);
@@ -2553,7 +2540,7 @@ bool ReportHandler::RemoveReports(const std::vector<int64_t>& run_ids,
     for (const db::Row& row : rows.value().rows) {
       report_ids.push_back(row.Int(0));
     }
-    for (const std::vector<int64_t>& chunk : Chunks(report_ids)) {
+    for (const std::vector<int64_t>& chunk : db::Chunks(report_ids)) {
       db::Sql remove("DELETE FROM reports WHERE ");
       remove.Add(db::In("id", chunk));
       Result<db::QueryResult> removed =
@@ -2693,14 +2680,7 @@ bool ReportHandler::addSourceComponent(const std::string& name,
   ValueOrThrow(db.Query(
       "DELETE FROM source_component_files WHERE source_component_name = ?",
       {name}));
-  std::vector<std::string> include;
-  std::vector<std::string> skip;
-  for (const std::string& line : util::Split(value, "\n")) {
-    const std::string_view path = util::Strip(line);
-    if (path.empty()) continue;
-    if (path.front() == '+') include.emplace_back(path.substr(1));
-    if (path.front() == '-') skip.emplace_back(path.substr(1));
-  }
+  const auto [include, skip] = ParseComponentValues(value);
   db::Sql files;
   if (!include.empty() && !skip.empty()) {
     files = FilesLike(include);
@@ -2771,62 +2751,172 @@ bool ReportHandler::removeSourceComponent(const std::string& name) {
   return true;
 }
 
+std::vector<std::string> ReportHandler::MissingContentHashes(
+    const std::vector<std::string>& hashes, bool for_blame) {
+  std::set<std::string> found;
+  for (const std::vector<std::string>& chunk : db::Chunks(hashes)) {
+    db::Sql query("SELECT content_hash FROM file_contents WHERE ");
+    query.Add(db::In("content_hash", chunk));
+    if (for_blame) query.Add(" AND blame_info IS NOT NULL");
+    for (const db::Row& row : Run(query).rows) found.insert(row.Text(0));
+  }
+  // Python returns a set difference; each hash is listed once.
+  std::vector<std::string> missing;
+  std::set<std::string> listed;
+  for (const std::string& hash : hashes) {
+    if (!found.contains(hash) && listed.insert(hash).second) {
+      missing.push_back(hash);
+    }
+  }
+  return missing;
+}
+
+void ReportHandler::getMissingContentHashes(
+    std::vector<std::string>& result,
+    const std::vector<std::string>& file_hashes) {
+  Require({Permission::PRODUCT_STORE});
+  result = MissingContentHashes(file_hashes, /*for_blame=*/false);
+}
+
+void ReportHandler::getMissingContentHashesForBlameInfo(
+    std::vector<std::string>& result,
+    const std::vector<std::string>& file_hashes) {
+  Require({Permission::PRODUCT_STORE});
+  result = MissingContentHashes(file_hashes, /*for_blame=*/true);
+}
+
 namespace {
 
-// Throws the error of the calls of `store`, which the port does not
-// support yet.
-[[noreturn]] void StoreNotSupported() {
-  throw MakeRequestFailed(ErrorCode::GENERAL,
-                          "Storing is not supported by this server yet.");
+// Returns `text` as an optional value; nullopt if it is empty, which is how
+// a None of the client arrives.
+std::optional<std::string> TextOrNone(const std::string& text) {
+  return text.empty() ? std::nullopt : std::optional<std::string>(text);
+}
+
+// Returns `text` with the characters other than letters, digits, '_',
+// whitespace, '-' and '/' removed, and with runs of whitespace and of '/'
+// replaced by '_' (Python: slugify()).
+std::string Slugify(const std::string& text) {
+  static const auto& kSpecial = *new util::Regex(R"([^\w\s\-/])");
+  static const auto& kSeparators = *new util::Regex(R"(([\s]+|[/]+))");
+  return kSeparators.ReplaceAll(kSpecial.ReplaceAll(text, ""), "_");
 }
 
 }  // namespace
 
-void ReportHandler::getMissingContentHashes(
-    std::vector<std::string>& /*result*/,
-    const std::vector<std::string>& /*file_hashes*/) {
-  Require({Permission::PRODUCT_STORE});
-  StoreNotSupported();
-}
-
-void ReportHandler::getMissingContentHashesForBlameInfo(
-    std::vector<std::string>& /*result*/,
-    const std::vector<std::string>& /*file_hashes*/) {
-  Require({Permission::PRODUCT_STORE});
-  StoreNotSupported();
-}
-
 int64_t ReportHandler::massStoreRun(
-    const std::string& /*run_name*/, const std::string& /*tag*/,
-    const std::string& /*version*/, const std::string& /*zipfile*/,
-    bool /*force*/, const std::vector<std::string>& /*trim_path_prefixes*/,
-    const std::string& /*description*/) {
+    const std::string& run_name, const std::string& tag,
+    const std::string& version, const std::string& zipfile, bool force,
+    const std::vector<std::string>& trim_path_prefixes,
+    const std::string& description) {
   Require({Permission::PRODUCT_STORE});
-  StoreNotSupported();
+  const std::string token = ValueOrThrow(SubmitStore(
+      request_,
+      {.run_name = run_name,
+       .tag = TextOrNone(tag),
+       .client_version = version,
+       .force = force,
+       .trim_path_prefixes = trim_path_prefixes,
+       .description = TextOrNone(description),
+       .user_name = User()},
+      zipfile, /*asynchronous=*/false));
+  // Clients older than 6.25 wait for this call, which used to store the
+  // results itself.
+  const tasks::TaskRecord task = ValueOrThrow(
+      request_.server->tasks().GetTaskRecord(token), ErrorCode::GENERAL);
+  if (task.status == "failed") {
+    throw MakeRequestFailed(
+        ErrorCode::GENERAL,
+        std::format("massStoreRun()'s processing failed. Here follow the "
+                    "details:\n\n{}",
+                    task.comments.value_or("None")));
+  }
+  if (task.status == "cancelled") {
+    throw MakeRequestFailed(ErrorCode::GENERAL,
+                            "Server administrators cancelled the processing "
+                            "of the massStoreRun() request!");
+  }
+  return -1;
 }
 
 void ReportHandler::massStoreRunAsynchronous(
-    ::TaskToken& /*result*/, const std::string& /*zipfile_blob*/,
-    const SubmittedRunOptions& /*store_opts*/) {
+    ::TaskToken& result, const std::string& zipfile_blob,
+    const SubmittedRunOptions& store_opts) {
   Require({Permission::PRODUCT_STORE});
-  StoreNotSupported();
+  auto optional = [](bool is_set, const std::string& text) {
+    return is_set ? std::optional<std::string>(text) : std::nullopt;
+  };
+  std::optional<std::vector<std::string>> trim_path_prefixes;
+  if (store_opts.__isset.trimPathPrefixes) {
+    trim_path_prefixes = store_opts.trimPathPrefixes;
+  }
+  result = ValueOrThrow(SubmitStore(
+      request_,
+      {.run_name = store_opts.runName,
+       .tag = optional(store_opts.__isset.tag, store_opts.tag),
+       .client_version = store_opts.version,
+       .force = store_opts.force,
+       .trim_path_prefixes = std::move(trim_path_prefixes),
+       .description =
+           optional(store_opts.__isset.description, store_opts.description),
+       .user_name = User()},
+      zipfile_blob, /*asynchronous=*/true));
 }
 
 bool ReportHandler::allowsStoringAnalysisStatistics() {
   Require({Permission::PRODUCT_STORE});
-  StoreNotSupported();
+  return !request_.server->config().AnalysisStatisticsDir().value_or("")
+              .empty();
 }
 
 void ReportHandler::getAnalysisStatisticsLimits(
-    cc::api::OrderedMap<StoreLimitKind::type, int64_t>& /*result*/) {
+    cc::api::OrderedMap<StoreLimitKind::type, int64_t>& result) {
   Require({Permission::PRODUCT_STORE});
-  StoreNotSupported();
+  const ServerConfig& config = request_.server->config();
+  if (const int64_t size = config.FailureZipSizeLimit().value_or(0)) {
+    result[StoreLimitKind::FAILURE_ZIP_SIZE] = size;
+  }
+  if (const int64_t size =
+          config.CompilationDatabaseSizeLimit().value_or(0)) {
+    result[StoreLimitKind::COMPILATION_DATABASE_SIZE] = size;
+  }
 }
 
-bool ReportHandler::storeAnalysisStatistics(const std::string& /*run_name*/,
-                                            const std::string& /*zipfile*/) {
+bool ReportHandler::storeAnalysisStatistics(const std::string& run_name,
+                                            const std::string& zipfile) {
   Require({Permission::PRODUCT_STORE});
-  StoreNotSupported();
+  const std::string directory =
+      request_.server->config().AnalysisStatisticsDir().value_or("");
+  if (directory.empty()) return false;
+  const std::string product_dir =
+      util::pypath::Join({directory, request_.product->endpoint()});
+  const std::string zip_path = util::pypath::Join(
+      {product_dir, Slugify(run_name) + ".zip"});
+  // Only the user and the group may read the statistics.
+  constexpr int kDirectoryMode = 0740;
+  constexpr int kFileMode = 0640;
+  if (!util::pypath::Exists(product_dir)) {
+    if (const std::error_code error = platform::MakeDirs(product_dir)) {
+      kLog.Error(util::OsError(error.value(), product_dir).message);
+      return false;
+    }
+    (void)platform::SetFileMode(product_dir, kDirectoryMode);
+  }
+  const std::optional<std::string> compressed = util::Base64Decode(zipfile);
+  if (!compressed) {
+    kLog.Error("Incorrect padding");
+    return false;
+  }
+  const Result<std::string> zip = util::ZlibDecompress(*compressed);
+  const Result<void> written =
+      zip.ok() ? util::WriteFile(zip_path, zip.value())
+               : Result<void>(zip.error());
+  if (!written.ok()) {
+    kLog.Error(written.error().message);
+    return false;
+  }
+  (void)platform::SetFileMode(zip_path, kFileMode);
+  return true;
 }
 
 void ReportHandler::exportData(ExportData& result,

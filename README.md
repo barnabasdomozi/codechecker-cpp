@@ -48,11 +48,11 @@ The porting order is in
 | Local results | `fixit` | [fixit.md](docs/usage/fixit.md) | ❌ | |
 | Local results | Local diff (`cmd diff` on folders) | [local-diff.md](docs/usage/local-diff.md) | ❌ | |
 | Server | Thrift API (`cc_api`) | [server-api](docs/reference/server-api.md) | ✅ | C++ code generated from the copied IDL files ([build-system.md](docs/implementation/build-system.md#43-generated-files) §4.3); HTTP layer and routing of the server |
-| Server | `server` | [server.md](docs/usage/server.md) | 🟡 | Start-up, instance commands, processes and signals, TLS, the `ServerInfo`, `Configuration`, `Products` and `Authentication` services, and `CodeCheckerService` except storing (`massStoreRun`, `massStoreRunAsynchronous` and the other calls only `store` makes fail). The `Tasks` service is not served yet, so task workers run no tasks |
+| Server | `server` | [server.md](docs/usage/server.md) | ✅ | Start-up, instance commands, processes and signals, TLS, and every service: `ServerInfo`, `Configuration`, `Products`, `Authentication`, `Tasks` and `CodeCheckerService`, storing included (task queue, task workers, `massStoreRun`, `massStoreRunAsynchronous`) |
 | Server | Server database | [server-database.md](docs/usage/server-database.md) | 🟡 | Latest schema on SQLite and PostgreSQL, status checks, garbage collection; `--db-status` and `--db-upgrade-schema` are ignored as in 6.30.0 (known issue #1) |
 | Server | Authentication | [server-authentication.md](docs/usage/server-authentication.md) | 🟡 | Server side: sessions, dictionary and personal access token logins, permissions, tokens. LDAP and OAuth are missing; the client is not ported |
 | Server | `store` | [store.md](docs/usage/store.md) | ❌ | |
-| Server | Web UI | [web-ui.md](docs/usage/web-ui.md) | 🟡 | Built from the copied sources and served; the server-side task pages need `Tasks` |
+| Server | Web UI | [web-ui.md](docs/usage/web-ui.md) | ✅ | Built from the copied sources and served |
 | `cmd` client | `cmd runs`, `cmd history` | [cmd-runs-history.md](docs/usage/cmd-runs-history.md) | ❌ | |
 | `cmd` client | `cmd results` | [cmd-results.md](docs/usage/cmd-results.md) | ❌ | |
 | `cmd` client | `cmd sum` | [cmd-sum.md](docs/usage/cmd-sum.md) | ❌ | |
@@ -80,9 +80,7 @@ tests run with a wrapper that sends `analyze` to `codechecker-cpp` and the
 other subcommands to the Python `CodeChecker`. The server tests
 (`tests/server/`) run the same way, with a wrapper that sends `server` to
 `codechecker-cpp` and the client commands (`cmd`, `store`) to the Python
-`CodeChecker`. With it, `server.test.ts`, `server-database.test.ts` and
-`web-ui.test.ts` pass except the two tests that store results, which need
-`store` on the server. The other server tests store results first.
+`CodeChecker`. With it, all of `tests/server/` passes, PostgreSQL included.
 
 ## Goals
 

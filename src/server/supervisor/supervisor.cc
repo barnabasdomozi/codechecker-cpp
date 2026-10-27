@@ -17,6 +17,7 @@
 #include "api/api_version.h"
 #include "common/package.h"
 #include "platform/filesystem.h"
+#include "platform/ipc.h"
 #include "platform/process.h"
 #include "platform/processes.h"
 #include "platform/signal_receiver.h"
@@ -30,6 +31,7 @@
 #include "server/server_context.h"
 #include "server/supervisor/instance_manager.h"
 #include "server/tasks/task_manager.h"
+#include "server/tasks/task_worker.h"
 #include "util/logging.h"
 #include "util/pypath.h"
 #include "util/result.h"
@@ -129,25 +131,6 @@ int64_t CleanupIncompleteTasks(db::LazyConnection& config_db,
   return dropped.value();
 }
 
-// Runs a task worker process (Python: task_executors.main.executor()):
-// until the supervisor sends SIGHUP. Termination signals are ignored, so a
-// worker can clean up after itself.
-int RunTaskWorker() {
-  std::error_code error;
-  std::optional<platform::SignalReceiver> signals =
-      platform::SignalReceiver::Create({SIGHUP, SIGINT, SIGTERM}, &error);
-  if (!signals) {
-    kLog.Error(std::format("Couldn't receive signals: {}", error.message()));
-    return 1;
-  }
-  while (signals->Wait(std::nullopt) != SIGHUP) {
-  }
-  kLog.Debug(std::format(
-      "Task executor subprocess PID {} exited main loop.",
-      platform::ProcessId()));
-  return 0;
-}
-
 // The main process of a running server. Not thread-safe.
 class Supervisor {
  public:
@@ -225,7 +208,9 @@ void Supervisor::SpawnApiProcess() {
 
 void Supervisor::SpawnTaskProcess() {
   ++spawned_task_;
-  const int pid = platform::ForkChild(&RunTaskWorker);
+  ServerContext* context = context_;
+  const int pid = platform::ForkChild(
+      [context] { return tasks::RunTaskWorker(context); });
   if (pid < 0) return;
   task_children_.push_back(
       {.pid = pid, .name = std::format("CodeChecker-Task-{}", spawned_task_)});
@@ -495,9 +480,21 @@ int StartServer(const ServerOptions& options, const db::Database& config_db) {
       config.value().ApiHandlerProcesses());
   const int task_count = options.task_worker_processes.value_or(
       config.value().TaskWorkerProcesses());
+  // The API processes and the task workers inherit the queue.
+  std::error_code queue_error;
+  std::optional<platform::MessageQueue> task_queue =
+      platform::MessageQueue::Create(&queue_error);
+  if (!task_queue) {
+    kLog.Error(std::format("Couldn't create the task queue: {}",
+                           queue_error.message()));
+    return 1;
+  }
   ServerContext context(std::move(config).value(), config_db,
                         options.workspace, options.package_version,
-                        std::move(package_data).value());
+                        std::move(package_data).value(),
+                        {.machine_id = options.machine_id,
+                         .worker_count = task_count,
+                         .queue = &*task_queue});
   if (!options.skip_db_cleanup) {
     kLog.Info("Starting garbage collection on the config database ...");
     context.sessions().DeleteExpiredSessions(std::nullopt);

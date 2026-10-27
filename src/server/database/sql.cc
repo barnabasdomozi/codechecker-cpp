@@ -4,12 +4,14 @@
 #include <stdint.h>
 
 #include <format>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "server/database/connection.h"
+#include "util/datetime.h"
 
 namespace cc::server::db {
 namespace {
@@ -132,6 +134,14 @@ Sql Build(const Select& select) {
 Sql Count(const Sql& query) {
   Sql sql("SELECT count(*) FROM (");
   return sql.Add(query).Add(") AS counted");
+}
+
+Param OptionalText(const std::optional<std::string>& text) {
+  return text ? Param(*text) : Param(nullptr);
+}
+
+Param OptionalTime(std::optional<int64_t> time) {
+  return time ? Param(util::FormatDatabaseTime(*time)) : Param(nullptr);
 }
 
 }  // namespace cc::server::db

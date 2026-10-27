@@ -7,6 +7,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -234,6 +235,24 @@ std::string TrimPathPrefixes(const std::string& path,
   }
   if (longest.empty() || longest == "/") return path;
   return path.substr(longest.size());
+}
+
+void ApplyTrimmedPaths(const TrimmedPaths& paths, Report* report) {
+  for (File* file : FilesOf(report)) {
+    if (const auto it = paths.find(file->original_path); it != paths.end()) {
+      file->path = it->second;
+    }
+  }
+}
+
+void TrimPaths(const std::vector<util::Regex>& patterns, Report* report,
+               TrimmedPaths* paths) {
+  for (File* file : FilesOf(report)) {
+    std::string& path =
+        paths->try_emplace(file->original_path, file->original_path)
+            .first->second;
+    path = TrimPathPrefixes(path, patterns);
+  }
 }
 
 std::string FormattedStatus(const ReviewStatus& status) {

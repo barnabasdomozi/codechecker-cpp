@@ -21,6 +21,7 @@
 #include "api/thrift/codeCheckerAuthentication.h"
 #include "api/thrift/codeCheckerDBAccess.h"
 #include "api/thrift/codeCheckerProductService.h"
+#include "api/thrift/codeCheckerServersideTaskService.h"
 #include "api/thrift/configurationService.h"
 #include "api/thrift/serverInfoService.h"
 #include "api/thrift/shared_types.h"
@@ -29,6 +30,7 @@
 #include "server/api/product_handler.h"
 #include "server/api/report_handler.h"
 #include "server/api/server_info_handler.h"
+#include "server/api/task_handler.h"
 #include "server/auth/session.h"
 #include "server/http/routing.h"
 #include "server/product.h"
@@ -162,8 +164,9 @@ std::string Process(const Request& request, const std::string& body) {
 }
 
 // Logs the RequestFailed that the reply `reply` of the CodeCheckerService
-// call `method` carries, as "<method>:\n<message>" (Python: the
-// exc_to_thrift_reqfail decorator of the methods of report_server.py).
+// or Tasks call `method` carries, as "<method>:\n<message>" (Python: the
+// exc_to_thrift_reqfail decorator of the methods of report_server.py and
+// tasks.py).
 void LogRequestFailed(const std::string& method, const std::string& reply) {
   // The methods that the reference does not decorate.
   constexpr std::string_view kUndecorated[] = {
@@ -230,9 +233,11 @@ std::optional<std::string> CallService(const Request& request,
     return reply;
   }
   if (service == "Tasks") {
-    *error = std::format(
-        "The '{}' API is not supported by this server yet.", service);
-    return std::nullopt;
+    std::string reply =
+        Process<codeCheckerServersideTaskServiceProcessor, api::TaskHandler>(
+            request, body);
+    LogRequestFailed(method, reply);
+    return reply;
   }
   return std::nullopt;
 }

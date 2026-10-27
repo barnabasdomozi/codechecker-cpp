@@ -69,9 +69,12 @@ std::error_code RemoveTree(const std::string& path);
 // current folder.
 std::string TempDir();
 
-// Creates a new, empty folder in TempDir() and returns its path (Python:
-// tempfile.mkdtemp()); nullopt if that fails.
+// Creates a new, empty folder named "<prefix><random>" in the folder `dir`
+// and returns its path (Python: tempfile.mkdtemp(prefix=prefix, dir=dir));
+// without arguments, "tmp<random>" in TempDir(). nullopt if that fails.
 std::optional<std::string> MakeTempDir();
+std::optional<std::string> MakeTempDir(const std::string& dir,
+                                       const std::string& prefix);
 
 // Creates a new, empty file named "tmp<random><suffix>" in the folder `dir`
 // and returns its path (Python: tempfile.mkstemp(suffix, dir=dir)); nullopt

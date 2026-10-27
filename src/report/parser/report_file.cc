@@ -16,12 +16,11 @@ namespace {
 
 constexpr util::Logger kLog("report-converter");
 
-// Python: is_supported().
+}  // namespace
+
 bool IsSupported(const std::string& path) {
   return path.ends_with(".plist") || path.ends_with(".sarif");
 }
-
-}  // namespace
 
 std::vector<ResultFolder> AnalyzerResultFiles(
     const std::vector<std::string>& inputs) {

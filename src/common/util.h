@@ -31,6 +31,12 @@ std::optional<util::JsonDocument> LoadYaml(const std::string& path);
 // "File not found: <path>".
 Result<std::vector<std::string>> LoadArgsFromFile(const std::string& path);
 
+// Returns where the absolute path `full_path` is in the folder `root_path`,
+// which stands for "/": "/a/b" in "/tmp/root" is "/tmp/root/a/b" (Python:
+// path_for_fake_root()).
+std::string PathForFakeRoot(const std::string& full_path,
+                            const std::string& root_path);
+
 }  // namespace cc::common
 
 #endif  // CC_COMMON_UTIL_H_

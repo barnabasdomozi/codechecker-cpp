@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "util/result.h"
 #include "util/unicode.h"
 #include "util/xml.h"
 
@@ -190,6 +191,10 @@ std::string Repr(std::string_view text) {
   }
   result += quote;
   return result;
+}
+
+Error KeyError(std::string_view key) {
+  return Error{.message = Repr(key)};
 }
 
 std::optional<int64_t> ParseInt(std::string_view text) {

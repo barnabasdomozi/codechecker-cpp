@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "common/source_code_comment_handler.h"
+#include "common/util.h"
 #include "report/model/report.h"
 #include "util/file.h"
 #include "util/fnmatch.h"
@@ -276,7 +277,9 @@ Result<std::optional<report::ReviewStatus>>
 ReviewStatusHandler::ReviewStatusFromSource(const report::Report& report) {
   using Status = Result<std::optional<report::ReviewStatus>>;
   const std::string source_file =
-      util::pypath::Realpath(report.file.original_path);
+      source_root_.empty()
+          ? util::pypath::Realpath(report.file.original_path)
+          : PathForFakeRoot(report.file.original_path, source_root_);
   if (report::ChangedFiles(report).contains(source_file) ||
       !util::pypath::IsFile(source_file)) {
     return Status(std::nullopt);

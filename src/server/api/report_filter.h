@@ -41,6 +41,16 @@ struct ReportFilterSql {
 inline constexpr std::string_view kOtherComponentName =
     "Other (auto-generated)";
 
+// The path patterns of a source component.
+struct ComponentValues {
+  std::vector<std::string> include;  // The "+<pattern>" lines.
+  std::vector<std::string> skip;     // The "-<pattern>" lines.
+};
+
+// Returns the patterns in the value `value` of a source component (Python:
+// get_component_values()).
+ComponentValues ParseComponentValues(std::string_view value);
+
 // Returns `filter` with '*' as the wildcard of LIKE (Python: conv()).
 std::string Conv(std::string_view filter);
 

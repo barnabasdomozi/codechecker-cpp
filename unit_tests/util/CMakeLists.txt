@@ -17,6 +17,7 @@ add_executable(util_test
   template_test.cc
   textwrap_test.cc
   twodim_test.cc
-  yaml_test.cc)
+  yaml_test.cc
+  zip_test.cc)
 target_link_libraries(util_test PRIVATE cc_util third_party::gtest)
 add_test(NAME util_test COMMAND util_test)

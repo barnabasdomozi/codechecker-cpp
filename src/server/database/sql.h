@@ -15,8 +15,11 @@
 #ifndef CC_SERVER_DATABASE_SQL_H_
 #define CC_SERVER_DATABASE_SQL_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -106,6 +109,29 @@ Sql Build(const Select& select);
 // Returns "SELECT count(*) FROM (<query>) AS counted" (Python:
 // query.count()).
 Sql Count(const Sql& query);
+
+// Returns `text` as a parameter; NULL for nullopt.
+Param OptionalText(const std::optional<std::string>& text);
+
+// Returns the time `time` (util/datetime.h) as a parameter; NULL for
+// nullopt.
+Param OptionalTime(std::optional<int64_t> time);
+
+// The size of the chunks in which long lists of values are put into
+// statements (Python: SQLITE_MAX_VARIABLE_NUMBER).
+inline constexpr size_t kChunkSize = 999;
+
+// Returns `values` in chunks of at most kChunkSize (Python: util.chunks()).
+template <typename T>
+std::vector<std::vector<T>> Chunks(const std::vector<T>& values) {
+  std::vector<std::vector<T>> chunks;
+  for (size_t i = 0; i < values.size(); i += kChunkSize) {
+    chunks.emplace_back(values.begin() + i,
+                        values.begin() + std::min(values.size(),
+                                                  i + kChunkSize));
+  }
+  return chunks;
+}
 
 }  // namespace cc::server::db
 
