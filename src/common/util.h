@@ -5,6 +5,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "util/json.h"
@@ -36,6 +37,14 @@ Result<std::vector<std::string>> LoadArgsFromFile(const std::string& path);
 // path_for_fake_root()).
 std::string PathForFakeRoot(const std::string& full_path,
                             const std::string& root_path);
+
+// Returns the size `bytes` in binary units with one decimal, for example
+// "1.5 KiB" or "1.0 GiB" (Python: format_size()).
+std::string FormatSize(double bytes);
+
+// Returns whether `value` means true: "y", "yes", "t", "true", "on" or "1"
+// in any case (Python: strtobool()).
+bool StrToBool(std::string_view value);
 
 }  // namespace cc::common
 

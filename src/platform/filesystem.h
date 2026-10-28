@@ -4,6 +4,8 @@
 #ifndef CC_PLATFORM_FILESYSTEM_H_
 #define CC_PLATFORM_FILESYSTEM_H_
 
+#include <stdint.h>
+
 #include <optional>
 #include <string>
 #include <system_error>
@@ -37,6 +39,10 @@ std::vector<std::string> WalkFiles(const std::string& path);
 // fails.
 std::optional<double> ModificationTime(const std::string& path);
 
+// Returns the size of the file `path` in bytes, symbolic links followed
+// (Python: os.stat(path).st_size); nullopt if stat() fails.
+std::optional<int64_t> FileSize(const std::string& path);
+
 // Returns the permission bits of `path` (Python: os.stat(path).st_mode &
 // 0o7777), symbolic links followed; nullopt if stat() fails.
 std::optional<int> FileMode(const std::string& path);
@@ -69,12 +75,15 @@ std::error_code RemoveTree(const std::string& path);
 // current folder.
 std::string TempDir();
 
-// Creates a new, empty folder named "<prefix><random>" in the folder `dir`
-// and returns its path (Python: tempfile.mkdtemp(prefix=prefix, dir=dir));
-// without arguments, "tmp<random>" in TempDir(). nullopt if that fails.
+// Creates a new, empty folder named "<prefix><random><suffix>" in the folder
+// `dir` and returns its path (Python: tempfile.mkdtemp(suffix, prefix,
+// dir)); without arguments, "tmp<random>" in TempDir(). nullopt if that
+// fails; then `*error`, if `error` is not null, is the error of mkdir().
 std::optional<std::string> MakeTempDir();
 std::optional<std::string> MakeTempDir(const std::string& dir,
-                                       const std::string& prefix);
+                                       const std::string& prefix,
+                                       const std::string& suffix = "",
+                                       std::error_code* error = nullptr);
 
 // Creates a new, empty file named "tmp<random><suffix>" in the folder `dir`
 // and returns its path (Python: tempfile.mkstemp(suffix, dir=dir)); nullopt

@@ -4,6 +4,7 @@
 
 #include <span>
 
+#include "client/cli/store.h"
 #include "common/cli/version.h"
 #include "server/cli/server.h"
 #include "web/cli/web_version.h"
@@ -16,6 +17,8 @@ constexpr Subcommand kWebSubcommands[] = {
      &web::cli::AddWebVersionArguments, &web::cli::RunWebVersion},
     {"server", server::cli::kServerHelp, &server::cli::AddServerArguments,
      &server::cli::RunServer, /*config_file=*/true},
+    {"store", client::cli::kStoreHelp, &client::cli::AddStoreArguments,
+     &client::cli::RunStore, /*config_file=*/true},
 };
 
 }  // namespace

@@ -68,5 +68,17 @@ TEST(DatetimeTest, TimestampsRoundTrip) {
   EXPECT_EQ(FromTimestamp(kTimestamp) % kMicrosecondsPerSecond, 0);
 }
 
+TEST(DatetimeTest, FormatTimedelta) {
+  EXPECT_EQ(FormatTimedelta(5 * kMicrosecondsPerSecond), "0:00:05");
+  EXPECT_EQ(FormatTimedelta(2500000), "0:00:02.500000");
+  EXPECT_EQ(FormatTimedelta(3600 * kMicrosecondsPerSecond), "1:00:00");
+  EXPECT_EQ(FormatTimedelta(86403 * kMicrosecondsPerSecond),
+            "1 day, 0:00:03");
+  EXPECT_EQ(FormatTimedelta(2 * 86400 * kMicrosecondsPerSecond),
+            "2 days, 0:00:00");
+  EXPECT_EQ(FormatTimedelta(-kMicrosecondsPerSecond), "-1 day, 23:59:59");
+  EXPECT_EQ(FormatTimedelta(1), "0:00:00.000001");
+}
+
 }  // namespace
 }  // namespace cc::util

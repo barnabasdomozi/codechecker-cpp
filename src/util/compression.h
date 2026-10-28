@@ -39,6 +39,11 @@ Result<ZlibPart> ZlibDecompressPart(std::string_view data, size_t max_length);
 // zlib.compress(data, zlib.Z_BEST_COMPRESSION)).
 std::string ZlibCompress(std::string_view data);
 
+// Replaces the content of the file `path` with its zlib stream (see
+// ZlibCompress()) and returns that stream. The error message is the one of
+// ReadFile() or WriteFile().
+Result<std::string> ZlibCompressFile(const std::string& path);
+
 }  // namespace cc::util
 
 #endif  // CC_UTIL_COMPRESSION_H_

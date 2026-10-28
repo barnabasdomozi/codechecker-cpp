@@ -557,7 +557,12 @@ ourselves:
   `HTTPS_PROXY` and `no_proxy`. libcurl ignores upper-case `HTTP_PROXY`.
   We read the variables with Python's rules, check the format (the
   `Invalid proxy format! ...` error, exit 1) and pass the result with
-  `CURLOPT_PROXY` / `CURLOPT_NOPROXY`.
+  `CURLOPT_PROXY` (`""` when no proxy is used, so libcurl does not pick one
+  from the environment itself). `no_proxy` is matched with Python's rules
+  (`proxy_bypass_environment()`) as well, not with `CURLOPT_NOPROXY`:
+  libcurl also matches IP ranges in CIDR notation (`10.0.0.0/8`), which
+  Python does not, so such an entry would bypass the proxy only in the
+  port.
 - **Trusted certificates:** Python honors `SSL_CERT_FILE`/`SSL_CERT_DIR`.
   libcurl uses the CA bundle chosen when it was built. We pass the variables
   with `CURLOPT_CAINFO` / `CURLOPT_CAPATH` when they are set.

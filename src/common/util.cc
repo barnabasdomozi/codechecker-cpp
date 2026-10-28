@@ -1,8 +1,12 @@
 #include "common/util.h"
 
+#include <algorithm>
+#include <cmath>
 #include <format>
+#include <iterator>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -98,6 +102,23 @@ std::string PathForFakeRoot(const std::string& full_path,
                             const std::string& root_path) {
   return util::pypath::Abspath(util::pypath::Join(
       {root_path, util::pypath::Relpath(full_path, "/")}));
+}
+
+std::string FormatSize(double bytes) {
+  constexpr std::string_view kUnits[] = {"",   "Ki", "Mi", "Gi", "Ti",
+                                         "Pi", "Ei", "Zi", "Yi", "Ri"};
+  for (const std::string_view unit : kUnits) {
+    if (std::abs(bytes) < 1024.0) {
+      return std::format("{:3.1f} {}B", bytes, unit);
+    }
+    bytes /= 1024.0;
+  }
+  return std::format("{:.1f} QiB", bytes);
+}
+
+bool StrToBool(std::string_view value) {
+  constexpr std::string_view kTrue[] = {"y", "yes", "t", "true", "on", "1"};
+  return std::ranges::find(kTrue, util::AsciiLower(value)) != std::end(kTrue);
 }
 
 }  // namespace cc::common

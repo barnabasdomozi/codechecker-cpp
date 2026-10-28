@@ -37,6 +37,10 @@ std::string_view Strip(std::string_view text);
 // Returns `text` without trailing whitespace (Python: str.rstrip()).
 std::string_view RightStrip(std::string_view text);
 
+// Returns `text` without its leading characters that are in the ASCII
+// `characters` (Python: str.lstrip(characters)).
+std::string_view LeftStrip(std::string_view text, std::string_view characters);
+
 // Returns `text` with all whitespace removed (Python: ''.join(text.split())).
 std::string RemoveWhitespace(std::string_view text);
 

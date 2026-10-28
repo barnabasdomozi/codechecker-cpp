@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <format>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -167,6 +168,22 @@ Result<std::vector<SourceCodeComment>> FilterSourceLineComments(
                            checker_name, bug_line));
   }
   return Result<Comments>(std::move(matching));
+}
+
+SourceCommentScan ScanSourceLineComments(std::string_view text,
+                                         const std::set<int>& lines) {
+  SourceCommentScan scan;
+  if (text.find("codechecker_") == std::string_view::npos) return scan;
+  const std::vector<std::string_view> text_lines = util::SplitLines(text);
+  for (const int line : lines) {
+    const Result<Comments> comments = GetSourceLineComments(text_lines, line);
+    if (comments.ok()) {
+      ++scan.scanned_lines;
+    } else {
+      scan.misspelled.push_back(comments.error().message);
+    }
+  }
+  return scan;
 }
 
 }  // namespace cc::common

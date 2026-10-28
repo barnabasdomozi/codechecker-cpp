@@ -30,6 +30,12 @@ class ZipArchive {
     kAppend,  // Adds to the archive, which is created if missing ('a').
   };
 
+  // How an entry is compressed (Python: the compress_type of write()).
+  enum class Compression {
+    kStored,    // ZIP_STORED, zipfile's default.
+    kDeflated,  // ZIP_DEFLATED.
+  };
+
   // Opens the archive at `path`. The error message is libzip's.
   static Result<ZipArchive> Open(const std::string& path, Mode mode);
 
@@ -40,9 +46,10 @@ class ZipArchive {
   // Returns whether the archive has an entry `name`.
   bool Contains(const std::string& name) const;
 
-  // Adds the file at `source` as the deflated entry `name` (Python:
-  // write(source, name, ZIP_DEFLATED)).
-  Result<void> AddFile(const std::string& name, const std::string& source);
+  // Adds the file at `source` as the entry `name`, compressed as
+  // `compression` says (Python: write(source, name, compress_type)).
+  Result<void> AddFile(const std::string& name, const std::string& source,
+                       Compression compression);
 
   // Adds `text` as the stored entry `name` (Python: writestr(name, text)).
   Result<void> AddText(const std::string& name, std::string text);

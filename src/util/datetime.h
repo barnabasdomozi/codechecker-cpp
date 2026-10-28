@@ -52,6 +52,10 @@ std::optional<int64_t> ParseDatabaseTime(std::string_view text);
 // itself if it cannot be parsed.
 std::string DatabaseTimeToPython(std::string_view text);
 
+// Returns the duration `microseconds` as Python's str(timedelta) writes it,
+// for example "0:00:05", "1:00:00.500000" or "-1 day, 23:59:59".
+std::string FormatTimedelta(int64_t microseconds);
+
 }  // namespace cc::util
 
 #endif  // CC_UTIL_DATETIME_H_

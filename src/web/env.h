@@ -13,6 +13,14 @@ namespace cc::web {
 // get_default_workspace()).
 std::string DefaultWorkspace();
 
+// Returns the password file of the client: CC_PASS_FILE, or
+// ~/.codechecker.passwords.json (Python: get_password_file()).
+std::string PasswordFile();
+
+// Returns the session file of the client: CC_SESSION_FILE, or
+// ~/.codechecker.session.json (Python: get_session_file()).
+std::string SessionFile();
+
 // Returns whether only the owner can read or write the file `path`; logs a
 // warning if others can (Python: check_file_owner_rw()).
 bool CheckFileOwnerReadWrite(const std::string& path);

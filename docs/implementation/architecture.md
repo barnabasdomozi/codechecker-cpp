@@ -475,11 +475,14 @@ the same as in the Python version and the web UI.
 ```
 src/client/
 ├── transport/      HttpTransport: a Thrift transport over libcurl
-├── credentials/    session file, password file, token lookup, login
+├── credentials/    session file, password file, token lookup
 ├── call/           call wrapper: Thrift errors → messages and exit codes
-├── store/          store: ZIP assembly, blame info, upload, task polling
+├── store/          store: ZIP assembly, blame info
 ├── cmd/            one file per cmd subcommand
-└── cli/            store, cmd (argument definitions)
+├── cli/            store, cmd (arguments and command flow: upload, ...)
+├── client.cc       client setup, login with saved credentials (client.py)
+├── product.cc      product URLs (product.py)
+└── task_client.cc  waiting for server-side tasks (task_client.py)
 ```
 
 - **Transport.** `HttpTransport` implements Thrift's `TTransport`: writes go

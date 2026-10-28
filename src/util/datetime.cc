@@ -144,4 +144,26 @@ std::string DatabaseTimeToPython(std::string_view text) {
   return time ? FormatPythonTime(*time) : std::string(text);
 }
 
+std::string FormatTimedelta(int64_t microseconds) {
+  constexpr int64_t kMicrosecondsPerDay = 86400 * kMicrosecondsPerSecond;
+  // Python keeps the days signed and the rest of the day positive.
+  int64_t days = microseconds / kMicrosecondsPerDay;
+  int64_t rest = microseconds % kMicrosecondsPerDay;
+  if (rest < 0) {
+    --days;
+    rest += kMicrosecondsPerDay;
+  }
+  const int64_t seconds = rest / kMicrosecondsPerSecond;
+  std::string text;
+  if (days != 0) {
+    text = std::format("{} day{}, ", days, days == 1 || days == -1 ? "" : "s");
+  }
+  text += std::format("{}:{:02}:{:02}", seconds / 3600, seconds / 60 % 60,
+                      seconds % 60);
+  if (rest % kMicrosecondsPerSecond != 0) {
+    text += std::format(".{:06}", rest % kMicrosecondsPerSecond);
+  }
+  return text;
+}
+
 }  // namespace cc::util

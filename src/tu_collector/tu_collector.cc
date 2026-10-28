@@ -159,13 +159,11 @@ Result<void> AddSourcesToZip(const std::string& zip_file,
       util::ZipArchive::Open(zip_file, util::ZipArchive::Mode::kAppend);
   if (!archive.ok()) return Result<void>(archive.error());
   for (const std::string& file : files) {
-    const size_t start = file.find_first_not_of('/');
-    const std::string archive_path = util::pypath::Normpath(util::pypath::Join(
-        {"sources-root", start == std::string::npos
-                             ? ""
-                             : std::string_view(file).substr(start)}));
+    const std::string archive_path = util::pypath::Normpath(
+        util::pypath::Join({"sources-root", util::LeftStrip(file, "/")}));
     if (archive.value().Contains(archive_path)) continue;
-    if (Result<void> added = archive.value().AddFile(archive_path, file);
+    if (Result<void> added = archive.value().AddFile(
+            archive_path, file, util::ZipArchive::Compression::kDeflated);
         !added.ok()) {
       return added;
     }

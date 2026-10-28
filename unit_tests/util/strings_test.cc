@@ -114,6 +114,12 @@ TEST(StringsTest, HtmlEscape) {
             "&lt;a href=&quot;x&quot;&gt;&amp;&#x27;b&#x27;&lt;/a&gt;");
 }
 
+TEST(StringsTest, LeftStrip) {
+  EXPECT_EQ(LeftStrip("//a/b", "/"), "a/b");
+  EXPECT_EQ(LeftStrip("///", "/"), "");
+  EXPECT_EQ(LeftStrip("a/", "/"), "a/");
+}
+
 TEST(StringsTest, FloatRepr) {
   EXPECT_EQ(FloatRepr(1.0), "1.0");
   EXPECT_EQ(FloatRepr(1e-05), "1e-05");

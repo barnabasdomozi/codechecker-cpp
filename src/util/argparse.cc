@@ -1016,6 +1016,16 @@ std::optional<Error> Parser::TakeAction(const Action& action,
   }
   if (action.kind == Action::Kind::kStore) {
     std::vector<std::string> stored = converted;
+    // Python's _get_values(): a positional argument with nargs '*' that got
+    // no values takes its default.
+    if (values.empty() && action.option_strings.empty() &&
+        NargsOf(action) == NargsKind::kZeroOrMore) {
+      if (action.default_list) {
+        stored = *action.default_list;
+      } else if (action.default_value) {
+        stored = {*action.default_value};
+      }
+    }
     if (action.custom_action) {
       const std::vector<std::string>* previous =
           known->values.Has(action.dest) ? &known->values.GetList(action.dest)

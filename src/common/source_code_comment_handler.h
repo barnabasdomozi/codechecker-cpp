@@ -6,6 +6,7 @@
 #ifndef CC_COMMON_SOURCE_CODE_COMMENT_HANDLER_H_
 #define CC_COMMON_SOURCE_CODE_COMMENT_HANDLER_H_
 
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -38,6 +39,21 @@ struct SourceCodeComment {
 // "misspelled review status comment @<line>: <comment>".
 Result<std::vector<SourceCodeComment>> FilterSourceLineComments(
     std::string_view text, int bug_line, std::string_view checker_name);
+
+// The result of ScanSourceLineComments().
+struct SourceCommentScan {
+  // The number of lines whose comments could be read; they may have none.
+  int scanned_lines = 0;
+  // The errors of the lines whose comments are misspelled, as
+  // FilterSourceLineComments() words them.
+  std::vector<std::string> misspelled;
+};
+
+// Reads the comments above each of `lines` in the source `text` (Python:
+// scan_source_line_comments()). Nothing is read if the text does not contain
+// "codechecker_".
+SourceCommentScan ScanSourceLineComments(std::string_view text,
+                                         const std::set<int>& lines);
 
 }  // namespace cc::common
 

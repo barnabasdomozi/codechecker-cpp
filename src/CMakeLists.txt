@@ -181,6 +181,18 @@ if(CC_BUILD_WEB)
     web/env.cc)
   target_link_libraries(cc_web PUBLIC cc_common cc_api)
 
+  add_library(cc_client STATIC
+    client/call/thrift_call.cc
+    client/cli/store.cc
+    client/client.cc
+    client/credentials/user_credentials.cc
+    client/product.cc
+    client/store/assemble_zip.cc
+    client/store/blame_info.cc
+    client/task_client.cc
+    client/transport/http_transport.cc)
+  target_link_libraries(cc_client PUBLIC cc_web third_party::curl)
+
   add_library(cc_server STATIC
     server/api/authentication_handler.cc
     server/api/configuration_handler.cc
@@ -223,7 +235,7 @@ add_executable(codechecker-cpp
 target_link_libraries(codechecker-cpp PRIVATE cc_analyzer)
 if(CC_BUILD_WEB)
   target_sources(codechecker-cpp PRIVATE launcher/web_subcommands.cc)
-  target_link_libraries(codechecker-cpp PRIVATE cc_server)
+  target_link_libraries(codechecker-cpp PRIVATE cc_client cc_server)
 else()
   target_sources(codechecker-cpp PRIVATE launcher/no_web_subcommands.cc)
 endif()

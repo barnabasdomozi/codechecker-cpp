@@ -60,6 +60,17 @@ void Statistics::AddReport(const Report& report) {
 }
 
 void Statistics::Write() const {
+  WriteReportTables();
+  const Rows summary = {{"Number of processed analyzer result files",
+                         std::to_string(num_of_analyzer_result_files_)},
+                        {"Number of analyzer reports",
+                         std::to_string(num_of_reports_)}};
+  WriteSection("----======== Summary ========----",
+               util::twodim::ToTable(summary, {.show_header = false,
+                                               .rule_between_rows = true}));
+}
+
+void Statistics::WriteReportTables() const {
   if (!severities_.empty()) {
     Rows rows = {{"Severity", "Number of reports"}};
     for (const ReportCount& severity : severities_) {
@@ -83,13 +94,6 @@ void Statistics::Write() const {
     }
     WriteSection("----==== File Statistics ====----", HeaderTable(rows));
   }
-  const Rows summary = {{"Number of processed analyzer result files",
-                         std::to_string(num_of_analyzer_result_files_)},
-                        {"Number of analyzer reports",
-                         std::to_string(num_of_reports_)}};
-  WriteSection("----======== Summary ========----",
-               util::twodim::ToTable(summary, {.show_header = false,
-                                               .rule_between_rows = true}));
 }
 
 }  // namespace cc::report

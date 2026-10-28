@@ -223,6 +223,13 @@ std::string_view Strip(std::string_view text) {
   return RightStrip(text.substr(FirstNonSpace(text)));
 }
 
+std::string_view LeftStrip(std::string_view text,
+                           std::string_view characters) {
+  const size_t start = text.find_first_not_of(characters);
+  return start == std::string_view::npos ? std::string_view()
+                                         : text.substr(start);
+}
+
 std::string_view RightStrip(std::string_view text) {
   size_t end = 0;
   size_t pos = 0;

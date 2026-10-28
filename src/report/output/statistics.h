@@ -31,11 +31,19 @@ class Statistics {
   // Counts `report` (Python: add_report()).
   void AddReport(const Report& report);
 
+  int num_of_analyzer_result_files() const {
+    return num_of_analyzer_result_files_;
+  }
   int num_of_reports() const { return num_of_reports_; }
 
   // Prints the tables on stdout: those of severities, checkers and files
   // if there are reports, and the summary (Python: write()).
   void Write() const;
+
+  // Prints the tables of severities, checkers and files on stdout, if there
+  // are reports: Write() without the summary, for commands that print their
+  // own summary.
+  void WriteReportTables() const;
 
  private:
   // A severity or a file, with the number of its reports.

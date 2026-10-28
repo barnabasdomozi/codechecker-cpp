@@ -1,6 +1,8 @@
 #include "platform/filesystem.h"
 
 #include <errno.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -8,7 +10,9 @@
 #include <filesystem>
 #include <iterator>
 #include <optional>
+#include <random>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -69,6 +73,12 @@ std::optional<double> ModificationTime(const std::string& path) {
   // Python computes st_mtime in the same way.
   return static_cast<double>(status.st_mtim.tv_sec) +
          static_cast<double>(status.st_mtim.tv_nsec) * 1.0e-9;
+}
+
+std::optional<int64_t> FileSize(const std::string& path) {
+  struct stat status = {};
+  if (stat(path.c_str(), &status) != 0) return std::nullopt;
+  return int64_t{status.st_size};
 }
 
 std::optional<int> FileMode(const std::string& path) {
@@ -144,10 +154,30 @@ std::optional<std::string> MakeTempDir() {
 }
 
 std::optional<std::string> MakeTempDir(const std::string& dir,
-                                       const std::string& prefix) {
-  std::string path = dir + "/" + prefix + "XXXXXX";
-  if (mkdtemp(path.data()) == nullptr) return std::nullopt;
-  return path;
+                                       const std::string& prefix,
+                                       const std::string& suffix,
+                                       std::error_code* error) {
+  // mkdtemp(3) takes no suffix, so this is Python's loop: random names of 8
+  // characters until one does not exist yet. The names need not be secret.
+  constexpr std::string_view kCharacters =
+      "abcdefghijklmnopqrstuvwxyz0123456789_";
+  constexpr int kNameLength = 8;
+  constexpr int kAttempts = 238328;  // Python: os.TMP_MAX.
+  thread_local std::mt19937 generator{std::random_device{}()};
+  std::uniform_int_distribution<size_t> pick(0, kCharacters.size() - 1);
+  int last_error = EEXIST;
+  for (int attempt = 0; attempt < kAttempts && last_error == EEXIST;
+       ++attempt) {
+    std::string name;
+    for (int i = 0; i < kNameLength; ++i) name += kCharacters[pick(generator)];
+    std::string path = dir + "/" + prefix + name + suffix;
+    if (mkdir(path.c_str(), 0700) == 0) return path;
+    last_error = errno;
+  }
+  if (error != nullptr) {
+    *error = std::error_code(last_error, std::generic_category());
+  }
+  return std::nullopt;
 }
 
 std::optional<std::string> MakeTempFile(const std::string& dir,

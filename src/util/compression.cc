@@ -10,6 +10,7 @@
 #include <string_view>
 #include <utility>
 
+#include "util/file.h"
 #include "util/result.h"
 
 namespace cc::util {
@@ -111,6 +112,17 @@ std::string ZlibCompress(std::string_view data) {
                   static_cast<uLong>(data.size()), Z_BEST_COMPRESSION);
   output.resize(size);
   return output;
+}
+
+Result<std::string> ZlibCompressFile(const std::string& path) {
+  const Result<std::string> content = ReadFile(path);
+  if (!content.ok()) return content;
+  std::string compressed = ZlibCompress(content.value());
+  if (const Result<void> written = WriteFile(path, compressed);
+      !written.ok()) {
+    return Result<std::string>(written.error());
+  }
+  return Result<std::string>(std::move(compressed));
 }
 
 }  // namespace cc::util

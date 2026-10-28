@@ -145,11 +145,12 @@ bool ZipArchive::Contains(const std::string& name) const {
 }
 
 Result<void> ZipArchive::AddFile(const std::string& name,
-                                 const std::string& source) {
+                                 const std::string& source,
+                                 Compression compression) {
   return AddSource(
       archive_, name,
       zip_source_file(archive_, source.c_str(), 0, ZIP_LENGTH_TO_END),
-      ZIP_CM_DEFLATE);
+      compression == Compression::kStored ? ZIP_CM_STORE : ZIP_CM_DEFLATE);
 }
 
 Result<void> ZipArchive::AddText(const std::string& name, std::string text) {

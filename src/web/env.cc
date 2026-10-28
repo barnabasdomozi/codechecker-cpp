@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "platform/filesystem.h"
+#include "platform/subprocess.h"
 #include "platform/terminal.h"
 #include "util/logging.h"
 #include "util/print.h"
@@ -21,6 +22,18 @@ constexpr util::Logger kLog("system");
 
 std::string DefaultWorkspace() {
   return util::pypath::Join({platform::HomeDirectory(), ".codechecker"});
+}
+
+std::string PasswordFile() {
+  return platform::GetEnv("CC_PASS_FILE")
+      .value_or(util::pypath::Join(
+          {platform::HomeDirectory(), ".codechecker.passwords.json"}));
+}
+
+std::string SessionFile() {
+  return platform::GetEnv("CC_SESSION_FILE")
+      .value_or(util::pypath::Join(
+          {platform::HomeDirectory(), ".codechecker.session.json"}));
 }
 
 bool CheckFileOwnerReadWrite(const std::string& path) {
