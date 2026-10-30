@@ -292,10 +292,8 @@ ReviewStatusHandler::ReviewStatusFromSource(const report::Report& report,
   if (marker == has_comment_marker_.end()) {
     const std::string* text = sources.Text(source_file);
     if (text == nullptr) return Status(std::nullopt);
-    marker = has_comment_marker_
-                 .emplace(source_file,
-                          text->find("codechecker_") != std::string::npos)
-                 .first;
+    const bool has_marker = text->find("codechecker_") != std::string::npos;
+    marker = has_comment_marker_.emplace(source_file, has_marker).first;
   }
   if (!marker->second) return Status(std::nullopt);
   const std::vector<std::string_view>* lines = sources.Lines(source_file);

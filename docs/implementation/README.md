@@ -52,5 +52,5 @@ These are **accepted** and apply to every page below.
 |---|---|---|
 | [cppguide.md](cppguide.md) | accepted | The C++ coding guideline (Google C++ Style Guide with the project's waivers); mandatory for all C++ code |
 | [libraries.md](libraries.md) | accepted | What the C++ standard library covers, what we write ourselves, and which third-party libraries we use |
-| [build-system.md](build-system.md) | accepted | Third-party libraries as git submodules, the deps build, CMake options and presets, ldlogger, web UI, install, CI |
+| [build-system.md](build-system.md) | accepted | Third-party libraries as git submodules, the deps build, CMake options and presets, ldlogger, web UI, the build folder as the package, CI |
 | [architecture.md](architecture.md) | accepted | How the port is structured: source tree, libraries, programs, processes, and how each part works |

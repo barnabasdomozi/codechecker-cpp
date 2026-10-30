@@ -158,7 +158,7 @@ apply to every change.
   command or tool, for example `CodeChecker analyze`, `parse` or
   `report-converter`. When one is implemented, its tests in
   [blackbox_tests/](../../blackbox_tests/README.md) **must** be run against
-  the installed C++ build and **must** pass before the module counts as
+  the C++ build folder and **must** pass before the module counts as
   done. That includes its own page's tests and the chains and test projects
   that use it, for example:
 

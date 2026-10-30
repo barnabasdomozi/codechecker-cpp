@@ -3,7 +3,7 @@
 Status: **accepted** (2026-10-25).
 
 This page describes how the C++ port is structured: the source tree, the
-libraries it is split into, the programs that are installed, the processes
+libraries it is split into, the programs it builds, the processes
 and threads at run time, and how each major part works. It builds on the
 project-wide decisions in [README](README.md) (C++20, CMake, Linux only, no
 Python code, copied web UI, ldlogger and Thrift IDL files) and on the library choices in
@@ -74,7 +74,7 @@ The port has the same parts as the Python project:
 codechecker-cpp/
 ├── CMakeLists.txt
 ├── cmake/                       CMake modules: finding libraries, Thrift code
-│                                generation, version files, install rules
+│                                generation, version files
 ├── api/                         copied from codechecker_api/: *.thrift,
 │                                api_version.json
 ├── config/                      package data files, copied (see below)
@@ -170,9 +170,10 @@ searched for, and `codechecker-cpp` has no `store`, `cmd`, `server` and
 `analyzer`-only package. A CI build with `CC_BUILD_WEB=OFF` keeps the
 analyzer side from picking up a web dependency by accident.
 
-## 4. Programs and install layout
+## 4. Programs and package layout
 
-The install tree has the same layout as the Python package
+The build folder (`build/<preset>/`) has the same layout as the Python
+package
 ([common-infrastructure.md](../reference/common-infrastructure.md) §1),
 because the test suite and users rely on it:
 
@@ -197,7 +198,7 @@ because the test suite and users rely on it:
 ```
 
 - There is no `lib/python3/`. Data files that the Python version reads from
-  inside its packages are installed under `lib/codechecker/`.
+  inside its packages are copied to `lib/codechecker/`.
 - `gerrit_changed_files_to_skipfile.py` keeps its name, `.py` included, so
   scripts that call it keep working.
 - Every standalone tool is its own executable: `src/tools/<tool>/main.cc`
@@ -209,7 +210,7 @@ because the test suite and users rely on it:
   including the 32-bit library, are in
   [build-system.md](build-system.md#44-ldlogger).
 
-Installed programs find the package root from their own location
+Programs find the package root from their own location
 (`/proc/self/exe`, then `..`), the same way `CC_DATA_FILES_DIR` is set in
 the Python version.
 
@@ -450,8 +451,9 @@ small `main()` on top of it.
   `--gen cpp` on every file in `api/` at build time and compiles the result
   into `cc_api`. Nothing generated is checked in.
 - **API version.** CMake reads `api/api_version.json` and writes a header
-  with the version (`6.74`), used for URLs on both sides. The same file is
-  installed as `lib/codechecker/api_version.json`.
+  with the version (`6.74`), used for URLs on both sides. The package layout
+  (§4) has the same file as `lib/codechecker/api_version.json`; the build
+  does not copy it there yet.
 - **Protocol.** Messages are encoded with `TJSONProtocol` into a
   `TMemoryBuffer`, on both sides
   ([server-api.md](../reference/server-api.md) §1.1). Only the generated
@@ -731,8 +733,8 @@ ldlogger's) are not migrated (see [README](README.md)). The port is checked
 mainly by the black-box suite.
 
 - **Black-box tests** (`blackbox_tests/`) are the main check. They run on the
-  install tree: `CODECHECKER_BIN=<root>/bin/codechecker-cpp npm test`. A CMake
-  target runs them after `install` into a temporary prefix. Each porting step
+  build folder: `CODECHECKER_BIN=build/<preset>/bin/codechecker-cpp npm test`.
+  The `blackbox` CMake target runs them. Each porting step
   (§14) is done when its part of the suite passes.
 - **The suite is extended as needed.** When a ported part has behavior the
   suite does not cover yet, the test is added there, checked against the

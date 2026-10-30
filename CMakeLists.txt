@@ -19,11 +19,15 @@ if(CC_DEPS_ONLY)
   return()
 endif()
 
+# The build folder is the package (architecture.md §4): every file a program
+# needs at run time is built or copied into it, and there is no install step.
+set(CMAKE_SKIP_INSTALL_RULES ON)
+
 option(CC_BUILD_WEB "Build the web side (store, cmd, server)" ON)
 option(CC_BUILD_TESTS "Build the unit tests" ON)
 option(CC_BUILD_WEB_UI "Build the web UI (www/) with npm" ${CC_BUILD_WEB})
 set(CC_WEB_UI_DIR "" CACHE PATH
-    "A prebuilt www/ folder to install instead of building the web UI")
+    "A prebuilt www/ folder to copy instead of building the web UI")
 option(CC_LDLOGGER_32BIT
        "Also build the 32-bit ldlogger.so (needs gcc-multilib)" ON)
 option(CC_WERROR "Treat warnings in project code as errors" OFF)
@@ -71,7 +75,6 @@ target_compile_definitions(ldlogger PRIVATE _GNU_SOURCE __LOGGER_MAIN__)
 target_compile_options(ldlogger PRIVATE ${ldlogger_flags})
 set_target_properties(ldlogger PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
-install(TARGETS ldlogger RUNTIME DESTINATION bin)
 
 # Adds ldlogger.so for one word size, 64 or 32.
 function(cc_add_ldlogger_library bits)
@@ -88,7 +91,6 @@ function(cc_add_ldlogger_library bits)
     -fvisibility=hidden -m${bits})
   target_link_options(${target} PRIVATE -m${bits} -Wl,--no-as-needed)
   target_link_libraries(${target} PRIVATE dl)
-  install(TARGETS ${target} LIBRARY DESTINATION ld_logger/lib/${bits}bit)
 endfunction()
 
 cc_add_ldlogger_library(64)
@@ -111,7 +113,8 @@ add_subdirectory(src)
 
 # The web UI (build-system.md §4.5): the copied sources are built with npm in
 # the build folder, with the JavaScript stubs of our Thrift compiler, into
-# www/ next to bin/.
+# www/ next to bin/. A prebuilt folder given with CC_WEB_UI_DIR is copied
+# there instead.
 set(www_dir ${PROJECT_BINARY_DIR}/www)
 if(CC_BUILD_WEB AND CC_BUILD_WEB_UI)
   set(web_ui_root ${PROJECT_BINARY_DIR}/web-ui)
@@ -158,13 +161,23 @@ if(CC_BUILD_WEB AND CC_BUILD_WEB_UI)
     COMMENT "Building the web UI"
     VERBATIM)
   add_custom_target(web_ui ALL DEPENDS ${www_dir}/index.html)
-  install(DIRECTORY ${www_dir}/ DESTINATION www)
 elseif(CC_BUILD_WEB AND CC_WEB_UI_DIR)
-  install(DIRECTORY ${CC_WEB_UI_DIR}/ DESTINATION www)
+  file(GLOB_RECURSE web_ui_files CONFIGURE_DEPENDS ${CC_WEB_UI_DIR}/*)
+  add_custom_command(
+    OUTPUT ${PROJECT_BINARY_DIR}/web-ui/.cc-copied
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${www_dir}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CC_WEB_UI_DIR} ${www_dir}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/web-ui
+    COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/web-ui/.cc-copied
+    DEPENDS ${web_ui_files}
+    COMMENT "Copying the prebuilt web UI"
+    VERBATIM)
+  add_custom_target(web_ui ALL DEPENDS ${PROJECT_BINARY_DIR}/web-ui/.cc-copied)
 endif()
 
 # The license of every third-party library that is linked into the programs
-# (build-system.md §5). GoogleTest is only linked into the unit tests.
+# (build-system.md §5), copied into lib/codechecker/licenses/<library>/.
+# GoogleTest is only linked into the unit tests.
 set(licenses
   pcre2/LICENCE.md yyjson/LICENSE libyaml/License libxml2/Copyright
   zlib/LICENSE libzip/LICENSE openssl/LICENSE.txt)
@@ -174,28 +187,36 @@ if(CC_BUILD_WEB)
     boost/LICENSE_1_0.txt sqlite/LICENSE.md postgres/COPYRIGHT
     jwt-cpp/LICENSE openldap/LICENSE)
 endif()
+set(license_outputs)
 foreach(license IN LISTS licenses)
   cmake_path(GET license PARENT_PATH library)
-  install(FILES third_party/${license}
-          DESTINATION lib/codechecker/licenses/${library})
+  cmake_path(GET license FILENAME name)
+  set(output ${PROJECT_BINARY_DIR}/lib/codechecker/licenses/${library}/${name})
+  add_custom_command(
+    OUTPUT ${output}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${PROJECT_SOURCE_DIR}/third_party/${license} ${output}
+    DEPENDS ${PROJECT_SOURCE_DIR}/third_party/${license}
+    VERBATIM)
+  list(APPEND license_outputs ${output})
 endforeach()
+add_custom_target(licenses ALL DEPENDS ${license_outputs})
 
-# The black-box suite on an install of this build (architecture.md §13).
-set(blackbox_root ${PROJECT_BINARY_DIR}/blackbox-root)
+# The black-box suite on the build folder (architecture.md §13).
 add_custom_target(blackbox
-  COMMAND ${CMAKE_COMMAND} -E rm -rf ${blackbox_root}
-  COMMAND ${CMAKE_COMMAND} --install ${PROJECT_BINARY_DIR}
-          --prefix ${blackbox_root}
   COMMAND ${CMAKE_COMMAND} -E env
-          CODECHECKER_BIN=${blackbox_root}/bin/codechecker-cpp
+          CODECHECKER_BIN=${PROJECT_BINARY_DIR}/bin/codechecker-cpp
           npm test
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/blackbox_tests
   USES_TERMINAL
   VERBATIM)
-add_dependencies(blackbox codechecker-cpp report-converter version_files ldlogger
-  ldlogger_64)
+add_dependencies(blackbox codechecker-cpp report-converter version_files
+  config_files html_files ldlogger ldlogger_64)
 if(CC_LDLOGGER_32BIT)
   add_dependencies(blackbox ldlogger_32)
+endif()
+if(TARGET web_ui)
+  add_dependencies(blackbox web_ui)
 endif()
 
 if(CC_BUILD_TESTS)

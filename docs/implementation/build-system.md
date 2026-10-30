@@ -3,8 +3,8 @@
 Status: **accepted** (2026-10-25).
 
 This page says how the port is built: where the third-party libraries come
-from, how they are compiled, and how the project itself is configured, built,
-tested and installed. It answers the questions that
+from, how they are compiled, and how the project itself is configured, built
+and tested. It answers the questions that
 [libraries.md](libraries.md#5-dependencies-by-component) and
 [architecture.md](architecture.md) leave to the build system document: how we
 get the libraries, how `ldlogger` (32-bit included) is compiled, and how the
@@ -29,8 +29,8 @@ web UI (§4.5), the presets, the `blackbox` target and the license files
    archives, and the build never searches the system for a third-party
    library. The one exception is the npm packages of the web UI and the
    black-box suite (see [Exceptions](#exceptions)).
-3. **Third-party libraries are linked statically.** Installed programs need
-   only glibc, libstdc++ and libgcc_s at run time.
+3. **Third-party libraries are linked statically.** The programs need only
+   glibc, libstdc++ and libgcc_s at run time.
 4. **Two CMake projects.** `third_party/CMakeLists.txt` compiles the
    libraries once into a prefix (the *deps prefix*). The main project uses
    only that prefix.
@@ -407,7 +407,7 @@ ssl.
 |---|---|---|
 | `CC_BUILD_WEB` | `ON` | build the web side ([architecture.md](architecture.md#3-libraries-and-their-dependencies) §3); needs a deps prefix built with `CC_DEPS_WEB=ON` |
 | `CC_BUILD_WEB_UI` | `ON` with `CC_BUILD_WEB` | build `www/` with npm (§4.5) |
-| `CC_WEB_UI_DIR` | empty | install this prebuilt `www/` folder instead of building one |
+| `CC_WEB_UI_DIR` | empty | copy this prebuilt `www/` folder instead of building one |
 | `CC_BUILD_TESTS` | `ON` | GoogleTest unit tests |
 | `CC_LDLOGGER_32BIT` | `ON` | also build the 32-bit `ldlogger.so` (§4.4) |
 | `CC_WERROR` | `OFF` (`ON` in CI) | warnings are errors in project code |
@@ -483,10 +483,11 @@ ssl.
   [architecture.md](architecture.md#open-questions), question 1), the git
   hash and git tag information of this repository, and the build date. A
   file is rewritten only when its content changes.
-- **Build folder layout.** Programs are built into `build/<preset>/bin/` and
-  the version files into `build/<preset>/config/`, so the build folder has
-  the layout of the install tree and `build/dev/bin/codechecker-cpp` runs
-  without installing.
+- **Build folder layout.** Programs are built into `build/<preset>/bin/`, the
+  version files into `build/<preset>/config/`, and every other file a program
+  needs is copied next to them (§5), so the build folder has the package
+  layout and `build/dev/bin/codechecker-cpp` runs from it. There is no
+  install step (`CMAKE_SKIP_INSTALL_RULES`).
 
 ### 4.4 ldlogger
 
@@ -528,12 +529,12 @@ With `CC_BUILD_WEB_UI=ON`, the `web_ui` target:
 2. runs `npm ci` and `npm run build` there. `npm ci` installs exactly the
    versions in the copied lockfile, so the web UI is built from the same
    packages as the reference's;
-3. installs `dist/` as `<root>/www/`.
+3. copies `dist/` to `build/<preset>/www/`.
 
 The source tree stays clean, because `node_modules/` and `dist/` are created
 in the build folder. With `CC_BUILD_WEB_UI=OFF`, a prebuilt folder can be
-given with `CC_WEB_UI_DIR`. Without either one, the server is installed
-without `www/`.
+given with `CC_WEB_UI_DIR`; the `web_ui` target then copies it to
+`build/<preset>/www/`. Without either one, the build folder has no `www/`.
 
 ## 5. Commands and presets
 
@@ -550,8 +551,7 @@ cmake --build --preset dev --target blackbox     # black-box suite (architecture
 The deps build is a separate step on purpose. It is slow, it is needed only
 when a submodule changes, and every preset below shares it.
 
-`CMakePresets.json` (binary folder `build/<preset>`, install folder
-`build/<preset>/install`, all but `deps` with
+`CMakePresets.json` (binary folder `build/<preset>`, all but `deps` with
 `CC_DEPS_PREFIX=${sourceDir}/build/deps/install`). Build and test commands
 take the preset, never a folder:
 
@@ -564,20 +564,19 @@ take the preset, never a folder:
 | `release` | `RelWithDebInfo` |
 | `analyzer` | `CC_BUILD_WEB=OFF` |
 
-**Install.** `cmake --build --preset release --target install` installs
-into `build/release/install/` (another root: `cmake --install build/release
---prefix <root>`). The install creates the
-layout of [architecture.md](architecture.md#4-programs-and-install-layout)
-§4. The tree can be moved: it has no RPATHs and no third-party shared
-libraries, and programs find `<root>` from `/proc/self/exe`. Because
-third-party code is linked into the programs, the license file of every
-submodule is installed into `<root>/lib/codechecker/licenses/<library>/`.
-The BSD, MIT, Apache 2.0, PostgreSQL and OpenLDAP licenses all require the
-notice to come with binaries.
+**The build folder is the package.** Building a preset creates the layout
+of [architecture.md](architecture.md#4-programs-and-package-layout) §4 in
+`build/<preset>/`: `bin/`, `config/`, `lib/codechecker/`, `ld_logger/` and
+`www/`. These folders can be copied anywhere and run from there: they have
+no RPATHs and no third-party shared libraries, and programs find the package
+root from `/proc/self/exe`. Because third-party code is linked into the
+programs, the license file of every submodule is copied into
+`lib/codechecker/licenses/<library>/` (the `licenses` target). The BSD, MIT,
+Apache 2.0, PostgreSQL and OpenLDAP licenses all require the notice to come
+with binaries.
 
-**Black-box suite.** The `blackbox` target installs into
-`build/<preset>/blackbox-root/` and runs
-`CODECHECKER_BIN=<prefix>/bin/codechecker-cpp npm test` in
+**Black-box suite.** The `blackbox` target runs
+`CODECHECKER_BIN=build/<preset>/bin/codechecker-cpp npm test` in
 `blackbox_tests/`.
 
 ## 6. CI

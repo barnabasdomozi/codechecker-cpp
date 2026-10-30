@@ -227,9 +227,9 @@ if(CC_BUILD_WEB)
     third_party::sqlite3 third_party::pq third_party::ssl)
 endif()
 
-# The program is built into bin/ and the version files into config/, so the
-# build folder has the layout of the install tree and the program runs from
-# it.
+# The program is built into bin/ and the version files into config/: the
+# build folder has the package layout (architecture.md §4) and the program
+# runs from it.
 add_executable(codechecker-cpp
   launcher/main.cc
   launcher/subcommands.cc)
@@ -242,7 +242,6 @@ else()
 endif()
 set_target_properties(codechecker-cpp PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
-install(TARGETS codechecker-cpp RUNTIME DESTINATION bin)
 
 set(version_files ${PROJECT_BINARY_DIR}/config/analyzer_version.json)
 if(CC_BUILD_WEB)
@@ -260,11 +259,10 @@ add_custom_target(version_files ALL
   BYPRODUCTS ${version_files}
   COMMENT "Writing the version files"
   VERBATIM)
-install(FILES ${version_files} DESTINATION config)
 
 # Adds the target `target`, which copies the files of the folder `source`
 # (relative to the project) into the folder `destination` of the build
-# folder, and installs them there.
+# folder.
 function(cc_add_data_files target source destination)
   file(GLOB_RECURSE files CONFIGURE_DEPENDS
     RELATIVE ${PROJECT_SOURCE_DIR}/${source} ${PROJECT_SOURCE_DIR}/${source}/*)
@@ -280,8 +278,6 @@ function(cc_add_data_files target source destination)
     list(APPEND outputs ${PROJECT_BINARY_DIR}/${destination}/${file})
   endforeach()
   add_custom_target(${target} ALL DEPENDS ${outputs})
-  install(DIRECTORY ${PROJECT_SOURCE_DIR}/${source}/
-          DESTINATION ${destination})
 endfunction()
 
 # The copied package data files (architecture.md §3): the config files next
@@ -295,4 +291,3 @@ add_executable(report-converter tools/report-converter/main.cc)
 target_link_libraries(report-converter PRIVATE cc_report)
 set_target_properties(report-converter PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
-install(TARGETS report-converter RUNTIME DESTINATION bin)

@@ -11,7 +11,6 @@
       "name": "dev",
       "displayName": "Debug build with unit tests",
       "binaryDir": "${sourceDir}/build/${presetName}",
-      "installDir": "${sourceDir}/build/${presetName}/install",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
     },
     {

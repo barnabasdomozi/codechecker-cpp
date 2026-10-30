@@ -1,10 +1,10 @@
 #include "report/hash/report_hash.h"
 
-#include <stdlib.h>
-
+#include <optional>
 #include <string>
 
 #include "gtest/gtest.h"
+#include "platform/filesystem.h"
 #include "report/model/report.h"
 #include "report/model/source_file_cache.h"
 #include "util/file.h"
@@ -18,9 +18,10 @@ namespace {
 class ReportHashTest : public testing::Test {
  protected:
   void SetUp() override {
-    char folder[] = "/tmp/cc-report-hash-XXXXXX";
-    ASSERT_NE(mkdtemp(folder), nullptr);
-    path_ = util::pypath::Join({folder, "main.c"});
+    const std::optional<std::string> folder = platform::MakeTempDir();
+    ASSERT_TRUE(folder.has_value());
+    folder_ = *folder;
+    path_ = util::pypath::Join({folder_, "main.c"});
     std::string content;
     for (int line = 1; line <= 30; ++line) {
       if (line == 11) {
@@ -34,6 +35,11 @@ class ReportHashTest : public testing::Test {
     ASSERT_TRUE(util::WriteFile(path_, content).ok());
   }
 
+  void TearDown() override {
+    if (!folder_.empty()) platform::RemoveTree(folder_);
+  }
+
+  std::string folder_;
   std::string path_;
 };
 

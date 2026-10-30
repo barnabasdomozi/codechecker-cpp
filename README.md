@@ -141,16 +141,32 @@ ctest --preset dev
 build/dev/bin/codechecker-cpp version    # runs from the build folder
 ```
 
-Every preset builds in `build/<preset>`; no folder needs to be given. To run
-the black-box tests of a page on an installed build:
+Every preset builds in `build/<preset>`; no folder needs to be given. The
+build folder is self-contained: `bin/`, `config/`, `lib/`, `ld_logger/` and
+`www/` have the package layout, so they can be copied anywhere and run from
+there. There is no install step. To run the black-box tests of a page:
 
 ```sh
-cmake --build --preset dev --target install   # into build/dev/install
-cd blackbox_tests && CODECHECKER_BIN=$PWD/../build/dev/install/bin/codechecker-cpp npx jest tests/version.test.ts
+cd blackbox_tests && CODECHECKER_BIN=$PWD/../build/dev/bin/codechecker-cpp npx jest tests/version.test.ts
 ```
 
-Other presets: `dev-clang`, `asan`, `release` and `analyzer` (the analyzer
-side only). Never check out the submodules with `--recursive`; see
+### Optimized build
+
+The `release` preset is the optimized build (`RelWithDebInfo`: optimized,
+with debug info). It uses the same `deps` build as `dev`, so after the deps
+steps above:
+
+```sh
+cmake --preset release
+cmake --build --preset release --parallel
+ctest --preset release
+build/release/bin/codechecker-cpp version    # runs from the build folder
+```
+
+Other presets: `dev-clang`, `asan` and `analyzer` (the analyzer side only).
+To build without the web UI (no npm needed), configure with
+`-DCC_BUILD_WEB_UI=OFF`, for example `cmake --preset dev -DCC_BUILD_WEB_UI=OFF`.
+Never check out the submodules with `--recursive`; see
 [build-system.md](docs/implementation/build-system.md#23-checkout).
 
 ## Layout

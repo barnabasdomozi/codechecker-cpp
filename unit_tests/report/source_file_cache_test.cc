@@ -1,12 +1,12 @@
 #include "report/model/source_file_cache.h"
 
-#include <stdlib.h>
-
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "gtest/gtest.h"
+#include "platform/filesystem.h"
 #include "util/file.h"
 #include "util/pypath.h"
 #include "util/result.h"
@@ -17,9 +17,13 @@ namespace {
 class SourceFileCacheTest : public testing::Test {
  protected:
   void SetUp() override {
-    char folder[] = "/tmp/cc-source-file-cache-XXXXXX";
-    ASSERT_NE(mkdtemp(folder), nullptr);
-    folder_ = folder;
+    const std::optional<std::string> folder = platform::MakeTempDir();
+    ASSERT_TRUE(folder.has_value());
+    folder_ = *folder;
+  }
+
+  void TearDown() override {
+    if (!folder_.empty()) platform::RemoveTree(folder_);
   }
 
   // Writes `content` into the file `name` of the test folder and returns
