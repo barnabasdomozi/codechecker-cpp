@@ -16,6 +16,7 @@
 
 #include "report/hash/report_hash.h"
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "util/file.h"
 #include "util/json.h"
 #include "util/logging.h"
@@ -235,6 +236,7 @@ std::optional<std::pair<File, Range>> SarifReader::PhysicalLocation(
 
 std::vector<Report> SarifReader::Read(yyjson_val* root) {
   std::vector<Report> reports;
+  SourceFileCache sources;
   yyjson_arr_iter runs = yyjson_arr_iter_with(util::JsonGet(root, "runs"));
   while (yyjson_val* run = yyjson_arr_iter_next(&runs)) {
     yyjson_val* driver =
@@ -295,7 +297,8 @@ std::vector<Report> SarifReader::Read(yyjson_val* root) {
                            : std::optional<std::vector<BugPathEvent>>(events));
         report.analyzer_name = analyzer_name;
         report.analyzer_result_file_path = *path_;
-        report.report_hash = GetReportHash(report, HashType::kPathSensitive);
+        report.report_hash =
+            GetReportHash(report, HashType::kPathSensitive, sources);
         reports.push_back(std::move(report));
       }
     }

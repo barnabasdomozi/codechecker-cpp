@@ -62,13 +62,22 @@ std::optional<uint32_t> NextCodePoint(std::string_view text, size_t* pos) {
 std::string DecodeUtf8Ignore(std::string_view bytes) {
   std::string text;
   text.reserve(bytes.size());
+  // Source files are mostly ASCII, so the valid bytes are copied a run at a
+  // time, and only non-ASCII characters are decoded.
+  size_t run_start = 0;
   size_t pos = 0;
   while (pos < bytes.size()) {
+    if (static_cast<unsigned char>(bytes[pos]) < 0x80) {
+      ++pos;
+      continue;
+    }
     const size_t start = pos;
-    if (NextCodePoint(bytes, &pos)) {
-      text.append(bytes.substr(start, pos - start));
+    if (!NextCodePoint(bytes, &pos)) {
+      text.append(bytes.substr(run_start, start - run_start));
+      run_start = pos;
     }
   }
+  text.append(bytes.substr(run_start));
   return text;
 }
 

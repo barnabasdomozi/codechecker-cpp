@@ -57,6 +57,7 @@ add_library(cc_report STATIC
   report/converter/xml_formats.cc
   report/hash/report_hash.cc
   report/model/report.cc
+  report/model/source_file_cache.cc
   report/output/baseline.cc
   report/output/codeclimate.cc
   report/output/error_file.cc

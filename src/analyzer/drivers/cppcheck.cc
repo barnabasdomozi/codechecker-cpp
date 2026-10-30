@@ -20,6 +20,7 @@
 #include "platform/filesystem.h"
 #include "report/hash/report_hash.h"
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "report/parser/plist.h"
 #include "util/file.h"
 #include "util/logging.h"
@@ -282,6 +283,7 @@ Result<void> Cppcheck::PostprocessResult(
   std::set<std::string> checkers;
   for (const CheckerInfo& checker : Checkers()) checkers.insert(checker.name);
   std::vector<report::Report> reports;
+  report::SourceFileCache sources;
   for (report::Report& report :
        report::ReadPlistFile(run->result_file, SourceDirPath(*run))) {
     if (!report.checker_name.starts_with("cppcheck-")) {
@@ -293,7 +295,7 @@ Result<void> Cppcheck::PostprocessResult(
         !checkers.contains(report.checker_name)) {
       continue;
     }
-    report.report_hash = report::GetReportHash(report, hash_type);
+    report.report_hash = report::GetReportHash(report, hash_type, sources);
     const report::BugPathEvent last = {
         .message = report.message,
         .file = report.file,

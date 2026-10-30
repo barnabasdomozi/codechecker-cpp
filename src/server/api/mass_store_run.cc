@@ -29,6 +29,7 @@
 #include "platform/ipc.h"
 #include "report/hash/report_hash.h"
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "report/parser/report_file.h"
 #include "server/api/report_filter.h"
 #include "server/api/request_failed.h"
@@ -1513,6 +1514,8 @@ TaskResult<void> MassStoreRun::ProcessReportFile(
       info == analysis_info_.end() ? std::nullopt
                                    : std::optional<int64_t>(info->second);
   report::TrimmedPaths trimmed_paths;
+  // The reports of a result file share a few source files.
+  report::SourceFileCache sources;
   for (report::Report& report : reports) {
     ++report_count_;
     report::TrimPaths(trim_patterns_, &report, &trimmed_paths);
@@ -1557,7 +1560,7 @@ TaskResult<void> MassStoreRun::ProcessReportFile(
       report.analyzer_name = analyzer->second;
     }
     Result<report::ReviewStatus> review_status =
-        review_status_handler.GetReviewStatus(report);
+        review_status_handler.GetReviewStatus(report, sources);
     if (!review_status.ok()) {
       wrong_source_code_comments_.push_back(review_status.error().message);
       review_status = Result<report::ReviewStatus>(report::ReviewStatus());

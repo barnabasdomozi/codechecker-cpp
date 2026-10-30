@@ -254,27 +254,39 @@ std::string RemoveWhitespace(std::string_view text) {
 std::string TranslateNewlines(std::string_view text) {
   std::string result;
   result.reserve(text.size());
-  for (size_t i = 0; i < text.size(); ++i) {
-    if (text[i] != '\r') {
-      result += text[i];
-      continue;
-    }
+  // The text between the "\r" characters is copied a run at a time.
+  size_t start = 0;
+  for (size_t cr = text.find('\r'); cr != std::string_view::npos;
+       cr = text.find('\r', start)) {
+    result.append(text.substr(start, cr - start));
     result += '\n';
-    if (i + 1 < text.size() && text[i + 1] == '\n') ++i;
+    start = cr + 1;
+    if (start < text.size() && text[start] == '\n') ++start;
   }
+  result.append(text.substr(start));
   return result;
 }
 
 std::vector<std::string_view> SplitLines(std::string_view text) {
   std::vector<std::string_view> lines;
+  // The line ends are found with find(), which is much faster than looking
+  // at each character. "\r" is rare, so the next one is searched for only
+  // after the previous one is passed.
+  size_t next_cr = text.find('\r');
   size_t start = 0;
-  for (size_t i = 0; i < text.size(); ++i) {
-    if (text[i] != '\n' && text[i] != '\r') continue;
-    if (text[i] == '\r' && i + 1 < text.size() && text[i + 1] == '\n') ++i;
-    lines.push_back(text.substr(start, i + 1 - start));
-    start = i + 1;
+  while (start < text.size()) {
+    if (next_cr < start) next_cr = text.find('\r', start);
+    size_t end = std::min(text.find('\n', start), next_cr);
+    if (end == std::string_view::npos) {
+      lines.push_back(text.substr(start));
+      break;
+    }
+    if (end == next_cr && end + 1 < text.size() && text[end + 1] == '\n') {
+      ++end;
+    }
+    lines.push_back(text.substr(start, end + 1 - start));
+    start = end + 1;
   }
-  if (start < text.size()) lines.push_back(text.substr(start));
   return lines;
 }
 

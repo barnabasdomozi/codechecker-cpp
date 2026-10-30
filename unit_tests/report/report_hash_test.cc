@@ -6,6 +6,7 @@
 
 #include "gtest/gtest.h"
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "util/file.h"
 #include "util/pypath.h"
 #include "util/result.h"
@@ -39,7 +40,8 @@ class ReportHashTest : public testing::Test {
 TEST_F(ReportHashTest, ContextFree) {
   const Report report = MakeReport(MakeFile(path_), 11, 12,
                                    "Division by zero", "core.DivideZero");
-  EXPECT_EQ(GetReportHash(report, HashType::kContextFree),
+  SourceFileCache sources;
+  EXPECT_EQ(GetReportHash(report, HashType::kContextFree, sources),
             "d11a6fc279b8946a4bdc0365ff032ae0");
 }
 
@@ -47,7 +49,8 @@ TEST_F(ReportHashTest, PathSensitive) {
   const Report report =
       MakeReport(MakeFile(path_), 21, 7, "unused variable 'unused'",
                  "clang-diagnostic-unused-variable");
-  EXPECT_EQ(GetReportHash(report, HashType::kPathSensitive),
+  SourceFileCache sources;
+  EXPECT_EQ(GetReportHash(report, HashType::kPathSensitive, sources),
             "249a121710b6a5cb467697f323de0d5f");
 }
 

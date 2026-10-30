@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "util/hash.h"
 #include "util/logging.h"
 #include "util/pypath.h"
@@ -19,7 +20,7 @@ constexpr util::Logger kLog("report-converter");
 // Returns `line` with all whitespace removed, and `column` moved left by the
 // whitespace in line[:column] (Python: _remove_whitespace()). The slice
 // counts code points, with Python's rules for negative columns.
-std::string RemoveWhitespace(const std::string& line, int* column) {
+std::string RemoveWhitespace(std::string_view line, int* column) {
   const std::string_view prefix = util::CodePointSlicePrefix(line, *column);
   const int removed = static_cast<int>(
       util::CodePointCount(prefix) -
@@ -28,10 +29,11 @@ std::string RemoveWhitespace(const std::string& line, int* column) {
   return util::RemoveWhitespace(line);
 }
 
-std::vector<std::string> ContextFreeParts(const Report& report) {
+std::vector<std::string> ContextFreeParts(const Report& report,
+                                          SourceFileCache& sources) {
   int column = report.column;
   const std::string line_content = RemoveWhitespace(
-      GetLine(report.file.original_path, report.line), &column);
+      sources.Line(report.file.original_path, report.line), &column);
   if (line_content.empty() &&
       !util::pypath::IsFile(report.file.original_path)) {
     kLog.Error("Failed to include source line in the report hash.");
@@ -42,15 +44,16 @@ std::vector<std::string> ContextFreeParts(const Report& report) {
           std::to_string(column)};
 }
 
-std::vector<std::string> PathSensitiveParts(const Report& report) {
+std::vector<std::string> PathSensitiveParts(const Report& report,
+                                            SourceFileCache& sources) {
   if (report.bug_path_events.empty()) {
     kLog.Error("Hash generation failed!");
     kLog.Error("list index out of range");
     return {};
   }
   const BugPathEvent& event = report.bug_path_events.back();
-  const std::string line_content =
-      GetLine(event.file.original_path, event.line);
+  const std::string line_content(
+      sources.Line(event.file.original_path, event.line));
   if (line_content.empty() &&
       !util::pypath::IsFile(report.file.original_path)) {
     kLog.Error("Failed to generate report hash. " +
@@ -71,17 +74,18 @@ std::vector<std::string> PathSensitiveParts(const Report& report) {
 
 }  // namespace
 
-std::string GetReportHash(const Report& report, HashType type) {
+std::string GetReportHash(const Report& report, HashType type,
+                          SourceFileCache& sources) {
   std::vector<std::string> parts;
   switch (type) {
     case HashType::kContextFree:
-      parts = ContextFreeParts(report);
+      parts = ContextFreeParts(report, sources);
       break;
     case HashType::kPathSensitive:
-      parts = PathSensitiveParts(report);
+      parts = PathSensitiveParts(report, sources);
       break;
     case HashType::kDiagnosticMessage:
-      parts = ContextFreeParts(report);
+      parts = ContextFreeParts(report, sources);
       for (const BugPathEvent& event : report.bug_path_events) {
         parts.push_back(event.message);
       }

@@ -11,6 +11,7 @@
 #include "common/skiplist_handler.h"
 #include "report/hash/report_hash.h"
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "report/output/error_file.h"
 #include "report/output/plist.h"
 #include "util/pypath.h"
@@ -41,8 +42,9 @@ report::HashType ReportHashType(const std::optional<std::string>& option) {
 void SetReportHashes(const AnalyzerRun& run,
                      std::vector<report::Report>* reports) {
   const report::HashType hash_type = ReportHashType(run.config->report_hash);
+  report::SourceFileCache sources;
   for (report::Report& report : *reports) {
-    report.report_hash = report::GetReportHash(report, hash_type);
+    report.report_hash = report::GetReportHash(report, hash_type, sources);
   }
 }
 

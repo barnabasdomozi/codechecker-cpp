@@ -92,6 +92,14 @@ TEST(UnicodeTest, DecodeIgnoreDropsInvalidBytes) {
             "abcd€");
 }
 
+TEST(UnicodeTest, DecodeIgnoreAtTheEnds) {
+  EXPECT_EQ(DecodeUtf8Ignore(""), "");
+  EXPECT_EQ(DecodeUtf8Ignore("\xff\xfe"), "");
+  EXPECT_EQ(DecodeUtf8Ignore("\x80" "abc\xe2\x82"), "abc");
+  EXPECT_EQ(DecodeUtf8Ignore("€a\xc3"), "€a");
+  EXPECT_EQ(DecodeUtf8Ignore("\xe2\x82\n"), "\n");
+}
+
 TEST(UnicodeTest, CodePoints) {
   EXPECT_EQ(CodePointCount("árvíz"), 5u);
   EXPECT_EQ(CodePointPrefixSize("árvíz", 2), 3u);
@@ -107,6 +115,20 @@ TEST(StringsTest, Lines) {
   EXPECT_EQ(TranslateNewlines("a\r\nb\rc\n"), "a\nb\nc\n");
   EXPECT_EQ(SplitLines("a\r\nb\rc\nd"),
             (std::vector<std::string_view>{"a\r\n", "b\r", "c\n", "d"}));
+}
+
+TEST(StringsTest, LineEndCombinations) {
+  EXPECT_EQ(TranslateNewlines(""), "");
+  EXPECT_EQ(TranslateNewlines("\r"), "\n");
+  EXPECT_EQ(TranslateNewlines("\r\r\n\n\r"), "\n\n\n\n");
+  EXPECT_EQ(TranslateNewlines("ab"), "ab");
+  EXPECT_EQ(SplitLines(""), std::vector<std::string_view>{});
+  EXPECT_EQ(SplitLines("\r"), std::vector<std::string_view>{"\r"});
+  EXPECT_EQ(SplitLines("a\n\rb\r\r\nc\r"),
+            (std::vector<std::string_view>{"a\n", "\r", "b\r", "\r\n",
+                                           "c\r"}));
+  EXPECT_EQ(SplitLines("a\nb\n"),
+            (std::vector<std::string_view>{"a\n", "b\n"}));
 }
 
 TEST(StringsTest, HtmlEscape) {

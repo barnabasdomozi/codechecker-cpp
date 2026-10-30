@@ -12,12 +12,11 @@
 #include <vector>
 
 #include "platform/filesystem.h"
-#include "util/file.h"
+#include "report/model/source_file_cache.h"
 #include "util/fnmatch.h"
 #include "util/json.h"
 #include "util/logging.h"
 #include "util/pyre.h"
-#include "util/result.h"
 #include "util/strings.h"
 
 namespace cc::report {
@@ -264,23 +263,11 @@ std::string FormattedStatus(const ReviewStatus& status) {
   return formatted;
 }
 
-std::string SourceLine(const Report& report) {
+std::string SourceLine(const Report& report, SourceFileCache& sources) {
   if (ChangedFiles(report).contains(report.file.original_path)) {
     return std::string(kInvalidFileContentMessage);
   }
-  return GetLine(report.file.original_path, report.line);
-}
-
-std::string GetLine(const std::string& path, int line) {
-  const Result<std::string> text = util::ReadTextFile(path);
-  if (!text.ok()) {
-    kLog.Error("Failed to open file " + path);
-    return "";
-  }
-  if (line <= 0) return "";
-  const std::vector<std::string_view> lines = util::SplitLines(text.value());
-  if (static_cast<size_t>(line) > lines.size()) return "";
-  return std::string(lines[line - 1]);
+  return std::string(sources.Line(report.file.original_path, report.line));
 }
 
 }  // namespace cc::report

@@ -11,12 +11,14 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "common/source_code_comment_handler.h"
 #include "common/util.h"
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "util/file.h"
 #include "util/fnmatch.h"
 #include "util/json.h"
@@ -257,9 +259,9 @@ Result<void> ReviewStatusHandler::SetReviewStatusConfig(
 }
 
 Result<report::ReviewStatus> ReviewStatusHandler::GetReviewStatus(
-    const report::Report& report) {
+    const report::Report& report, report::SourceFileCache& sources) {
   Result<std::optional<report::ReviewStatus>> from_source =
-      ReviewStatusFromSource(report);
+      ReviewStatusFromSource(report, sources);
   if (!from_source.ok()) {
     return Result<report::ReviewStatus>(from_source.error());
   }
@@ -274,7 +276,8 @@ Result<report::ReviewStatus> ReviewStatusHandler::GetReviewStatus(
 }
 
 Result<std::optional<report::ReviewStatus>>
-ReviewStatusHandler::ReviewStatusFromSource(const report::Report& report) {
+ReviewStatusHandler::ReviewStatusFromSource(const report::Report& report,
+                                            report::SourceFileCache& sources) {
   using Status = Result<std::optional<report::ReviewStatus>>;
   const std::string source_file =
       source_root_.empty()
@@ -284,14 +287,21 @@ ReviewStatusHandler::ReviewStatusFromSource(const report::Report& report) {
       !util::pypath::IsFile(source_file)) {
     return Status(std::nullopt);
   }
-  const Result<std::string> text = util::ReadTextFile(source_file);
-  // A quick check before the lines are looked at.
-  if (!text.ok() || text.value().find("codechecker_") == std::string::npos) {
-    return Status(std::nullopt);
+  // A quick check before the lines are looked at, once for each file.
+  auto marker = has_comment_marker_.find(source_file);
+  if (marker == has_comment_marker_.end()) {
+    const std::string* text = sources.Text(source_file);
+    if (text == nullptr) return Status(std::nullopt);
+    marker = has_comment_marker_
+                 .emplace(source_file,
+                          text->find("codechecker_") != std::string::npos)
+                 .first;
   }
+  if (!marker->second) return Status(std::nullopt);
+  const std::vector<std::string_view>* lines = sources.Lines(source_file);
+  if (lines == nullptr) return Status(std::nullopt);
   const Result<std::vector<SourceCodeComment>> comments =
-      FilterSourceLineComments(text.value(), report.line,
-                               report.checker_name);
+      FilterSourceLineComments(*lines, report.line, report.checker_name);
   if (!comments.ok()) {
     source_comment_warnings_.push_back(source_file + " contains " +
                                        comments.error().message);

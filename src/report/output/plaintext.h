@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 
 namespace cc::report {
 
@@ -32,10 +33,12 @@ FileReportMap GetFileReportMap(const std::vector<Report>& reports,
 
 // Prints the reports of `file_report_map` on stdout, a file after the other
 // in case-insensitive order of their paths, with their bug paths if
-// `print_steps` (Python: convert()). A file without reports is printed as
-// "Found no defects in <name>" only if it is not in `processed_file_paths`;
-// the printed paths are added to it.
+// `print_steps` (Python: convert()). The source lines are read through
+// `sources`. A file without reports is printed as "Found no defects in
+// <name>" only if it is not in `processed_file_paths`; the printed paths are
+// added to it.
 void PrintReports(const FileReportMap& file_report_map, bool print_steps,
+                  SourceFileCache& sources,
                   std::set<std::string>* processed_file_paths);
 
 }  // namespace cc::report

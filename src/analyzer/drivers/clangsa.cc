@@ -23,6 +23,7 @@
 #include "platform/subprocess.h"
 #include "report/hash/report_hash.h"
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "report/parser/plist.h"
 #include "util/file.h"
 #include "util/json.h"
@@ -540,8 +541,9 @@ Result<void> ClangSa::PostprocessResult(
     hash_type = report::HashType::kDiagnosticMessage;
   }
   if (hash_type) {
+    report::SourceFileCache sources;
     for (report::Report& report : reports) {
-      report.report_hash = report::GetReportHash(report, *hash_type);
+      report.report_hash = report::GetReportHash(report, *hash_type, sources);
     }
   }
   return WriteReports(*run, std::move(reports), name(), review_status);

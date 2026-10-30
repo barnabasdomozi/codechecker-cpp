@@ -19,6 +19,7 @@
 #include "report/converter/analyzer_types.h"
 #include "report/hash/report_hash.h"
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "report/output/plist.h"
 #include "report/output/sarif.h"
 #include "util/argparse.h"
@@ -302,8 +303,10 @@ Result<void> Transform(
       kLog.Info("No '" + std::string(type.tool_name) +
                 "' results can be found in '" + path + "'.");
     }
+    report::SourceFileCache sources;
     for (report::Report report : std::move(reports).value()) {
-      report.report_hash = report::GetReportHash(report, type.hash_type);
+      report.report_hash =
+          report::GetReportHash(report, type.hash_type, sources);
       report.analyzer_name = std::string(type.tool_name);
       report.analyzer_result_file_path = path;
       if (report.checker_name.empty()) {

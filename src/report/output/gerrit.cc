@@ -13,6 +13,7 @@
 
 #include "platform/subprocess.h"
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "util/file.h"
 #include "util/json.h"
 #include "util/logging.h"
@@ -106,6 +107,7 @@ Result<std::string> ReportsToGerrit(const std::vector<Report>& reports) {
   yyjson_mut_doc* doc = document.get();
   yyjson_mut_val* comments = yyjson_mut_obj(doc);
   std::vector<std::string> unchanged_file_messages;
+  SourceFileCache sources;
   for (const Report& report : reports) {
     const std::string& file_name = report.file.path;
     // The path can be a bare file name in the report.
@@ -117,7 +119,7 @@ Result<std::string> ReportsToGerrit(const std::vector<Report>& reports) {
     const std::string message = std::format(
         "[{}] {}:{}:{}: {} [{}]\n{}", report.severity.value_or("None"),
         relative_path, report.line, report.column, report.message,
-        report.checker_name, SourceLine(report));
+        report.checker_name, SourceLine(report, sources));
     if (!changed_files_path.empty() &&
         std::ranges::none_of(
             changed_files.value(), [&file_name](const std::string& changed) {

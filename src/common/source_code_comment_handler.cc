@@ -147,9 +147,9 @@ Result<Comments> GetSourceLineComments(
 }  // namespace
 
 Result<std::vector<SourceCodeComment>> FilterSourceLineComments(
-    std::string_view text, int bug_line, std::string_view checker_name) {
-  Result<Comments> comments =
-      GetSourceLineComments(util::SplitLines(text), bug_line);
+    const std::vector<std::string_view>& lines, int bug_line,
+    std::string_view checker_name) {
+  Result<Comments> comments = GetSourceLineComments(lines, bug_line);
   if (!comments.ok()) return comments;
   Comments matching;
   for (const SourceCodeComment& comment : comments.value()) {

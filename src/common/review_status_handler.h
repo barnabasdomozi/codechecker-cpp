@@ -7,10 +7,12 @@
 
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "util/json.h"
 #include "util/result.h"
 
@@ -42,9 +44,11 @@ class ReviewStatusHandler {
   // Returns the review status of `report` (Python: get_review_status()):
   // that of its source code comment if its main file has not changed since
   // the analysis, else that of the first matching rule, else unreviewed.
-  // More than one matching source code comment fails with the message of
-  // Python's ValueError. Misspelled comments are added to the warnings.
-  Result<report::ReviewStatus> GetReviewStatus(const report::Report& report);
+  // The source file is read through `sources`. More than one matching
+  // source code comment fails with the message of Python's ValueError.
+  // Misspelled comments are added to the warnings.
+  Result<report::ReviewStatus> GetReviewStatus(
+      const report::Report& report, report::SourceFileCache& sources);
 
   // Returns the warnings about misspelled source code comments, in the
   // order they were found (Python: source_comment_warnings()).
@@ -56,7 +60,7 @@ class ReviewStatusHandler {
   // Python: get_review_status_from_source(); nullopt if no source code
   // comment applies.
   Result<std::optional<report::ReviewStatus>> ReviewStatusFromSource(
-      const report::Report& report);
+      const report::Report& report, report::SourceFileCache& sources);
 
   // Python: get_review_status_from_config(); nullopt if no rule applies.
   std::optional<report::ReviewStatus> ReviewStatusFromConfig(
@@ -66,6 +70,9 @@ class ReviewStatusHandler {
   std::optional<util::JsonDocument> data_;
   std::string path_;
   std::vector<std::string> source_comment_warnings_;
+  // Whether the source files that could be read contain "codechecker_", the
+  // marker of review status comments, by path.
+  std::unordered_map<std::string, bool> has_comment_marker_;
 };
 
 }  // namespace cc::common

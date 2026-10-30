@@ -7,6 +7,7 @@
 #include <string>
 
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 
 namespace cc::report {
 
@@ -17,8 +18,9 @@ enum class HashType {
 };
 
 // Returns the report hash of `report` (Python: get_report_hash()). It reads
-// source lines from disk and logs the problems it finds.
-std::string GetReportHash(const Report& report, HashType type);
+// source lines through `sources` and logs the problems it finds.
+std::string GetReportHash(const Report& report, HashType type,
+                          SourceFileCache& sources);
 
 // Returns the hash of the bug path of `report`, which is the same for
 // duplicates of a report (Python: get_report_path_hash()). It uses the

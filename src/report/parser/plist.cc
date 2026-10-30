@@ -13,6 +13,7 @@
 
 #include "report/hash/report_hash.h"
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "util/file.h"
 #include "util/json.h"
 #include "util/logging.h"
@@ -326,6 +327,7 @@ std::vector<Report> ReadPlistFile(
   }
 
   const DiagnosticReader reader(&path, &files, analyzer_name);
+  SourceFileCache sources;
   iter = yyjson_arr_iter_with(util::JsonGet(root, "diagnostics"));
   while (yyjson_val* diagnostic = yyjson_arr_iter_next(&iter)) {
     Result<Report> report = reader.ReadReport(diagnostic);
@@ -337,7 +339,8 @@ std::vector<Report> ReadPlistFile(
     }
     Report value = std::move(report).value();
     if (!value.report_hash) {
-      value.report_hash = GetReportHash(value, HashType::kPathSensitive);
+      value.report_hash =
+          GetReportHash(value, HashType::kPathSensitive, sources);
     }
     reports.push_back(std::move(value));
   }

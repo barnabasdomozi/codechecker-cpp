@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "report/model/source_file_cache.h"
 #include "util/pyre.h"
 
 namespace cc::report {
@@ -170,14 +171,9 @@ inline constexpr std::string_view kInvalidFileContentMessage =
 
 // Returns the source line of `report`, with its line terminator (Python:
 // Report.source_line): kInvalidFileContentMessage if its file changed since
-// the analysis (see ChangedFiles()), else as GetLine() reads it.
-std::string SourceLine(const Report& report);
-
-// Returns line `line` of the file at `path`, with its line terminator, read
-// as UTF-8 with undecodable bytes dropped and universal newlines; "" if the
-// file has fewer lines or cannot be read, which is logged (Python:
-// util.get_line()).
-std::string GetLine(const std::string& path, int line);
+// the analysis (see ChangedFiles()), else as SourceFileCache::Line() reads
+// it from `sources`.
+std::string SourceLine(const Report& report, SourceFileCache& sources);
 
 }  // namespace cc::report
 

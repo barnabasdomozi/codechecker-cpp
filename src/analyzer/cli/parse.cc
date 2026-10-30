@@ -31,6 +31,7 @@
 #include "platform/filesystem.h"
 #include "report/hash/report_hash.h"
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "report/output/baseline.h"
 #include "report/output/checker_info.h"
 #include "report/output/codeclimate.h"
@@ -494,6 +495,8 @@ Result<void> ProcessResultFile(
     ParseState* state) {
   const bool trim = !state->trim_patterns.empty();
   std::vector<report::Report> reports = report::GetReports(path);
+  // The reports of a result file share a few source files.
+  report::SourceFileCache sources;
   for (report::Report& report : reports) {
     report.severity = state->checker_labels->UniqueLabelOfChecker(
         report.checker_name, "severity", std::nullopt);
@@ -504,7 +507,7 @@ Result<void> ProcessResultFile(
       continue;
     }
     Result<report::ReviewStatus> status =
-        state->review_status_handler.GetReviewStatus(report);
+        state->review_status_handler.GetReviewStatus(report, sources);
     if (!status.ok()) return Result<void>(status.error());
     report.review_status = std::move(status).value();
   }
@@ -530,7 +533,7 @@ Result<void> ProcessResultFile(
             kept, source_file != source_files.end()
                       ? std::optional<std::string>(source_file->second)
                       : std::nullopt),
-        args.print_steps, &state->processed_file_paths);
+        args.print_steps, sources, &state->processed_file_paths);
   } else if (state->html_builder) {
     util::Print(std::format("Parsing input file '{}'.", path));
     if (Result<void> converted =

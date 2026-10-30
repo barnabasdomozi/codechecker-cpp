@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "report/model/report.h"
+#include "report/model/source_file_cache.h"
 #include "util/print.h"
 #include "util/pypath.h"
 #include "util/strings.h"
@@ -28,8 +29,9 @@ std::string CaseFold(std::string_view text) { return util::AsciiLower(text); }
 
 // Returns the source line of `report` with a "^" under its column (Python:
 // format_main_report()); "" if the line cannot be read.
-std::string FormatMainReport(const Report& report) {
-  const std::string line = GetLine(report.file.original_path, report.line);
+std::string FormatMainReport(const Report& report, SourceFileCache& sources) {
+  const std::string_view line =
+      sources.Line(report.file.original_path, report.line);
   if (line.empty()) return "";
   const std::string_view before_column =
       util::CodePointSlicePrefix(line, report.column - 1);
@@ -107,8 +109,10 @@ void PrintDetails(const Report& report) {
   WriteNumbered("  Steps:\n", lines);
 }
 
-// Prints one report and what belongs to it.
-void PrintReport(const Report& report, bool print_steps) {
+// Prints one report and what belongs to it, its source line read through
+// `sources`.
+void PrintReport(const Report& report, bool print_steps,
+                 SourceFileCache& sources) {
   // A changed file has other comments and lines than the analyzed one.
   const bool content_is_not_changed =
       !ChangedFiles(report).contains(report.file.original_path);
@@ -118,7 +122,7 @@ void PrintReport(const Report& report, bool print_steps) {
     if (!comment.empty()) {
       Write(std::string(util::RightStrip(comment)) + "\n");
     }
-    Write(FormatMainReport(report));
+    Write(FormatMainReport(report, sources));
   } else {
     Write(kInvalidFileContentMessage);
   }
@@ -147,6 +151,7 @@ FileReportMap GetFileReportMap(const std::vector<Report>& reports,
 }
 
 void PrintReports(const FileReportMap& file_report_map, bool print_steps,
+                  SourceFileCache& sources,
                   std::set<std::string>* processed_file_paths) {
   std::vector<const FileReports*> files;
   for (const FileReports& file : file_report_map) files.push_back(&file);
@@ -158,7 +163,9 @@ void PrintReports(const FileReportMap& file_report_map, bool print_steps,
     std::vector<const Report*> sorted = file->reports;
     std::ranges::stable_sort(sorted, {},
                              [](const Report* report) { return report->line; });
-    for (const Report* report : sorted) PrintReport(*report, print_steps);
+    for (const Report* report : sorted) {
+      PrintReport(*report, print_steps, sources);
+    }
     const std::string name = util::pypath::Basename(path);
     if (!sorted.empty()) {
       Write(std::format("Found {} defect(s) in {}\n\n", sorted.size(), name));

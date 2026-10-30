@@ -31,14 +31,15 @@ struct SourceCodeComment {
   std::string line;
 };
 
-// Returns the comments in the source `text` that belong to a report of
-// `checker_name` on line `bug_line` (Python: filter_source_line_comments()):
-// those above the line that name a checker contained in `checker_name`, or
-// "all". A comment is returned once for each such name. A comment that
-// contains a marker but cannot be parsed fails with the message
-// "misspelled review status comment @<line>: <comment>".
+// Returns the comments in the source file of `lines` (see util::SplitLines())
+// that belong to a report of `checker_name` on line `bug_line` (Python:
+// filter_source_line_comments()): those above the line that name a checker
+// contained in `checker_name`, or "all". A comment is returned once for each
+// such name. A comment that contains a marker but cannot be parsed fails with
+// the message "misspelled review status comment @<line>: <comment>".
 Result<std::vector<SourceCodeComment>> FilterSourceLineComments(
-    std::string_view text, int bug_line, std::string_view checker_name);
+    const std::vector<std::string_view>& lines, int bug_line,
+    std::string_view checker_name);
 
 // The result of ScanSourceLineComments().
 struct SourceCommentScan {
