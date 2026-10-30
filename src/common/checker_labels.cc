@@ -214,6 +214,23 @@ const std::vector<std::string>& CheckerLabels::OccurringValues(
   return values == values_.end() ? kNone : values->second;
 }
 
+std::vector<std::string> CheckerLabels::OccurringValues(
+    std::string_view key, std::string_view analyzer) const {
+  std::vector<std::string> values;
+  for (const Analyzer& data : analyzers_) {
+    if (data.name != analyzer) continue;
+    for (const Checker& checker : data.checkers) {
+      for (const auto& [label_key, value] : checker.labels) {
+        if (label_key == key &&
+            std::ranges::find(values, value) == values.end()) {
+          values.push_back(value);
+        }
+      }
+    }
+  }
+  return values;
+}
+
 const CheckerLabels::Checker* CheckerLabels::FindChecker(
     const Analyzer& data, const std::string& checker) {
   if (const auto it = data.index.find(checker); it != data.index.end()) {

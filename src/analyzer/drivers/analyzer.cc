@@ -271,7 +271,7 @@ std::set<std::string> AnalyzerDriver::MentionedFiles(
   return {};
 }
 
-Result<void> AnalyzerDriver::InitializeCheckers(
+Result<void> InitializeCheckers(
     const std::vector<CheckerInfo>& checkers, const ConfigArgs& args,
     AnalyzerConfig* config) {
   const Result<AnalyzerContext*> context = GetContext();
@@ -367,6 +367,14 @@ std::span<const AnalyzerDriver* const> SupportedAnalyzers() {
       &ClangSaAnalyzer(), &ClangTidyAnalyzer(), &CppcheckAnalyzer(),
       &GccAnalyzer(), &InferAnalyzer()};
   return kAnalyzers;
+}
+
+std::vector<std::string> SupportedAnalyzerNames() {
+  std::vector<std::string> names;
+  for (const AnalyzerDriver* analyzer : SupportedAnalyzers()) {
+    names.emplace_back(analyzer->name());
+  }
+  return names;
 }
 
 const AnalyzerDriver* FindAnalyzer(std::string_view name) {

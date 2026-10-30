@@ -81,8 +81,14 @@ describe('comparison of two builds', () => {
     test(`CodeChecker ${args.join(' ')}: same output`, async () => {
       const [a, b] = await Promise.all(builds().map((build) => ccWith(build, args, box.dir)));
       expect(b.exitCode).toBe(a.exitCode);
-      // Listings without a fixed order are compared as sorted lines.
-      const sorted = (r: RunResult) => r.stdout.split('\n').sort();
+      // Listings without a fixed order are compared as sorted lines, and a
+      // JSON list, which is one line, as its sorted items. (The order of the
+      // Cppcheck checkers differs even between two runs of the same build.)
+      const sorted = (r: RunResult) => {
+        const text = r.stdout.trim();
+        if (!text.startsWith('[')) return r.stdout.split('\n').sort();
+        return (JSON.parse(text) as unknown[]).map((item) => JSON.stringify(item)).sort();
+      };
       expect(sorted(b)).toEqual(sorted(a));
     });
   }

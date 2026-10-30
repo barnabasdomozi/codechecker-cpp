@@ -303,4 +303,11 @@ std::string ToString(std::string_view format, const Row& keys,
   std::terminate();
 }
 
+Row KeysForFormat(std::string_view format, Row keys) {
+  if (format == "csv" || format == "json") {
+    for (std::string& key : keys) key = Replace(AsciiLower(key), " ", "_");
+  }
+  return keys;
+}
+
 }  // namespace cc::util::twodim

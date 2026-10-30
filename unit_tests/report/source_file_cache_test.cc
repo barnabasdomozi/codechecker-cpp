@@ -1,12 +1,11 @@
 #include "report/model/source_file_cache.h"
 
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "platform/filesystem.h"
+#include "unit_tests/report/temp_folder_test.h"
 #include "util/file.h"
 #include "util/pypath.h"
 #include "util/result.h"
@@ -14,28 +13,16 @@
 namespace cc::report {
 namespace {
 
-class SourceFileCacheTest : public testing::Test {
+class SourceFileCacheTest : public TempFolderTest {
  protected:
-  void SetUp() override {
-    const std::optional<std::string> folder = platform::MakeTempDir();
-    ASSERT_TRUE(folder.has_value());
-    folder_ = *folder;
-  }
-
-  void TearDown() override {
-    if (!folder_.empty()) platform::RemoveTree(folder_);
-  }
-
   // Writes `content` into the file `name` of the test folder and returns
   // its path.
   std::string WriteSource(const std::string& name,
                           const std::string& content) {
-    const std::string path = util::pypath::Join({folder_, name});
+    const std::string path = util::pypath::Join({folder(), name});
     EXPECT_TRUE(util::WriteFile(path, content).ok());
     return path;
   }
-
-  std::string folder_;
 };
 
 TEST_F(SourceFileCacheTest, LineKeepsLineEndsAndChecksBounds) {
@@ -62,7 +49,7 @@ TEST_F(SourceFileCacheTest, TextIsDecodedWithUniversalNewlines) {
 
 TEST_F(SourceFileCacheTest, MissingFile) {
   SourceFileCache sources;
-  const std::string path = util::pypath::Join({folder_, "missing.c"});
+  const std::string path = util::pypath::Join({folder(), "missing.c"});
   EXPECT_EQ(sources.Text(path), nullptr);
   EXPECT_EQ(sources.Lines(path), nullptr);
   EXPECT_EQ(sources.Line(path, 1), "");

@@ -212,6 +212,15 @@ Result<std::vector<std::string>> LoadVerbatimArgs(
     std::string_view analyzer, const std::vector<AnalyzerConfigArg>& items,
     const util::Logger& log);
 
+// Adds `checkers` to `config` and sets their states from the default
+// profile, --enable-all and the -e/-d items of `args` (Python:
+// AnalyzerConfigHandler.initialize_checkers()). Checkers that `config`
+// already has keep their place and are reset to disabled first. A bad
+// -e/-d item is logged and is an error with exit code 1.
+Result<void> InitializeCheckers(const std::vector<CheckerInfo>& checkers,
+                                const ConfigArgs& args,
+                                AnalyzerConfig* config);
+
 // An option of --checker-config.
 struct CheckerOption {
   std::string checker;
@@ -290,13 +299,6 @@ class AnalyzerDriver {
  protected:
   AnalyzerDriver() = default;
 
-  // Python: AnalyzerConfigHandler.initialize_checkers(). Adds `checkers`
-  // to `config` and sets their states from the default profile,
-  // --enable-all and the -e/-d items.
-  static Result<void> InitializeCheckers(
-      const std::vector<CheckerInfo>& checkers, const ConfigArgs& args,
-      AnalyzerConfig* config);
-
   // Returns the version of Binary(), found out once per binary (Python:
   // get_binary_version()): `parse` reads it from the output of the binary
   // run with `flag`. A run that fails is logged to `log` and gives nullopt.
@@ -314,6 +316,9 @@ class AnalyzerDriver {
 // Returns the analyzers in registry order: clangsa, clang-tidy, cppcheck,
 // gcc, infer (Python: analyzer_types.supported_analyzers).
 std::span<const AnalyzerDriver* const> SupportedAnalyzers();
+
+// Returns the names of SupportedAnalyzers(), in the same order.
+std::vector<std::string> SupportedAnalyzerNames();
 
 // Returns the analyzer `name`, or null.
 const AnalyzerDriver* FindAnalyzer(std::string_view name);

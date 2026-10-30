@@ -95,7 +95,14 @@ std::string ExpandPercent(
 }
 
 // The number of arguments an action takes, in the terms of Python's nargs.
-enum class NargsKind { kZero, kOne, kZeroOrMore, kOneOrMore, kParser };
+enum class NargsKind {
+  kZero,
+  kOne,
+  kZeroOrOne,
+  kZeroOrMore,
+  kOneOrMore,
+  kParser
+};
 
 NargsKind NargsOf(const Action& action) {
   switch (action.kind) {
@@ -109,6 +116,8 @@ NargsKind NargsOf(const Action& action) {
       break;
   }
   switch (action.nargs) {
+    case Nargs::kZeroOrOne:
+      return NargsKind::kZeroOrOne;
     case Nargs::kZeroOrMore:
       return NargsKind::kZeroOrMore;
     case Nargs::kOneOrMore:
@@ -127,6 +136,8 @@ std::string_view NargsPattern(const Action& action) {
       return option ? "([AO]{0})" : "((?:-*A){0}-*)";
     case NargsKind::kOne:
       return option ? "([A])" : "(-*A-*)";
+    case NargsKind::kZeroOrOne:
+      return option ? "(A?)" : "(-*A?-*)";
     case NargsKind::kZeroOrMore:
       return option ? "(A*)" : "(-*[A-]*)";
     case NargsKind::kOneOrMore:
@@ -153,6 +164,8 @@ std::string FormatArgs(const Action& action, std::string_view default_metavar) {
       return "";
     case NargsKind::kOne:
       return metavar;
+    case NargsKind::kZeroOrOne:
+      return "[" + metavar + "]";
     case NargsKind::kZeroOrMore:
       return "[" + metavar + " ...]";
     case NargsKind::kOneOrMore:
@@ -419,7 +432,8 @@ std::string HelpFormatter::ExpandHelp(const Action& action) const {
   const NargsKind nargs = NargsOf(action);
   if (ShowDefaults() && help.find("%(default)") == std::string::npos &&
       default_value &&
-      (!action.option_strings.empty() || nargs == NargsKind::kZeroOrMore)) {
+      (!action.option_strings.empty() || nargs == NargsKind::kZeroOrOne ||
+       nargs == NargsKind::kZeroOrMore)) {
     help += " (default: %(default)s)";
   }
   std::vector<std::pair<std::string_view, std::string>> params = {
@@ -602,7 +616,8 @@ void Parser::AddArgument(Argument argument) {
   // Python makes positionals required unless nargs is '?' or '*'.
   const bool required =
       argument.required ||
-      (argument.flags.empty() && argument.nargs != Nargs::kZeroOrMore);
+      (argument.flags.empty() && argument.nargs != Nargs::kZeroOrOne &&
+       argument.nargs != Nargs::kZeroOrMore);
   actions_.push_back({.kind = kind,
                       .option_strings = std::move(argument.flags),
                       .dest = std::move(argument.dest),
@@ -1026,6 +1041,17 @@ std::optional<Error> Parser::TakeAction(const Action& action,
         stored = {*action.default_value};
       }
     }
+    // Python's _get_values(): an option with nargs '?' given without a
+    // value stores its const, and such a positional argument its default.
+    if (values.empty() && NargsOf(action) == NargsKind::kZeroOrOne) {
+      if (!action.option_strings.empty()) {
+        stored = {action.const_value};
+      } else if (action.default_value) {
+        stored = {*action.default_value};
+      } else {
+        return std::nullopt;
+      }
+    }
     if (action.custom_action) {
       const std::vector<std::string>* previous =
           known->values.Has(action.dest) ? &known->values.GetList(action.dest)
@@ -1035,7 +1061,9 @@ std::optional<Error> Parser::TakeAction(const Action& action,
       if (!result.ok()) return result.error();
       stored = std::move(result).value();
     }
-    if (NargsOf(action) == NargsKind::kOne && !action.custom_action) {
+    const NargsKind nargs = NargsOf(action);
+    if ((nargs == NargsKind::kOne || nargs == NargsKind::kZeroOrOne) &&
+        !action.custom_action) {
       known->values.Set(action.dest, stored.front());
     } else {
       known->values.SetList(action.dest, std::move(stored));

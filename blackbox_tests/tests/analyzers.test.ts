@@ -155,6 +155,12 @@ describe('usage/analyzers.md', () => {
     expect(logMessages(result.output, 'WARNING')).toContain("'--dump-config cppcheck' is not supported.");
   }, { name: 'cppcheck is not supported', requires: ['command:cppcheck'] });
 
+  useCase('analyzers.md', 'Dump a full analyzer configuration', async () => {
+    const result = await cc(['analyzers', '--dump-config', 'gcc'], { cwd: box.dir });
+    expect(result).toExitWith(1);
+    expect(result.output).toContain('NotImplementedError: --dump-config');
+  }, { name: 'gcc is not implemented', requires: ['command:g++'] });
+
   useCase('analyzers.md', 'Choose which analyzer binaries are used', async () => {
     const result = await cc(['analyzers'], { cwd: box.dir, env: { CC_ANALYZER_BIN: 'cppcheck:/no/such/cppcheck' } });
     expect(result).toExitWith(1);

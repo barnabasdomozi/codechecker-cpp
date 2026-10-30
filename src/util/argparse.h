@@ -12,8 +12,8 @@
 //   if (!args.ok()) return args.error().exit_code;
 //   Print(args.value().Get("output_format"));
 //
-// Supported so far: options and positional arguments with nargs None, '*'
-// and '+', store_true, store_const, type conversions, required options,
+// Supported so far: options and positional arguments with nargs None, '?',
+// '*' and '+', store_true, store_const, type conversions, required options,
 // metavars, custom actions, -h/--help, choices, defaults (including
 // argparse.SUPPRESS and None), set_defaults(), argument groups, mutually
 // exclusive groups (also required ones), one level of subcommands,
@@ -55,6 +55,10 @@ enum class HelpFormat {
 // How many command line arguments an argument takes (Python: nargs).
 enum class Nargs {
   kOne,         // nargs=None: one value.
+  // nargs='?': one value, or none. An option given without a value stores
+  // Argument::const_value; a positional argument without a value stores its
+  // default.
+  kZeroOrOne,
   kZeroOrMore,  // nargs='*': a list of values.
   kOneOrMore,   // nargs='+': a list of at least one value.
 };
@@ -102,7 +106,9 @@ struct Argument {
   std::string dest = {};  // The name of the value in the Namespace.
   Nargs nargs = Nargs::kOne;
   ArgumentAction action = ArgumentAction::kStore;
-  // kStoreConst only: the value to store (Python: const).
+  // The value to store for kStoreConst, and for an option with kZeroOrOne
+  // given without a value (Python: const). Python's const is None by
+  // default; here it is an empty string.
   std::string const_value = {};
   // Converts each value before it is checked and stored (Python: type).
   ArgumentType type = {};
@@ -170,7 +176,7 @@ struct Action {
   bool default_none = false;
   bool required = false;
   std::string help = {};
-  std::string const_value = {};  // kStoreConst only.
+  std::string const_value = {};  // kStoreConst and kZeroOrOne only.
   ArgumentType type = {};
   CustomAction custom_action = {};
   int group = 0;

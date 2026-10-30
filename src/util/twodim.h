@@ -22,6 +22,12 @@ std::string ToString(std::string_view format,
                      const std::vector<std::string>& keys,
                      const std::vector<std::vector<std::string>>& rows);
 
+// Returns the header `keys` for `format`: lower case with '_' for spaces
+// for "csv" and "json", which are meant for programs, else unchanged
+// (Python: uglify() of the analyzers and checkers commands).
+std::vector<std::string> KeysForFormat(std::string_view format,
+                                       std::vector<std::string> keys);
+
 // How ToTable() draws a table (Python: the flags of twodim.to_table()).
 struct TableStyle {
   // Whether the first line is the header (Python: separate_head). Without

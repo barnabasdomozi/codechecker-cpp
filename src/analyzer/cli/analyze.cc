@@ -1437,10 +1437,7 @@ void AddFileFilterArguments(argparse::Parser& parser) {
 }
 
 void AddAnalyzerArguments(argparse::Parser& parser, int group) {
-  std::vector<std::string> analyzer_names;
-  for (const AnalyzerDriver* analyzer : SupportedAnalyzers()) {
-    analyzer_names.emplace_back(analyzer->name());
-  }
+  const std::vector<std::string> analyzer_names = SupportedAnalyzerNames();
   parser.AddArgument(
       {.flags = {"--analyzers"},
        .dest = "analyzers",

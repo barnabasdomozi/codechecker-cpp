@@ -291,6 +291,87 @@ TEST_F(ArgparseTest, ListArgumentErrors) {
   }
 }
 
+// A parser with nargs '?' arguments, like the label filters of `checkers`.
+void SetUpOptionalValueParser(Parser& parser) {
+  parser.set_help_format(HelpFormat::kArgumentDefaults);
+  parser.AddArgument({.flags = {"--label"},
+                      .dest = "label",
+                      .nargs = Nargs::kZeroOrOne,
+                      .help = "Label."});
+  parser.AddArgument({.flags = {"--level"},
+                      .dest = "level",
+                      .nargs = Nargs::kZeroOrOne,
+                      .choices = {"a", "b"},
+                      .default_value = "a",
+                      .help = "Level."});
+  parser.AddArgument({.dest = "name",
+                      .nargs = Nargs::kZeroOrOne,
+                      .default_value = "x",
+                      .help = "Name."});
+}
+
+TEST_F(ArgparseTest, OptionalValueHelp) {
+  Parser parser("prog");
+  SetUpOptionalValueParser(parser);
+  EXPECT_EQ(parser.FormatHelp(),
+            "usage: prog [-h] [--label [LABEL]] [--level [{a,b}]] [name]\n"
+            "\n"
+            "positional arguments:\n"
+            "  name             Name. (default: x)\n"
+            "\n"
+            "options:\n"
+            "  -h, --help       show this help message and exit\n"
+            "  --label [LABEL]  Label.\n"
+            "  --level [{a,b}]  Level. (default: a)\n");
+}
+
+TEST_F(ArgparseTest, ParsesOptionalValues) {
+  Parser parser("prog");
+  SetUpOptionalValueParser(parser);
+
+  const Result<Namespace> absent = parser.ParseArgs({});
+  ASSERT_TRUE(absent.ok());
+  EXPECT_FALSE(absent.value().Has("label"));
+  EXPECT_EQ(absent.value().Get("level"), "a");
+  EXPECT_EQ(absent.value().Get("name"), "x");
+
+  // Without a value, an option stores its const: Python's None, "" here.
+  const Result<Namespace> no_value = parser.ParseArgs({"--label"});
+  ASSERT_TRUE(no_value.ok());
+  EXPECT_EQ(no_value.value().Get("label"), "");
+
+  const Result<Namespace> value = parser.ParseArgs({"--label", "k:v"});
+  ASSERT_TRUE(value.ok());
+  EXPECT_EQ(value.value().Get("label"), "k:v");
+  EXPECT_EQ(value.value().Get("name"), "x");
+
+  const Result<Namespace> explicit_empty = parser.ParseArgs({"--label=", "n"});
+  ASSERT_TRUE(explicit_empty.ok());
+  EXPECT_EQ(explicit_empty.value().Get("label"), "");
+  EXPECT_EQ(explicit_empty.value().Get("name"), "n");
+
+  // An option after the option ends it, and its const skips the choices.
+  const Result<Namespace> next_option =
+      parser.ParseArgs({"--level", "--label", "k"});
+  ASSERT_TRUE(next_option.ok());
+  EXPECT_EQ(next_option.value().Get("level"), "");
+  EXPECT_EQ(next_option.value().Get("label"), "k");
+}
+
+TEST_F(ArgparseTest, OptionalValueInvalidChoice) {
+  Parser parser("prog");
+  SetUpOptionalValueParser(parser);
+  testing::internal::CaptureStderr();
+  const Result<Namespace> result = parser.ParseArgs({"--level", "c"});
+  const std::string output = testing::internal::GetCapturedStderr();
+  ASSERT_FALSE(result.ok());
+  EXPECT_EQ(result.error().exit_code, 1);
+  EXPECT_EQ(output,
+            "usage: prog [-h] [--label [LABEL]] [--level [{a,b}]] [name]\n"
+            "prog: error: argument --level: invalid choice: 'c' (choose from "
+            "a, b)\n");
+}
+
 // A parser with a required, an optional and a required one-option mutually
 // exclusive group.
 void SetUpExclusiveParser(Parser& parser) {

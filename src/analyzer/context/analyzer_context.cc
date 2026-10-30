@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <format>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -243,8 +244,9 @@ Result<AnalyzerContext*> GetContext() {
           kLog.Error(labels.error().message);
           return Result<AnalyzerContext*>(Error{});
         }
-        auto* result =
-            new AnalyzerContext(data_files_dir, std::move(labels).value());
+        // Owned here until it is complete; then it is never deleted.
+        std::unique_ptr<AnalyzerContext> result(
+            new AnalyzerContext(data_files_dir, std::move(labels).value()));
         yyjson_val* layout_root = yyjson_doc_get_root(layout.value().get());
         result->path_env_extra_ =
             ExtraPaths(layout_root, "path_env_extra", data_files_dir);
@@ -275,7 +277,7 @@ Result<AnalyzerContext*> GetContext() {
             !populated.ok()) {
           return Result<AnalyzerContext*>(populated.error());
         }
-        return Result<AnalyzerContext*>(result);
+        return Result<AnalyzerContext*>(result.release());
       }());
   return context;
 }

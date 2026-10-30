@@ -96,11 +96,8 @@ Result<AnalyzerAvailability> CheckAvailableAnalyzers(
     }
     return Result<AnalyzerAvailability>(std::move(result));
   }
-  std::vector<std::string> all;
-  for (const AnalyzerDriver* analyzer : SupportedAnalyzers()) {
-    all.emplace_back(analyzer->name());
-  }
-  AnalyzerAvailability result = CheckSupportedAnalyzers(all);
+  AnalyzerAvailability result =
+      CheckSupportedAnalyzers(SupportedAnalyzerNames());
   if (result.enabled.empty()) {
     PrintUnsupportedAnalyzers(result.failed);
     kLog.Error("Failed to run command because no analyzers can be found on "

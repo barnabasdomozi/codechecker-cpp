@@ -27,8 +27,8 @@ The porting order is in
 | Foundation | `cc_report` | [report-format](docs/reference/report-format.md), [report-hash](docs/reference/report-hash.md) | ✅ | Report model, report hashes, plist and SARIF reading and writing |
 | Foundation | `cc_common`, launcher | | ✅ | Checker labels, skip lists, review status handling, `--config` files, the launcher's second process |
 | Information | `version`, `analyzer-version`, `web-version` | [version.md](docs/usage/version.md) | ✅ | |
-| Information | `analyzers` | [analyzers.md](docs/usage/analyzers.md) | ❌ | |
-| Information | `checkers` | [checkers.md](docs/usage/checkers.md) | ❌ | |
+| Information | `analyzers` | [analyzers.md](docs/usage/analyzers.md) | ✅ | Listing, `--analyzer-config`, `--dump-config` |
+| Information | `checkers` | [checkers.md](docs/usage/checkers.md) | ✅ | Label, profile, guideline and severity filters and listings, `--checker-config` |
 | Analysis | `log`, `ldlogger` | [log.md](docs/usage/log.md) | ✅ | |
 | Analysis | `analyze` | [analyze.md](docs/usage/analyze.md) | ✅ | |
 | Analysis | Analyzer drivers | [analyzers.md](docs/usage/analyzers.md) | ✅ | Clang SA, Clang-Tidy, Cppcheck, GCC, Infer |

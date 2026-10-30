@@ -1,12 +1,11 @@
 #include "report/hash/report_hash.h"
 
-#include <optional>
 #include <string>
 
 #include "gtest/gtest.h"
-#include "platform/filesystem.h"
 #include "report/model/report.h"
 #include "report/model/source_file_cache.h"
+#include "unit_tests/report/temp_folder_test.h"
 #include "util/file.h"
 #include "util/pypath.h"
 #include "util/result.h"
@@ -15,13 +14,11 @@ namespace cc::report {
 namespace {
 
 // The verified examples of report-hash.md.
-class ReportHashTest : public testing::Test {
+class ReportHashTest : public TempFolderTest {
  protected:
   void SetUp() override {
-    const std::optional<std::string> folder = platform::MakeTempDir();
-    ASSERT_TRUE(folder.has_value());
-    folder_ = *folder;
-    path_ = util::pypath::Join({folder_, "main.c"});
+    ASSERT_NO_FATAL_FAILURE(TempFolderTest::SetUp());
+    path_ = util::pypath::Join({folder(), "main.c"});
     std::string content;
     for (int line = 1; line <= 30; ++line) {
       if (line == 11) {
@@ -35,11 +32,6 @@ class ReportHashTest : public testing::Test {
     ASSERT_TRUE(util::WriteFile(path_, content).ok());
   }
 
-  void TearDown() override {
-    if (!folder_.empty()) platform::RemoveTree(folder_);
-  }
-
-  std::string folder_;
   std::string path_;
 };
 

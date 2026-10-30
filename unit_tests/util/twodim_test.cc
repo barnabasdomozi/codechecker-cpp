@@ -174,5 +174,15 @@ TEST_F(TwodimTest, Json) {
             R"("Version": "2026-10-23T22:59"}])");
 }
 
+TEST_F(TwodimTest, KeysForFormat) {
+  const std::vector<std::string> keys = {"Profile name", "Description"};
+  EXPECT_EQ(KeysForFormat("csv", keys),
+            (std::vector<std::string>{"profile_name", "description"}));
+  EXPECT_EQ(KeysForFormat("json", keys),
+            (std::vector<std::string>{"profile_name", "description"}));
+  EXPECT_EQ(KeysForFormat("rows", keys), keys);
+  EXPECT_EQ(KeysForFormat("table", keys), keys);
+}
+
 }  // namespace
 }  // namespace cc::util::twodim

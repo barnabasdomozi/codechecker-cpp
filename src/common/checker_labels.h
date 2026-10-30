@@ -60,9 +60,12 @@ class CheckerLabels {
   // (Python: labels(), a set).
   const std::vector<std::string>& Labels() const { return label_keys_; }
 
-  // Returns the values of the label `key` that occur, in the order they
-  // first occur (Python: occurring_values(), a set).
+  // Returns the values of the label `key` that occur, for the checkers of
+  // all analyzers or of `analyzer`, in the order they first occur (Python:
+  // occurring_values(), a set).
   const std::vector<std::string>& OccurringValues(std::string_view key) const;
+  std::vector<std::string> OccurringValues(std::string_view key,
+                                           std::string_view analyzer) const;
 
   // Returns the value of the unique label `key` (severity, blacklist,
   // description) of `checker`, or the label's default (Python:

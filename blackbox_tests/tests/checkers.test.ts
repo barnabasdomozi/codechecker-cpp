@@ -4,7 +4,7 @@ import { describe, expect } from '@jest/globals';
 import { cc } from '../src/run';
 import { useSandbox } from '../src/sandbox';
 import { useCase } from '../src/usecase';
-import { lines } from '../src/normalize';
+import { lines, logMessages } from '../src/normalize';
 
 const box = useSandbox();
 
@@ -110,6 +110,24 @@ describe('usage/checkers.md', () => {
     expect(listed(rule)).toEqual(['bugprone-signed-char-misuse']);
   });
 
+  useCase('checkers.md', 'Browse and filter by label', async () => {
+    // The values of a label keep the header "Value" in CSV.
+    const csv = lines(await checkers(['--label', 'severity', '-o', 'csv']));
+    expect(csv[0]).toBe('Value');
+    expect(csv.slice(1).sort()).toEqual(['CRITICAL', 'HIGH', 'LOW', 'MEDIUM', 'STYLE', 'UNSPECIFIED']);
+
+    const unknown = await cc(['checkers', '--label', 'no-such-label'], { cwd: box.dir });
+    expect(unknown).toExitWith(0);
+    expect(unknown.stdout).toBe('');
+    expect(logMessages(unknown.output, 'INFO')).toEqual([
+      'Label "no-such-label" doesn\'t exist. Use "CodeChecker checkers --label" command to list available labels.',
+    ]);
+
+    const namespace = await cc(['checkers', '--label', 'no-such-label:x'], { cwd: box.dir });
+    expect(namespace).toExitWith(1);
+    expect(logMessages(namespace.output, 'ERROR')[0]).toMatch(/^The no-such-label namespace is not known\./);
+  }, { name: 'label values in CSV and unknown labels' });
+
   useCase('checkers.md', 'Profiles', async () => {
     expect(listed(await checkers(['--profile']))).toEqual(['default', 'sensitive', 'security', 'portability', 'extreme']);
     const byProfile = await checkerNames(['--profile', 'sensitive']);
@@ -119,6 +137,19 @@ describe('usage/checkers.md', () => {
     // Every default checker is in the sensitive profile too.
     expect(defaults.filter((c) => !byProfile.includes(c))).toEqual([]);
   });
+
+  useCase('checkers.md', 'Profiles', async () => {
+    const details = JSON.parse(await checkers(['--profile', '--details', '-o', 'json'])) as Array<{ profile_name: string; description: string }>;
+    expect(details.map((p) => p.profile_name)).toEqual(['default', 'sensitive', 'security', 'portability', 'extreme']);
+    expect(details.every((p) => p.description !== '')).toBe(true);
+
+    const unknown = await cc(['checkers', '--profile', 'no-such-profile'], { cwd: box.dir });
+    expect(unknown).toExitWith(1);
+    expect(logMessages(unknown.output, 'ERROR')).toEqual([
+      "Checker profile 'no-such-profile' does not exist!",
+      "To list available profiles, use '--profile' without argument.",
+    ]);
+  }, { name: 'descriptions and an unknown profile' });
 
   useCase('checkers.md', 'Guidelines', async () => {
     const all = await checkers(['--guideline']);
@@ -132,12 +163,30 @@ describe('usage/checkers.md', () => {
     expect(whole).toEqual(await checkerNames(['--label', 'guideline:sei-cert-c']));
   });
 
+  useCase('checkers.md', 'Guidelines', async () => {
+    // In JSON, the rules of a guideline are a sorted list.
+    const json = JSON.parse(await checkers(['--guideline', '-o', 'json'])) as Array<{ guideline: string; rules: string[] }>;
+    const cert = json.find((g) => g.guideline === 'sei-cert-c')!;
+    expect(cert.rules).toContain('str34-c');
+    expect(cert.rules).toEqual([...cert.rules].sort());
+
+    const unknown = await cc(['checkers', '--guideline', 'no-such-guideline'], { cwd: box.dir });
+    expect(unknown).toExitWith(1);
+    expect(logMessages(unknown.output, 'ERROR')).toEqual(['--guideline parameter is either <guideline> or <guideline>:<rule>']);
+  }, { name: 'JSON and an unknown guideline' });
+
   useCase('checkers.md', 'Severities', async () => {
     expect(listed(await checkers(['--severity']))).toEqual(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'STYLE', 'UNSPECIFIED']);
     const critical = listed(await checkers(['--severity', 'CRITICAL', '--analyzers', 'clang-tidy', '-o', 'rows']));
     expect(critical).toEqual(['clang-diagnostic-error']);
     expect(await checkerNames(['--severity', 'HIGH'])).toEqual(await checkerNames(['--label', 'severity:HIGH']));
   });
+
+  useCase('checkers.md', 'Severities', async () => {
+    const lower = await cc(['checkers', '--severity', 'high'], { cwd: box.dir });
+    expect(lower).toExitWith(1);
+    expect(logMessages(lower.output, 'ERROR')[0]).toMatch(/^The high identifier does not exist in the severity namespace\./);
+  }, { name: 'not in capitals' });
 
   useCase('checkers.md', 'Checker configuration options', async () => {
     // Exit code 1: GCC (and Cppcheck) have no checker options, and that is
