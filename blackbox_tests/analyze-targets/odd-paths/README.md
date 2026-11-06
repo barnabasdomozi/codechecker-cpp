@@ -49,4 +49,4 @@ output, so its `naïve.cpp` report points to `src dir/xxnxxcxxdxx/naxxve.cpp`,
 which does not exist. `parse` prints it with
 `WARNING: source file content is changed or missing.`, and a skipfile entry
 like `-*/ünïcødé/*` does not hide it (see
-[known-issues.md](../../../docs/usage/known-issues.md) #21).
+[known-issues.md](../../../docs/usage/known-issues.md) #12).

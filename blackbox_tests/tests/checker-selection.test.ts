@@ -154,7 +154,7 @@ describe('usage/checker-selection.md', () => {
     const { result } = await analyze(['--analyzers', 'clang-tidy', '-e', 'Wunused-variable']);
     expect(result).toExitWith(1);
     expect(logMessages(result.output, 'ERROR')).toContain('No checker(s) with these names was found: Wunused-variable.');
-  }, { name: 'the W... form from the help text is rejected', knownIssue: 'H1' });
+  }, { name: 'the W... form from the help text is rejected', knownIssue: 50 });
 
   useCase('checker-selection.md', 'Unknown checker names', async () => {
     const { result } = await analyze(['-e', 'no-such-checker']);

@@ -118,7 +118,7 @@ describe('usage/analyze.md', () => {
     expect(warnings).toContain(
       'There were no compilation commands in the provided compilation database or all of them were skipped.',
     );
-  }, { name: 'no compile_commands.json in a parent folder', knownIssue: 14 });
+  }, { name: 'no compile_commands.json in a parent folder', knownIssue: 37 });
 
   useCase('analyze.md', 'Analyze a folder', async () => {
     const root = await loggedProject(box, 'demo');

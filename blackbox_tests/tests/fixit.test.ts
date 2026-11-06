@@ -103,7 +103,7 @@ describe('usage/fixit.md', () => {
     const fix = await cc(['fixit', path.join(root2, 'reports')], { cwd: root2, input: diff.stdout });
     expect(fix).toExitWith(1);
     expect(fix.output).toContain("KeyError: 'checkedFile'");
-  }, { ...NEEDS, name: 'the cmd diff pipe crashes', knownIssue: 2 });
+  }, { ...NEEDS, name: 'the cmd diff pipe crashes', knownIssue: 15 });
 
   useCase('fixit.md', 'Fix only selected reports (pipe a report list)', async () => {
     const root = await setup();
@@ -113,7 +113,7 @@ describe('usage/fixit.md', () => {
     const fix = await cc(['fixit', 'reports'], { cwd: root, input: diff.stdout });
     expect(fix).toExitWith(0);
     expect(new Set(fixitNames(fix.stdout))).toEqual(new Set(['modernize-use-nullptr', 'modernize-use-trailing-return-type']));
-  }, { ...NEEDS, name: 'an empty diff applies no filtering', knownIssue: 2 });
+  }, { ...NEEDS, name: 'an empty diff applies no filtering', knownIssue: 15 });
 
   useCase('fixit.md', 'Exit codes', async () => {
     const root = await setup();
@@ -126,5 +126,5 @@ describe('usage/fixit.md', () => {
     const result = await cc(['fixit', 'reports'], { cwd: root, env: { PATH: pathWithout } });
     expect(result).toExitWith(0);
     expect(logMessages(result.output, 'ERROR')).toContain('clang-apply-replacements tool is not found');
-  }, { ...NEEDS, name: 'clang-apply-replacements missing', knownIssue: 3 });
+  }, { ...NEEDS, name: 'clang-apply-replacements missing', knownIssue: 35 });
 });

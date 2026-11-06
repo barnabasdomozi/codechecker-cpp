@@ -60,7 +60,7 @@ describe('usage/local-diff.md', () => {
     // The columns are shifted: "File" holds the severity, "Checker" the file.
     const row = lines(normalize(table.stdout, { paths: { '~/demo2': demo2.root } })).find((l) => l.includes('main.c:11:12') && l.includes('core.DivideZero'))!;
     expect(row).toMatch(/^│ HIGH +│ ~\/demo2\/main\.c:11:12 +│ Division by zero +│ core\.DivideZero +│ +return a \/ z; +│$/);
-  }, { name: 'table headers do not match the data', knownIssue: 4 });
+  }, { name: 'table headers do not match the data', knownIssue: 33 });
 
   useCase('local-diff.md', 'Compare against a baseline file', async () => {
     const baseline = path.join(box.newDir('baseline'), 'reports.baseline');
@@ -83,7 +83,7 @@ describe('usage/local-diff.md', () => {
     const result = await diff(['-b', demo2.reports, '-n', baseline, '--new']);
     expect(plainReports(result.stdout)).toEqual([]);
     expect(result).toExitWith(2);
-  }, { name: 'folder vs baseline --new finds nothing but exits 2', knownIssue: 5 });
+  }, { name: 'folder vs baseline --new finds nothing but exits 2', knownIssue: 34 });
 
   useCase('local-diff.md', 'No differences', async () => {
     const result = await diff(['-b', demo.reports, '-n', demo.reports, '--new']);
@@ -128,19 +128,19 @@ describe('usage/local-diff.md', () => {
       expect(result).toExitWith(2);
       expect(plainLocations(plainReports(result.stdout))).toEqual(plainLocations(plainReports(base.stdout)));
     }
-  }, { name: 'other filters are ignored for local folders', knownIssue: 15 });
+  }, { name: 'other filters are ignored for local folders', knownIssue: 4 });
 
   useCase('local-diff.md', 'Filters', async () => {
     const unknown = await diff(['-b', demo.reports, '-n', demo2.reports, '--new', '--review-status', 'suppress']);
     expect(unknown).toExitWith(1);
     expect(unknown.output).toContain('KeyError');
-  }, { name: 'an unknown --review-status value crashes', knownIssue: 16 });
+  }, { name: 'an unknown --review-status value crashes', knownIssue: 22 });
 
   useCase('local-diff.md', 'Filters', async () => {
     const component = await diff(['-b', demo.reports, '-n', demo2.reports, '--new', '--component', 'x']);
     expect(component).toExitWith(1);
     expect(component.output).toContain('AttributeError');
-  }, { name: '--component crashes', knownIssue: 17 });
+  }, { name: '--component crashes', knownIssue: 23 });
 
   useCase('local-diff.md', 'Output formats', async () => {
     const dir = box.newDir('formats');
@@ -190,7 +190,7 @@ describe('usage/local-diff.md', () => {
     const result = await diff(['-b', demo.reports, '-n', demo2.reports, '--new', '-c']);
     expect(result).toExitWith(1);
     expect(result.output).toContain('TypeError');
-  }, { name: '-c without -e crashes', knownIssue: 17 });
+  }, { name: '-c without -e crashes', knownIssue: 23 });
 
   useCase('local-diff.md', 'Output formats', async () => {
     for (const format of ['rows', 'table', 'csv']) {

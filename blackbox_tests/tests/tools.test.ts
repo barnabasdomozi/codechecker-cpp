@@ -63,7 +63,7 @@ describe('usage/tu-collector.md', () => {
       expect(await tool('tu_collector', ['-l', 'compile_commands.json', '-z', zip, '-f', filter], { cwd: root })).toExitWith(0);
       expect(zipNames(zip)).toEqual(['compilation_database.json']);
     }
-  }, { ...ZIP_NEEDS, name: 'absolute patterns match nothing', knownIssue: 'H5' });
+  }, { ...ZIP_NEEDS, name: 'absolute patterns match nothing', knownIssue: 55 });
 
   useCase('tu-collector.md', 'Include CTU dependencies', async () => {
     expect(await cc(['analyze', 'compile_commands.json', '-o', 'ctu-reports', '--ctu-collect', '--analyzers', 'clangsa'], { cwd: root })).toExitWith(0);
@@ -97,7 +97,7 @@ describe('usage/tu-collector.md', () => {
     expect(result).toExitWith(0);
     expect(logMessages(result.output, 'ERROR').map((l) => l.trim())).toContain("Couldn't create dependencies:");
     expect(zipNames(zip)).toEqual(['compilation_database.json']);
-  }, { ...ZIP_NEEDS, name: 'a build system command does not work', knownIssue: 10 });
+  }, { ...ZIP_NEEDS, name: 'a build system command does not work', knownIssue: 36 });
 
   useCase('tu-collector.md', 'List the sources that include a header (-d)', async () => {
     const result = await tool('tu_collector', ['-l', 'compile_commands.json', '-d', '-f', '*/lib/util.h'], { cwd: root });

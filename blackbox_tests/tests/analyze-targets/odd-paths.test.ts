@@ -23,7 +23,7 @@ describe('project odd-paths', () => {
     expect(existsSync(path.join(html, 'index.html'))).toBe(true);
     const skip = box.write('skip.txt', '-*/ünïcødé/*\n');
     const skipped = await reportRows(p.reports, p.root, ['-i', skip]);
-    // Cppcheck's naïve.cpp report has a mangled path (known issue #21), so
+    // Cppcheck's naïve.cpp report has a mangled path (known issue #12), so
     // the skipfile does not hide it.
     expect(skipped.map((r) => r.file).sort()).toEqual(
       ["src dir/main file.cpp", "src dir/main file.cpp", "src dir/quote's.cpp", 'src dir/xxnxxcxxdxx/naxxve.cpp'].sort(),

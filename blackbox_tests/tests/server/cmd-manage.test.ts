@@ -219,7 +219,7 @@ describe('usage/cmd-components.md', () => {
     const again = await cmd(['components', 'add', 'eofcomp', '-i', file, '--url', url()]);
     expect(again).toExitWith(1);
     expect(again.output).toContain('EOFError');
-  }, { name: 'updating without input crashes', knownIssue: 7 });
+  }, { name: 'updating without input crashes', knownIssue: 29 });
 
   useCase('cmd-components.md', 'List components', async () => {
     const file = box.write('listcomp.txt', '+*/lib/*\n-*/lib/skip/*\n');

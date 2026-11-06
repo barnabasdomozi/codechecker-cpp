@@ -502,7 +502,7 @@ int InitAndStart(const argparse::Namespace& args) {
     return *stop;
   }
   // --db-status and --db-upgrade-schema are ignored, as in the reference
-  // (known-issues.md #1).
+  // (known-issues.md #14).
   kLog.Debug("Status was not in the arguments.");
   kLog.Debug("Product upgrade was not in the arguments.");
   if (const std::optional<int> stop =
@@ -527,7 +527,7 @@ int InitAndStart(const argparse::Namespace& args) {
   }
   PrintProductStatus(statuses.value());
   // Only the first product is looked at, as in the reference
-  // (known-issues.md, "Found while writing the reference pages" #22).
+  // (known-issues.md #42).
   if (!statuses.value().empty() &&
       statuses.value().front().status != DBStatus::OK) {
     kLog.Error("There are some database issues.");

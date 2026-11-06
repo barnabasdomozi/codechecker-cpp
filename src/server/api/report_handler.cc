@@ -2048,7 +2048,7 @@ bool ReportHandler::changeReviewStatus(int64_t report_id,
   const std::string now = util::FormatDatabaseTime(util::LocalNow());
   Transaction transaction(&db);
   // The reference compares the status value with names, so the fix date is
-  // only ever cleared, never set (known-issues #30).
+  // only ever cleared, never set (known-issues #11).
   const db::Row& report = reports.rows.front();
   const std::string detection = report.Text(0);
   const std::string review = report.Text(1);
@@ -2663,7 +2663,7 @@ bool ReportHandler::addSourceComponent(const std::string& name,
                         {name}))
            .rows.empty();
   if (exists) {
-    // As in the reference, the user name is not updated (known-issues #38).
+    // As in the reference, the user name is not updated (known-issues #45).
     ValueOrThrow(db.Query(
         "UPDATE source_components SET value = ?, description = ? "
         "WHERE name = ?",

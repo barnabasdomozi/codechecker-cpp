@@ -63,7 +63,7 @@ describe('usage/server-authentication.md', () => {
     );
     // The password file does not exist, yet the message blames it.
     expect(existsSync(path.join(box.home, '.codechecker.passwords.json'))).toBe(false);
-  }, { knownIssue: 11 });
+  }, { knownIssue: 46 });
 
   useCase('server-authentication.md', 'Turn on authentication', async () => {
     // The reload succeeds, but authentication stays off until the server is

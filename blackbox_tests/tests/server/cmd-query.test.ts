@@ -116,7 +116,7 @@ describe('usage/cmd-runs-history.md', () => {
     const result = await cmd(['history', '-n', 'no-such-run*', '--url', url()]);
     expect(result).toExitWith(0);
     expect(tableRows(result.stdout).slice(1).map((r) => r[1]).sort()).toEqual(['demo', 'demo', 'multi']);
-  }, { name: 'a pattern matching no run prints every run', knownIssue: 20 });
+  }, { name: 'a pattern matching no run prints every run', knownIssue: 40 });
 });
 
 describe('usage/cmd-results.md', () => {
@@ -251,7 +251,7 @@ describe('usage/cmd-sum.md', () => {
     expect(checkerList[0]).toEqual(['Checker Name', 'guideline', 'Severity', 'Enabled in all selected runs', 'Closed Reports', 'Outstanding Reports']);
     expect(checkerList.map((r) => r[0])).toEqual(expect.arrayContaining(['__FAKE__', 'NOT FOUND', 'core.DivideZero']));
     expect(checkerList.length).toBeGreaterThan(500);
-  }, { knownIssue: 8 });
+  }, { knownIssue: 13 });
 
   useCase('cmd-sum.md', 'All runs, with filters', async () => {
     const json = await cmd(['sum', '--all', '--checker-name', 'core.*', '-o', 'json', '--url', url()]);
@@ -280,5 +280,5 @@ describe('usage/cmd-sum.md', () => {
   useCase('cmd-sum.md', 'All runs, with filters', async () => {
     const result = await cmd(['sum', '-n', 'demo:multi', '--url', url()]);
     expect(logMessages(result.output, 'WARNING')).toContain('No runs were found!');
-  }, { name: 'run names separated by colons find nothing', knownIssue: 'H3' });
+  }, { name: 'run names separated by colons find nothing', knownIssue: 54 });
 });

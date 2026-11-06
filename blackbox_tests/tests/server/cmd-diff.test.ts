@@ -66,7 +66,7 @@ describe('usage/cmd-diff.md', () => {
     const fix = await cc(['fixit', fx2.reports], { cwd: fx2.root, input: result.stdout });
     expect(fix).toExitWith(1);
     expect(fix.output).toContain("KeyError: 'checkedFile'");
-  }, { knownIssue: 2, requires: ['command:clang-apply-replacements'] });
+  }, { knownIssue: 15, requires: ['command:clang-apply-replacements'] });
 
   useCase('fixit.md', 'Fix only selected reports (pipe a report list)', async () => {
     const own = await analyzeProject(box, 'demo', ['--analyzers', 'clang-tidy', '-e', 'modernize-use-nullptr', '-e', 'modernize-use-trailing-return-type']);

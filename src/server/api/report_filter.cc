@@ -74,7 +74,8 @@ db::Sql ReportsByBugPath(const db::Sql& file_condition) {
 // `file_condition` selects (Python:
 // get_reports_by_bugpath_filter_for_single_origin()). As in the reference,
 // the excluded reports are joined with every other file, so a filter that
-// selects two files excludes every report (known-issues #9).
+// selects more than one file (also the same path stored by another run)
+// excludes every report (known-issues #6).
 db::Sql ReportsBySingleOrigin(const db::Sql& file_condition) {
   db::Sql query = ReportsByBugPath(file_condition);
   query

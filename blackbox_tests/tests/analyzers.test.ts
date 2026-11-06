@@ -147,7 +147,7 @@ describe('usage/analyzers.md', () => {
     const result = await cc(['analyzers', '--dump-config', 'clangsa'], { cwd: box.dir });
     expect(result).toExitWith(0);
     expect(result.stdout).toContain('OVERVIEW: Clang Static Analyzer Checker and Package Option List');
-  }, { name: 'clangsa prints the Clang option help', knownIssue: 'H2' });
+  }, { name: 'clangsa prints the Clang option help', knownIssue: 57 });
 
   useCase('analyzers.md', 'Dump a full analyzer configuration', async () => {
     const result = await cc(['analyzers', '--dump-config', 'cppcheck'], { cwd: box.dir });
@@ -165,7 +165,7 @@ describe('usage/analyzers.md', () => {
     const result = await cc(['analyzers'], { cwd: box.dir, env: { CC_ANALYZER_BIN: 'cppcheck:/no/such/cppcheck' } });
     expect(result).toExitWith(1);
     expect(result.output).toContain('TypeError');
-  }, { name: 'CC_ANALYZER_BIN with a missing file crashes', knownIssue: 22 });
+  }, { name: 'CC_ANALYZER_BIN with a missing file crashes', knownIssue: 21 });
 
   useCase('analyzers.md', 'Choose which analyzer binaries are used', async () => {
     const dir = box.newDir('from-path');

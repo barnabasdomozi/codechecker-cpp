@@ -46,7 +46,7 @@ describe('usage/makefile-mode.md', () => {
     const parsed = await cc(['parse', 'reports'], { cwd: root });
     expect(parsed).toExitWith(2);
     // Cppcheck's raw plist files are read too, with checker names without
-    // the cppcheck- prefix (known issue #13).
+    // the cppcheck- prefix (known issue #8).
     expect(plainReports(parsed.stdout).map((r) => `${path.basename(r.path)}:${r.line}:${r.column} ${r.checker}`).sort()).toEqual(
       [
         'main.c:11:12 core.DivideZero',
@@ -78,5 +78,5 @@ describe('usage/makefile-mode.md', () => {
     expect(json.analyzers.cppcheck.summary).toMatchObject({ 'up-to-date': 0, missing: 3 });
     const parsed = await cc(['parse', 'reports'], { cwd: root });
     expect(plainReports(parsed.stdout).some((r) => r.checker.startsWith('clang-diagnostic-'))).toBe(true);
-  }, { name: 'parse --status misses the clang-tidy results', knownIssue: 13 });
+  }, { name: 'parse --status misses the clang-tidy results', knownIssue: 8 });
 });

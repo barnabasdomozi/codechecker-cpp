@@ -10,7 +10,7 @@ import { Server } from '../../src/server';
 
 const box = useSandbox();
 
-/** The option is ignored and a normal server starts (known issue #1). */
+/** The option is ignored and a normal server starts (known issue #14). */
 async function startsNormally(args: string[]): Promise<void> {
   const server = await Server.start(box, { args });
   await server.waitForOutput('Server waiting for client requests on');
@@ -41,16 +41,16 @@ describe('usage/server-database.md', () => {
   });
 
   for (const args of [['--db-status', 'all'], ['--db-status', 'Default']]) {
-    useCase('server-database.md', 'Show the database status', () => startsNormally(args), { name: args.join(' '), knownIssue: 1 });
+    useCase('server-database.md', 'Show the database status', () => startsNormally(args), { name: args.join(' '), knownIssue: 14 });
   }
 
   for (const args of [['--db-upgrade-schema', 'all'], ['--db-upgrade-schema', 'Default'], ['--db-force-upgrade']]) {
-    useCase('server-database.md', 'Upgrade product databases', () => startsNormally(args), { name: args.join(' '), knownIssue: 1 });
+    useCase('server-database.md', 'Upgrade product databases', () => startsNormally(args), { name: args.join(' '), knownIssue: 14 });
   }
 
   useCase('server-database.md', 'Upgrade product databases', async () => {
     const result = await cc(['server', '-w', box.newDir('ws'), '--db-upgrade-schema', 'all', '--db-force-upgrade'], { cwd: box.dir });
     expect(result).toExitWith(1);
     expect(result.output).toContain('argument --db-force-upgrade: not allowed with argument --db-upgrade-schema');
-  }, { name: 'the options exclude each other', knownIssue: 'H4' });
+  }, { name: 'the options exclude each other', knownIssue: 14 });
 });

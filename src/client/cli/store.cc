@@ -184,7 +184,7 @@ Result<std::string> MakeStoreTempDir(const std::string& dir) {
       platform::MakeTempDir(dir, "tmp", "-store", &error);
   if (!temp_dir) {
     if (error.value() != EACCES && error.value() != EPERM) {
-      // Python does not handle this (known-issues #6).
+      // Python does not handle this (known-issues #30).
       return Result<std::string>(Uncaught(error.value(), dir));
     }
     kLog.Debug(std::format(

@@ -127,7 +127,7 @@ describe('usage/store.md', () => {
     const result = await server().cc(['store', privateReports(demo.reports), '-n', 'ziploc2', '--zip-loc', missing, '--url', server().url()]);
     expect(result).toExitWith(1);
     expect(result.output).toContain('FileNotFoundError');
-  }, { name: 'the folder must exist', knownIssue: 6 });
+  }, { name: 'the folder must exist', knownIssue: 30 });
 
   useCase('store.md', 'Number of jobs', async () => {
     await store(server(), [demo.reports], 'jobs', ['-j', '1']);

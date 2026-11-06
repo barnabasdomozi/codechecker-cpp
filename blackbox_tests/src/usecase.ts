@@ -22,7 +22,7 @@ import { isAvailable, type Requirement } from './requirements';
 export interface UseCaseOptions {
   /** Distinguishes several tests for the same use case. */
   name?: string;
-  /** Number (or "H1"-style id) of the related known-issues.md entry. */
+  /** Number of the related known-issues.md entry. */
   knownIssue?: number | string;
   /** Set when the port fixes the known issue and the test expects the fix. */
   fixed?: boolean;

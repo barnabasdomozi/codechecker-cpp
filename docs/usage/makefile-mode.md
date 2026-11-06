@@ -69,4 +69,4 @@ Makefile does not post-process them as `analyze` does. `parse` still reads
 them, but the checker names have no `cppcheck-` prefix (`[zerodiv]`,
 `[uninitvar]` instead of `[cppcheck-zerodiv]`), and `parse --status` lists
 Cppcheck under "Missing analysis results" too. See
-[known-issues.md](known-issues.md) #13.
+[known-issues.md](known-issues.md) #8.

@@ -70,7 +70,7 @@ describe('usage/server.md', () => {
       expect(logMessages(server.output, 'WARNING').join('\n')).toContain(`'${server.workspace}/server_config.json' is readable by users other than you!`);
       expect(logMessages(server.output, 'WARNING').some((w) => w.startsWith('Number of worker processes can not be negative!'))).toBe(true);
     });
-  }, { name: 'server_config.json and its warnings', knownIssue: 12 });
+  }, { name: 'server_config.json and its warnings', knownIssue: 47 });
 
   useCase('server.md', 'Listen on other addresses', async () => {
     await withServer({ args: ['--host', '127.0.0.1'] }, async (server) => {
