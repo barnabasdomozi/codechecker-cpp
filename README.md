@@ -53,8 +53,8 @@ The porting order is in
 | Server | Authentication | [server-authentication.md](docs/usage/server-authentication.md) | 🟡 | Server side: sessions, dictionary and personal access token logins, permissions, tokens. LDAP and OAuth are missing; the client is not ported |
 | Server | `store` | [store.md](docs/usage/store.md) | ✅ | HTTP transport (libcurl, proxies, TLS), credentials and auto-login, call wrapper, zip assembly, Git blame, asynchronous and `CC_FORCE_SYNC_STORE` stores, analysis statistics upload. Tested with the C++ and the Python server |
 | Server | Web UI | [web-ui.md](docs/usage/web-ui.md) | ✅ | Built from the copied sources and served |
-| `cmd` client | `cmd runs`, `cmd history` | [cmd-runs-history.md](docs/usage/cmd-runs-history.md) | ❌ | |
-| `cmd` client | `cmd results` | [cmd-results.md](docs/usage/cmd-results.md) | ❌ | |
+| `cmd` client | `cmd runs`, `cmd history` | [cmd-runs-history.md](docs/usage/cmd-runs-history.md) | 🟡 | `cmd runs` is ported (all formats, filters, sorting, `--details`); `cmd history` is not |
+| `cmd` client | `cmd results` | [cmd-results.md](docs/usage/cmd-results.md) | ✅ | All filters, `--filter-preset`, `--details`, all output formats. Output identical to the Python client against the C++ and the Python server. Copies known issue #22 (`KeyError` for an unknown status or severity) |
 | `cmd` client | `cmd sum` | [cmd-sum.md](docs/usage/cmd-sum.md) | ❌ | |
 | `cmd` client | `cmd diff` | [cmd-diff.md](docs/usage/cmd-diff.md) | ❌ | |
 | `cmd` client | Run management | [cmd-run-management.md](docs/usage/cmd-run-management.md) | ❌ | |
@@ -78,9 +78,11 @@ Some black-box tests need commands that are not ported yet. The
 the C++ `report-converter` next to the Python `CodeChecker`. The `analyze`
 tests run with a wrapper that sends `analyze` to `codechecker-cpp` and the
 other subcommands to the Python `CodeChecker`. The server tests
-(`tests/server/`) run the same way, with a wrapper that sends `server` and
-`store` to `codechecker-cpp` and `cmd` to the Python `CodeChecker`. With it,
-all of `tests/server/` passes, PostgreSQL included.
+(`tests/server/`) run the same way, with a wrapper that sends `server`,
+`store`, `cmd runs` and `cmd results` to `codechecker-cpp` and the other `cmd`
+actions to the Python `CodeChecker`. With it, all of `tests/server/` passes,
+PostgreSQL included. `cmd runs` and `cmd results` also pass their tests
+against the Python server (the wrapper then sends `server` to Python too).
 
 ## Goals
 

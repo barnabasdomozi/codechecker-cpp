@@ -186,8 +186,13 @@ if(CC_BUILD_WEB)
 
   add_library(cc_client STATIC
     client/call/thrift_call.cc
+    client/cli/cmd.cc
     client/cli/store.cc
     client/client.cc
+    client/cmd/cmd_line.cc
+    client/cmd/cmd_line_client.cc
+    client/cmd/results.cc
+    client/cmd/runs.cc
     client/credentials/user_credentials.cc
     client/product.cc
     client/store/assemble_zip.cc

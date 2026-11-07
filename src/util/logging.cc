@@ -2,7 +2,6 @@
 
 #include <stddef.h>
 
-#include <cctype>
 #include <ctime>
 #include <format>
 #include <mutex>
@@ -14,6 +13,7 @@
 #include "platform/local_time.h"
 #include "platform/process.h"
 #include "util/print.h"
+#include "util/strings.h"
 
 namespace cc::util {
 namespace {
@@ -62,10 +62,7 @@ std::string_view LevelName(LogLevel level) {
 // Returns the level for a --verbose value; unknown values mean INFO
 // (Python: validate_loglvl()).
 LogLevel VerboseLevel(std::string_view verbose) {
-  std::string upper(verbose);
-  for (char& c : upper) {
-    c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-  }
+  const std::string upper = AsciiUpper(verbose);
   for (const LogLevel level :
        {LogLevel::kDebug, LogLevel::kDebugAnalyzer, LogLevel::kInfo}) {
     if (upper == LevelName(level)) return level;

@@ -79,6 +79,10 @@ std::string Replace(std::string_view text, std::string_view from,
 // ASCII text).
 std::string AsciiLower(std::string_view text);
 
+// Returns `text` with the ASCII letters upper-cased (Python: str.upper() on
+// ASCII text).
+std::string AsciiUpper(std::string_view text);
+
 // Returns `value` as Python's repr(float) writes it, for example "1.0",
 // "1e-05", "inf" and "nan".
 std::string FloatRepr(double value);

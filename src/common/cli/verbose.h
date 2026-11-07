@@ -11,8 +11,9 @@
 
 namespace cc::common::cli {
 
-// Adds --verbose {info,debug_analyzer,debug} to `parser`.
-void AddVerboseArgument(util::argparse::Parser& parser);
+// Adds --verbose {info,debug_analyzer,debug} to `parser`, in the help
+// section `group` (util::argparse::Argument::group).
+void AddVerboseArgument(util::argparse::Parser& parser, int group = 0);
 
 // Returns the value of --verbose, or nullopt if it was not given.
 std::optional<std::string_view> Verbose(const util::argparse::Namespace& args);

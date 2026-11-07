@@ -355,6 +355,14 @@ std::string AsciiLower(std::string_view text) {
   return result;
 }
 
+std::string AsciiUpper(std::string_view text) {
+  std::string result(text);
+  for (char& c : result) {
+    if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 'a' + 'A');
+  }
+  return result;
+}
+
 std::string FloatRepr(double value) {
   if (std::isnan(value)) return "nan";
   if (std::isinf(value)) return value < 0 ? "-inf" : "inf";

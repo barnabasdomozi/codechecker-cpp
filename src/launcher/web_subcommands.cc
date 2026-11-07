@@ -4,6 +4,7 @@
 
 #include <span>
 
+#include "client/cli/cmd.h"
 #include "client/cli/store.h"
 #include "common/cli/version.h"
 #include "server/cli/server.h"
@@ -17,6 +18,8 @@ constexpr Subcommand kWebSubcommands[] = {
      &web::cli::AddWebVersionArguments, &web::cli::RunWebVersion},
     {"server", server::cli::kServerHelp, &server::cli::AddServerArguments,
      &server::cli::RunServer, /*config_file=*/true},
+    {"cmd", client::cli::kCmdHelp, &client::cli::AddCmdArguments,
+     &client::cli::RunCmd},
     {"store", client::cli::kStoreHelp, &client::cli::AddStoreArguments,
      &client::cli::RunStore, /*config_file=*/true},
 };

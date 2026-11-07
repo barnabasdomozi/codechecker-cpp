@@ -281,7 +281,7 @@ Result<void> Transform(
   const report::AnalyzerType& type =
       *report::FindAnalyzerType(args.Get("type"));
   const std::string& output_dir = args.Get("output_dir");
-  if (args.Get("clean") == "True" && util::pypath::IsDir(output_dir)) {
+  if (args.GetBool("clean") && util::pypath::IsDir(output_dir)) {
     kLog.Info("Previous analysis results in '" + output_dir +
               "' have been removed, overwriting with current result");
     if (const std::error_code error = platform::RemoveTree(output_dir)) {
@@ -359,7 +359,7 @@ int Run(const std::vector<std::string>& arguments) {
   const Result<argparse::Namespace> parsed = parser.ParseArgs(arguments);
   if (!parsed.ok()) return Fail(parsed.error());
   const argparse::Namespace& args = parsed.value();
-  if (args.Get("verbose") == "True") {
+  if (args.GetBool("verbose")) {
     util::SetupToolLogger(util::LogLevel::kDebug);
   }
 

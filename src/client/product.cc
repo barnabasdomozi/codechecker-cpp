@@ -10,10 +10,13 @@
 #include <utility>
 #include <vector>
 
+#include "util/logging.h"
 #include "util/strings.h"
 
 namespace cc::client {
 namespace {
+
+constexpr util::Logger kLog("system");
 
 // A host and the port given with it, if any.
 struct ServerAddress {
@@ -51,6 +54,7 @@ std::optional<ServerAddress> UnderstandServerAddress(std::string_view address) {
 }  // namespace
 
 std::optional<ProductUrl> SplitProductUrl(std::string_view url) {
+  kLog.Debug(std::format("Parsing product url '{}'", url));
   ProductUrl result{.protocol = "http", .host = "localhost", .port = 8001};
   std::string rest(url);
   // Python: __strip_protocol_from_url() and
@@ -90,6 +94,9 @@ std::optional<ProductUrl> SplitProductUrl(std::string_view url) {
   } else {
     return std::nullopt;
   }
+  kLog.Debug(std::format("Result: With '{}' on server '{}:{}', product '{}'",
+                         result.protocol, result.host, result.port,
+                         result.product));
   return result;
 }
 

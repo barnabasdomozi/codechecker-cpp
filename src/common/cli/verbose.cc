@@ -7,12 +7,13 @@
 
 namespace cc::common::cli {
 
-void AddVerboseArgument(util::argparse::Parser& parser) {
+void AddVerboseArgument(util::argparse::Parser& parser, int group) {
   parser.AddArgument({.flags = {"--verbose"},
                       .dest = "verbose",
                       .choices = {"info", "debug_analyzer", "debug"},
                       .default_value = std::nullopt,
-                      .help = "Set verbosity level."});
+                      .help = "Set verbosity level.",
+                      .group = group});
 }
 
 std::optional<std::string_view> Verbose(const util::argparse::Namespace& args) {

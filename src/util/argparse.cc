@@ -37,14 +37,6 @@ int Length(std::string_view text) {
 
 std::string Spaces(int count) { return std::string(std::max(count, 0), ' '); }
 
-std::string Upper(std::string_view text) {
-  std::string result(text);
-  for (char& c : result) {
-    if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 'a' + 'A');
-  }
-  return result;
-}
-
 // Replaces each run of ASCII whitespace with one space and strips the ends
 // (HelpFormatter's _whitespace_matcher).
 std::string NormalizeWhitespace(std::string_view text) {
@@ -292,7 +284,7 @@ std::vector<std::string> HelpFormatter::UsageParts(bool positional) const {
     }
     std::string part = action->option_strings[0];
     if (NargsOf(*action) != NargsKind::kZero) {
-      part += " " + FormatArgs(*action, Upper(action->dest));
+      part += " " + FormatArgs(*action, AsciiUpper(action->dest));
     }
     // Options of a mutually exclusive group get brackets as a group.
     const bool bracket = !action->required && action->exclusive_group == 0;
@@ -423,7 +415,7 @@ std::string HelpFormatter::Invocation(const Action& action) const {
   if (action.option_strings.empty()) return Metavar(action, action.dest);
   const std::string options = Join(action.option_strings, ", ");
   if (NargsOf(action) == NargsKind::kZero) return options;
-  return options + " " + FormatArgs(action, Upper(action.dest));
+  return options + " " + FormatArgs(action, AsciiUpper(action.dest));
 }
 
 std::string HelpFormatter::ExpandHelp(const Action& action) const {
@@ -566,6 +558,10 @@ const std::vector<std::string>& Namespace::GetList(
   return value->second;
 }
 
+bool Namespace::GetBool(std::string_view dest) const {
+  return Has(dest) && Get(dest) == "True";
+}
+
 void Namespace::Set(std::string_view dest, std::string value) {
   SetList(dest, {std::move(value)});
 }
@@ -654,10 +650,11 @@ void Parser::SetDefault(std::string dest, std::string value) {
   defaults_.emplace_back(std::move(dest), std::move(value));
 }
 
-void Parser::AddSubparsers(std::string help) {
+void Parser::AddSubparsers(std::string help, int group) {
   subparsers_action_ = actions_.size();
-  actions_.push_back(
-      {.kind = Action::Kind::kSubparsers, .help = std::move(help)});
+  actions_.push_back({.kind = Action::Kind::kSubparsers,
+                      .help = std::move(help),
+                      .group = group});
 }
 
 Parser& Parser::AddParser(std::string name, std::string help) {

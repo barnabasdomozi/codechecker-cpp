@@ -74,6 +74,13 @@ TEST(StringsTest, Replace) {
   EXPECT_EQ(Replace("none", "x", "y"), "none");
 }
 
+TEST(StringsTest, AsciiUpper) {
+  EXPECT_EQ(AsciiUpper("false_positive"), "FALSE_POSITIVE");
+  EXPECT_EQ(AsciiUpper("High-1"), "HIGH-1");
+  // Only ASCII letters change.
+  EXPECT_EQ(AsciiUpper("\xc3\xa9t\xc3\xa9"), "\xc3\xa9T\xc3\xa9");
+}
+
 TEST(StringsTest, ParseInt) {
   EXPECT_EQ(ParseInt("80"), 80);
   EXPECT_EQ(ParseInt(" -3\n"), -3);

@@ -14,6 +14,8 @@
 #include <string>
 #include <string_view>
 
+#include "util/result.h"
+
 namespace cc::util {
 
 // One second in the unit of the times.
@@ -34,6 +36,13 @@ std::optional<int64_t> ToTimestamp(int64_t time);
 // Returns the current time in UTC, in the same form (Python:
 // datetime.now(timezone.utc) without its time zone).
 int64_t UtcNow();
+
+// Returns the time of the given date and time of day (Python:
+// datetime(year, month, day, hour, minute, second)), or an error with the
+// message of Python's ValueError if a part is out of range, for example
+// "month must be in 1..12".
+Result<int64_t> MakeTime(int64_t year, int64_t month, int64_t day,
+                         int64_t hour, int64_t minute, int64_t second);
 
 // Returns `time` as "YYYY-MM-DD HH:MM:SS.ffffff", the form SQLAlchemy stores
 // datetimes in on SQLite, which PostgreSQL also accepts.

@@ -150,6 +150,9 @@ class Namespace {
   const std::string& Get(std::string_view dest) const;
   // Returns the list of values of `dest`, which must be present.
   const std::vector<std::string>& GetList(std::string_view dest) const;
+  // Returns whether `dest` has the value "True", for example a store_true
+  // option that was given (Python: getattr(args, dest, False)).
+  bool GetBool(std::string_view dest) const;
   void Set(std::string_view dest, std::string value);
   void SetList(std::string_view dest, std::vector<std::string> values);
   // Sets every value of `other` here.
@@ -235,9 +238,11 @@ class Parser {
   // (Python: set_defaults(dest=value)).
   void SetDefault(std::string dest, std::string value);
 
-  // Adds the subcommand argument, listed with `help` (Python:
-  // add_subparsers(help=help)). Call it once, before AddParser().
-  void AddSubparsers(std::string help);
+  // Adds the subcommand argument, listed with `help` (empty: none) in the
+  // help section `group`, an id from AddArgumentGroup() or 0 (Python:
+  // add_subparsers(help=help), or add_subparsers(title=...) for a group).
+  // Call it once, before AddParser().
+  void AddSubparsers(std::string help, int group = 0);
 
   // Adds the subcommand `name`, listed with `help`, and returns its parser.
   // Its prog is "<prog> <name>" (Python: add_parser(name, help=help)).

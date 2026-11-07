@@ -544,7 +544,7 @@ int InitAndStart(const argparse::Namespace& args) {
       .listen_address = args.Get("listen_address"),
       .port = IntArgument(args, "view_port"),
       .force_authentication = args.Has("force_auth"),
-      .skip_db_cleanup = args.Get("skip_db_cleanup") == "True",
+      .skip_db_cleanup = args.GetBool("skip_db_cleanup"),
       .machine_id = args.Has("machine_id")
                         ? args.Get("machine_id")
                         : std::format("{}:{}", platform::HostName(),

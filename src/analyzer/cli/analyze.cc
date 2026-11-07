@@ -356,32 +356,29 @@ AnalyzeArgs ToAnalyzeArgs(const argparse::Namespace& ns) {
                ? std::optional<std::vector<std::string>>(ns.GetList(dest))
                : std::nullopt;
   };
-  const auto flag = [&ns](std::string_view dest) {
-    return ns.Has(dest) && ns.Get(dest) == "True";
-  };
   AnalyzeArgs args;
   args.input = ns.Get("input");
   args.output_path = ns.Get("output_path");
   args.jobs = static_cast<int>(util::ParseInt(ns.Get("jobs")).value_or(1));
   args.skipfile = optional("skipfile");
-  args.drop_skipped_reports = flag("drop_skipped_reports");
+  args.drop_skipped_reports = ns.GetBool("drop_skipped_reports");
   args.files = list("files");
   args.review_status_config = optional("review_status_config");
   args.compiler_info_file = optional("compiler_info_file");
-  args.dump_compiler_info_file = flag("dump_compiler_info_file");
-  args.keep_gcc_include_fixed = flag("keep_gcc_include_fixed");
-  args.keep_gcc_intrin = flag("keep_gcc_intrin");
+  args.dump_compiler_info_file = ns.GetBool("dump_compiler_info_file");
+  args.keep_gcc_include_fixed = ns.GetBool("keep_gcc_include_fixed");
+  args.keep_gcc_intrin = ns.GetBool("keep_gcc_intrin");
   args.add_gcc_include_dirs_with_isystem =
-      flag("add_gcc_include_dirs_with_isystem");
-  args.makefile = flag("makefile");
-  args.quiet = flag("quiet");
-  args.clean = flag("clean");
+      ns.GetBool("add_gcc_include_dirs_with_isystem");
+  args.makefile = ns.GetBool("makefile");
+  args.quiet = ns.GetBool("quiet");
+  args.clean = ns.GetBool("clean");
   args.compile_uniqueing = ns.Get("compile_uniqueing");
   args.report_hash = optional("report_hash");
   args.name = optional("name");
   args.analyzers = list("analyzers");
-  args.capture_analysis_output = flag("capture_analysis_output");
-  args.generate_reproducer = flag("generate_reproducer");
+  args.capture_analysis_output = ns.GetBool("capture_analysis_output");
+  args.generate_reproducer = ns.GetBool("generate_reproducer");
   args.config_file = optional("config_file");
   for (const std::string& item : ns.GetList("analyzer_config")) {
     args.analyzer_config.push_back(ParseAnalyzerConfig(item));
@@ -416,11 +413,11 @@ AnalyzeArgs ToAnalyzeArgs(const argparse::Namespace& ns) {
     args.ctu_phases = CtuPhases{.collect = phases[0] == '1',
                                 .analyze = phases[1] == '1'};
   }
-  args.ctu_reanalyze_on_failure = flag("ctu_reanalyze_on_failure");
+  args.ctu_reanalyze_on_failure = ns.GetBool("ctu_reanalyze_on_failure");
   args.ctu_ast_mode = optional("ctu_ast_mode");
   args.stats_output = optional("stats_output");
   args.stats_dir = optional("stats_dir");
-  args.stats_enabled = flag("stats_enabled");
+  args.stats_enabled = ns.GetBool("stats_enabled");
   if (ns.Has("stats_min_sample_count")) {
     args.stats_min_sample_count = static_cast<int>(
         util::ParseInt(ns.Get("stats_min_sample_count")).value_or(0));
@@ -436,9 +433,9 @@ AnalyzeArgs ToAnalyzeArgs(const argparse::Namespace& ns) {
           {.name = item.substr(1), .enabled = item[0] == '1'});
     }
   }
-  args.enable_all = flag("enable_all");
-  args.disable_all = flag("disable_all");
-  args.no_missing_checker_error = flag("no_missing_checker_error");
+  args.enable_all = ns.GetBool("enable_all");
+  args.disable_all = ns.GetBool("disable_all");
+  args.no_missing_checker_error = ns.GetBool("no_missing_checker_error");
   return args;
 }
 

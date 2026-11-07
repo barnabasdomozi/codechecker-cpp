@@ -12,8 +12,10 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 
 #include "platform/local_time.h"
+#include "util/result.h"
 
 namespace cc::util {
 namespace {
@@ -88,6 +90,30 @@ int64_t UtcNow() {
   return std::chrono::duration_cast<std::chrono::microseconds>(
              std::chrono::system_clock::now().time_since_epoch())
       .count();
+}
+
+Result<int64_t> MakeTime(int64_t year, int64_t month, int64_t day,
+                         int64_t hour, int64_t minute, int64_t second) {
+  // The checks and messages of CPython's check_date_args() and
+  // check_time_args(), in their order.
+  const auto fail = [](std::string message) {
+    return Result<int64_t>(Error{.message = std::move(message)});
+  };
+  if (year < 1 || year > 9999) {
+    return fail(std::format("year {} is out of range", year));
+  }
+  if (month < 1 || month > 12) return fail("month must be in 1..12");
+  // Day 0 stands for every day that does not fit into std::chrono::day.
+  const std::chrono::year_month_day date =
+      std::chrono::year(static_cast<int>(year)) /
+      std::chrono::month(static_cast<unsigned>(month)) /
+      std::chrono::day(static_cast<unsigned>(day < 1 || day > 31 ? 0 : day));
+  if (!date.ok()) return fail("day is out of range for month");
+  if (hour < 0 || hour > 23) return fail("hour must be in 0..23");
+  if (minute < 0 || minute > 59) return fail("minute must be in 0..59");
+  if (second < 0 || second > 59) return fail("second must be in 0..59");
+  return Result<int64_t>(
+      ToTime(date, hour * 3600 + minute * 60 + second, /*microseconds=*/0));
 }
 
 std::string FormatDatabaseTime(int64_t time) {

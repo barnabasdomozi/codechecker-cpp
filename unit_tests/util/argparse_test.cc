@@ -131,6 +131,71 @@ TEST_F(ArgparseTest, HelpWithSubcommandsAndRawDescription) {
             "  indented \n");
 }
 
+TEST_F(ArgparseTest, SubcommandsInAGroup) {
+  // Like `codechecker-cpp cmd`: add_subparsers(title='available actions').
+  Parser parser("codechecker-cpp cmd");
+  const int group = parser.AddArgumentGroup("available actions", "");
+  parser.AddSubparsers("", group);
+  parser.AddParser("runs", "List the available analysis runs.");
+  parser.AddParser("results", "List results.");
+  EXPECT_EQ(parser.FormatHelp(),
+            "usage: codechecker-cpp cmd [-h] {runs,results} ...\n"
+            "\n"
+            "options:\n"
+            "  -h, --help      show this help message and exit\n"
+            "\n"
+            "available actions:\n"
+            "  {runs,results}\n"
+            "    runs          List the available analysis runs.\n"
+            "    results       List results.\n");
+}
+
+TEST_F(ArgparseTest, NestedSubcommands) {
+  // Like `codechecker-cpp cmd runs`: a subcommand with actions of its own.
+  Parser parser("codechecker-cpp");
+  parser.AddSubparsers("commands");
+  Parser& cmd = parser.AddParser("cmd", "");
+  cmd.SetDefault("func", "cmd");
+  cmd.AddSubparsers("");
+  Parser& runs = cmd.AddParser("runs", "");
+  runs.SetDefault("action", "runs");
+  runs.AddArgument({.flags = {"-n", "--name"},
+                    .dest = "names",
+                    .nargs = Nargs::kZeroOrMore});
+  const Result<Namespace> result =
+      parser.ParseArgs({"cmd", "runs", "-n", "a", "b"});
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.value().Get("func"), "cmd");
+  EXPECT_EQ(result.value().Get("action"), "runs");
+  EXPECT_EQ(result.value().GetList("names"),
+            (std::vector<std::string>{"a", "b"}));
+  const Result<Namespace> no_action = parser.ParseArgs({"cmd"});
+  ASSERT_TRUE(no_action.ok());
+  EXPECT_FALSE(no_action.value().Has("action"));
+}
+
+TEST_F(ArgparseTest, GetBool) {
+  Parser parser("codechecker-cpp");
+  parser.AddArgument({.flags = {"--given"},
+                      .dest = "given",
+                      .action = ArgumentAction::kStoreTrue,
+                      .default_value = "False"});
+  parser.AddArgument({.flags = {"--defaulted"},
+                      .dest = "defaulted",
+                      .action = ArgumentAction::kStoreTrue,
+                      .default_value = "False"});
+  parser.AddArgument({.flags = {"--suppressed"},
+                      .dest = "suppressed",
+                      .action = ArgumentAction::kStoreTrue});
+  const Result<Namespace> result = parser.ParseArgs({"--given"});
+  ASSERT_TRUE(result.ok());
+  EXPECT_TRUE(result.value().GetBool("given"));
+  EXPECT_FALSE(result.value().GetBool("defaulted"));
+  // Without a default, the Namespace has no value: false, like
+  // getattr(args, dest, False).
+  EXPECT_FALSE(result.value().GetBool("suppressed"));
+}
+
 TEST_F(ArgparseTest, ParsesValues) {
   Parser parser("codechecker-cpp");
   parser.AddSubparsers("commands");
