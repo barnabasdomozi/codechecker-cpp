@@ -181,7 +181,7 @@ Result<ResultsClient> SetupClient(const std::string& product_url) {
 Result<ProductClient> SetupProductClient(const ProductUrl& url) {
   Result<ProductClient> client =
       SetupServiceClient<codeCheckerProductServiceClient>(url, "Products");
-  if (!client.ok()) return client;
+  if (!client.ok() || url.product.empty()) return client;
   // The product may not exist, and then the server cannot be talked to in
   // order.
   std::string version;

@@ -4,7 +4,6 @@
 #include <yyjson.h>
 
 #include <map>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -15,7 +14,6 @@
 #include "client/cmd/cmd_line_client.h"
 #include "util/argparse.h"
 #include "util/json.h"
-#include "util/logging.h"
 #include "util/print.h"
 #include "util/pyre.h"
 #include "util/result.h"
@@ -26,8 +24,6 @@ namespace cc::client::cmd {
 namespace {
 
 namespace argparse = util::argparse;
-
-constexpr util::Logger kLog("system");
 
 // The longest message the tables show; longer ones are cut and end with
 // "...".
@@ -102,25 +98,11 @@ void PrintReportsTable(std::string_view format,
 }  // namespace
 
 Result<void> ListResults(const argparse::Namespace& args) {
-  SetupCmdLogger(args);
-  CheckDeprecatedArgUsage(args);
-  Result<ResultsClient> client = SetupClient(args.Get("product_url"));
+  Result<ResultsClient> client = SetupReportClient(args);
   if (!client.ok()) return Result<void>(client.error());
-  if (args.Has("component")) {
-    const Result<void> checked = CheckExistingSourceComponents(
-        client.value(), args.GetList("component"));
-    if (!checked.ok()) return checked;
-  }
-
-  RunFilter run_filter;
-  run_filter.__set_names(args.GetList("names"));
   const Result<std::vector<RunData>> runs =
-      GetRunData(client.value(), run_filter, /*sort_mode=*/std::nullopt);
+      FindRuns(client.value(), args.GetList("names"));
   if (!runs.ok()) return Result<void>(runs.error());
-  if (runs.value().empty()) {
-    kLog.Warning("No runs were found!");
-    return Result<void>(Error{});
-  }
   std::vector<int64_t> run_ids;
   std::map<int64_t, std::string> run_names;
   for (const RunData& run : runs.value()) {

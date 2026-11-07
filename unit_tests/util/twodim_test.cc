@@ -147,6 +147,25 @@ TEST_F(TwodimTest, TableWithHeaderAndSeparatedRows) {
             "└───┴───┘");
 }
 
+TEST_F(TwodimTest, SeparateFooter) {
+  SetColumns("120");
+  const Rows rows = {{"x", "1"}, {"Total", "1"}};
+  const std::string expected =
+      "┌───────┬───┐\n"
+      "│ A     │ B │\n"
+      "├───────┼───┤\n"
+      "│ x     │ 1 │\n"
+      "├───────┼───┤\n"
+      "│ Total │ 1 │\n"
+      "└───────┴───┘";
+  EXPECT_EQ(ToString("table", {"A", "B"}, rows, Footer::kSeparate), expected);
+  EXPECT_EQ(ToString("plaintext", {"A", "B"}, rows, Footer::kSeparate),
+            expected);
+  // The other formats have no rules.
+  EXPECT_EQ(ToString("csv", {"A", "B"}, rows, Footer::kSeparate),
+            "A,B\nx,1\nTotal,1");
+}
+
 TEST_F(TwodimTest, Rows) {
   const Rows rows(kVersionRows.begin(), kVersionRows.begin() + 2);
   EXPECT_EQ(ToString("rows", {"Kind", "Version"}, rows),

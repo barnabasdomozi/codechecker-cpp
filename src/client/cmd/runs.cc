@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <yyjson.h>
 
-#include <format>
 #include <map>
 #include <set>
 #include <string>
@@ -22,7 +21,6 @@
 #include "util/json.h"
 #include "util/print.h"
 #include "util/result.h"
-#include "util/strings.h"
 #include "util/twodim.h"
 
 namespace cc::client::cmd {
@@ -159,18 +157,6 @@ Result<void> PrintRunsJson(ResultsClient& client,
   return Result<void>();
 }
 
-// Returns the analyzer statistics of `run` as the tables show them:
-// "<analyzer> (<all files>/<successful files>)", joined with ", ".
-std::string AnalyzerStatisticsText(const RunData& run) {
-  std::vector<std::string> parts;
-  for (const auto& [analyzer, stats] : run.analyzerStatistics) {
-    parts.push_back(std::format("{} ({}/{})", analyzer,
-                                stats.successful + stats.failed,
-                                stats.successful));
-  }
-  return util::Join(parts, ", ");
-}
-
 // Prints `runs` as a table in `format`: "plaintext", "rows", "table" or
 // "csv".
 void PrintRunsTable(std::string_view format, const std::vector<RunData>& runs) {
@@ -186,8 +172,9 @@ void PrintRunsTable(std::string_view format, const std::vector<RunData>& runs) {
             ? util::FormatTimedelta(run.duration * util::kMicrosecondsPerSecond)
             : "Not finished";
     rows.push_back({run.name, std::to_string(run.resultCount),
-                    AnalyzerStatisticsText(run), run.runDate, run.versionTag,
-                    duration, run.description, run.codeCheckerVersion});
+                    AnalyzerStatisticsText(run.analyzerStatistics),
+                    run.runDate, run.versionTag, duration, run.description,
+                    run.codeCheckerVersion});
   }
   util::Print(util::twodim::ToString(format, header, rows));
 }

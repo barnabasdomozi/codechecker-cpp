@@ -10,6 +10,11 @@
 
 namespace cc::util::twodim {
 
+// Whether ToString() sets off the last row of a "table" or "plaintext"
+// table as a footer, which it does by drawing a rule between every two
+// rows (Python: the separate_footer argument of twodim.to_str()).
+enum class Footer { kNone, kSeparate };
+
 // Returns `rows` under the header `keys` in `format`, which is "rows",
 // "table", "plaintext", "csv" or "json" (Python: twodim.to_str()). Tables
 // are fitted to the terminal width: COLUMNS, else the terminal on stdout,
@@ -20,7 +25,8 @@ namespace cc::util::twodim {
 // that can hold such text.
 std::string ToString(std::string_view format,
                      const std::vector<std::string>& keys,
-                     const std::vector<std::vector<std::string>>& rows);
+                     const std::vector<std::vector<std::string>>& rows,
+                     Footer footer = Footer::kNone);
 
 // Returns the header `keys` for `format`: lower case with '_' for spaces
 // for "csv" and "json", which are meant for programs, else unchanged

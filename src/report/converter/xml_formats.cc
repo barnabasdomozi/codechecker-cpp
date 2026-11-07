@@ -61,8 +61,7 @@ Result<int> ToInt(const std::optional<std::string>& text) {
       text ? util::ParseInt(*text) : std::nullopt;
   if (!number) {
     return Result<int>(Error{
-        .message = text ? "ValueError: invalid literal for int() with base "
-                          "10: " + util::Repr(*text)
+        .message = text ? "ValueError: " + util::IntValueError(*text).message
                         : "TypeError: int() argument must be a string, a "
                           "bytes-like object or a real number, not "
                           "'NoneType'"});

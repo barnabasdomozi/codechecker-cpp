@@ -42,6 +42,11 @@ Result<std::string> ValidTime(const std::string& value);
 // as local time (Python: int(str_to_timestamp(value))).
 Result<int64_t> TimestampOf(const std::string& value);
 
+// Returns `statistics` as the tables of `cmd runs` and `cmd history` show
+// them: "<analyzer> (<all files>/<successful files>)" in map order, joined
+// with ", ".
+std::string AnalyzerStatisticsText(const AnalyzerStatisticsData& statistics);
+
 // Returns the name of `value` in `names`, the generated name table of an
 // API enum, for example _Severity_VALUES_TO_NAMES (Python:
 // <Enum>._VALUES_TO_NAMES[value]); the number itself if it has no name.
@@ -54,6 +59,18 @@ std::string EnumName(const std::map<int, const char*>& names, int value);
 Result<std::vector<RunData>> GetRunData(
     ResultsClient& client, const RunFilter& filter,
     const std::optional<RunSortMode>& sort_mode);
+
+// Returns the runs whose names match one of the patterns `names`, in which
+// '*' matches any number of characters, newest first (Python:
+// get_run_data() with RunFilter(names=names)).
+Result<std::vector<RunData>> GetRunsByName(
+    ResultsClient& client, const std::vector<std::string>& names);
+
+// Returns the runs of GetRunsByName(); fails after the warning "No runs
+// were found!" if there are none (Python: the run lookup of
+// handle_list_results() and handle_list_result_types()).
+Result<std::vector<RunData>> FindRuns(ResultsClient& client,
+                                      const std::vector<std::string>& names);
 
 // Returns every report of the runs `run_ids` that `filter` selects, in the
 // server's default order (by severity, highest first), with the bug path,
@@ -71,6 +88,13 @@ Result<void> CheckExistingSourceComponents(
 // Logs a warning for each deprecated filter option in `args` (Python:
 // check_deprecated_arg_usage()).
 void CheckDeprecatedArgUsage(const util::argparse::Namespace& args);
+
+// Returns the client of the product of --url in `args` for the subcommands
+// that filter reports (`cmd results` and `cmd sum`), after setting up the
+// logger, warning about deprecated options and checking the --component
+// components (Python: the start of handle_list_results() and
+// handle_list_result_types()).
+Result<ResultsClient> SetupReportClient(const util::argparse::Namespace& args);
 
 // Returns the report filter of the filter options in `args`, or the filter
 // of the preset that --filter-preset names (Python: parse_report_filter()).

@@ -460,7 +460,9 @@ ssl.
     therefore set every field they send with `__set_<field>()`, and a
     field left unset is Python's `None`. The arguments of a call have no
     such flag: where Python tells `None` from a value (the `limit` and
-    `offset` of `getProducts()`), the handler takes `0` as `None`.
+    `offset` of `getProducts()`), the handler takes `0` as `None`. The
+    client sends the largest `i64` as the `limit` instead of `None`, because
+    the Python server takes `0` as `LIMIT 0`.
   - The C++ generator makes Thrift maps `std::map`s, which send their
     entries sorted; Python dicts send them in the order they were added,
     and Python clients print them in that order (`cmd runs` lists the

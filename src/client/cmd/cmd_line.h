@@ -11,13 +11,16 @@
 
 #include <yyjson.h>
 
+#include "api/thrift/products_types.h"
 #include "api/thrift/report_server_types.h"
 
 namespace cc::client::cmd {
 
 // These functions return the JSON object of their struct, built in `doc`.
 yyjson_mut_val* ToJson(yyjson_mut_doc* doc, const RunData& run);
+yyjson_mut_val* ToJson(yyjson_mut_doc* doc, const RunHistoryData& history);
 yyjson_mut_val* ToJson(yyjson_mut_doc* doc, const ReportData& report);
+yyjson_mut_val* ToJson(yyjson_mut_doc* doc, const Product& product);
 
 }  // namespace cc::client::cmd
 

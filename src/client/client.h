@@ -36,8 +36,9 @@ using TaskClient = call::ServiceClient<codeCheckerServersideTaskServiceClient>;
 Result<ResultsClient> SetupClient(const std::string& product_url);
 
 // Returns the client of the Products service of the product of `url`, after
-// checking that the product answers (Python: setup_product_client() with a
-// product name).
+// checking that the product answers; if `url` names no product, of the
+// server-wide Products service, without a check (Python:
+// setup_product_client()).
 Result<ProductClient> SetupProductClient(const ProductUrl& url);
 
 // Returns the client of the server-wide Tasks service of the server at

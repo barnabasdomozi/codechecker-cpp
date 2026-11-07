@@ -336,11 +336,7 @@ Result<std::string> ValidTime(const std::string& value) {
   std::vector<int64_t> parts;
   for (const std::string& part : util::Split(value, ":")) {
     const std::optional<int64_t> number = util::ParseInt(part);
-    if (!number) {
-      return Result<std::string>(Error{
-          .message = "invalid literal for int() with base 10: " +
-                     util::Repr(part)});
-    }
+    if (!number) return Result<std::string>(util::IntValueError(part));
     parts.push_back(*number);
   }
   // Python unpacks the parts into year, month, day, hour, minute, second.
@@ -365,6 +361,16 @@ Result<int64_t> TimestampOf(const std::string& value) {
     return Result<int64_t>(Error{});
   }
   return Result<int64_t>(*seconds);
+}
+
+std::string AnalyzerStatisticsText(const AnalyzerStatisticsData& statistics) {
+  std::vector<std::string> parts;
+  for (const auto& [analyzer, stats] : statistics) {
+    parts.push_back(std::format("{} ({}/{})", analyzer,
+                                stats.successful + stats.failed,
+                                stats.successful));
+  }
+  return util::Join(parts, ", ");
 }
 
 std::string EnumName(const std::map<int, const char*>& names, int value) {
@@ -392,6 +398,23 @@ Result<std::vector<RunData>> GetRunData(
               service.getRunData(page, filter, limit, offset, mode);
             });
       });
+}
+
+Result<std::vector<RunData>> GetRunsByName(
+    ResultsClient& client, const std::vector<std::string>& names) {
+  RunFilter filter;
+  filter.__set_names(names);
+  return GetRunData(client, filter, /*sort_mode=*/std::nullopt);
+}
+
+Result<std::vector<RunData>> FindRuns(ResultsClient& client,
+                                      const std::vector<std::string>& names) {
+  Result<std::vector<RunData>> runs = GetRunsByName(client, names);
+  if (runs.ok() && runs.value().empty()) {
+    kLog.Warning("No runs were found!");
+    return Result<std::vector<RunData>>(Error{});
+  }
+  return runs;
 }
 
 Result<std::vector<ReportData>> GetRunResults(
@@ -448,6 +471,17 @@ void CheckDeprecatedArgUsage(const argparse::Namespace& args) {
         "--fixed-before/--fixed-after options to filter the results by fix "
         "date. For more information see the help.");
   }
+}
+
+Result<ResultsClient> SetupReportClient(const argparse::Namespace& args) {
+  SetupCmdLogger(args);
+  CheckDeprecatedArgUsage(args);
+  Result<ResultsClient> client = SetupClient(args.Get("product_url"));
+  if (!client.ok() || !args.Has("component")) return client;
+  const Result<void> checked = CheckExistingSourceComponents(
+      client.value(), args.GetList("component"));
+  if (!checked.ok()) return Result<ResultsClient>(checked.error());
+  return client;
 }
 
 Result<ReportFilter> ParseReportFilter(ResultsClient& client,

@@ -288,13 +288,14 @@ std::string ToTable(const std::vector<Row>& lines, TableStyle style) {
 }
 
 std::string ToString(std::string_view format, const Row& keys,
-                     const std::vector<Row>& rows) {
+                     const std::vector<Row>& rows, Footer footer) {
   std::vector<Row> all_rows;
   if (!keys.empty()) all_rows.push_back(keys);
   all_rows.insert(all_rows.end(), rows.begin(), rows.end());
   if (format == "rows") return ToRows(rows);
   if (format == "table" || format == "plaintext") {
-    return ToTable(all_rows, TableStyle());
+    return ToTable(all_rows,
+                   {.rule_between_rows = footer == Footer::kSeparate});
   }
   if (format == "csv") return ToCsv(all_rows);
   if (format == "json") return ToJson(keys, rows);

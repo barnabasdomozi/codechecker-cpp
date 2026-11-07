@@ -18,6 +18,7 @@
 #include "common/cli/verbose.h"
 #include "common/cmd_config.h"
 #include "common/package.h"
+#include "common/util.h"
 #include "common/version.h"
 #include "platform/filesystem.h"
 #include "platform/process.h"
@@ -37,6 +38,7 @@
 #include "util/result.h"
 #include "util/strings.h"
 #include "util/twodim.h"
+#include "web/cli/postgresql_arguments.h"
 #include "web/cli/web_version.h"
 #include "web/database_status.h"
 #include "web/env.h"
@@ -85,27 +87,6 @@ NOTE:
 Before migration it is advised to create a full a backup of the product
 databases.
 )";
-
-// The PostgreSQL options that need --postgresql.
-constexpr std::string_view kPostgresqlOptions[] = {
-    "--dbaddress", "--dbport",  "--dbusername", "--dbname",
-    "--db-host",   "--db-port", "--db-username", "--db-name"};
-
-// Returns the options of `options` that start with an argument of the
-// command line (Python: util.arg_match(options, sys.argv[1:])).
-std::vector<std::string> MatchedOptions(
-    std::span<const std::string_view> options) {
-  const std::vector<std::string>& argv = common::CommandLine();
-  std::vector<std::string> matched;
-  for (const std::string_view option : options) {
-    const bool found =
-        std::any_of(argv.begin() + 1, argv.end(), [option](const auto& arg) {
-          return !arg.empty() && option.starts_with(arg);
-        });
-    if (found) matched.emplace_back(option);
-  }
-  return matched;
-}
 
 // Returns the integer argument `dest`, which argparse checked already.
 int IntArgument(const argparse::Namespace& args, std::string_view dest) {
@@ -767,17 +748,14 @@ int RunServer(const argparse::Namespace& parsed) {
   // the namespace, so the command line is looked at.
   argparse::Parser parser(std::format("{} server", common::kProgramName));
   AddServerArguments(parser);
-  const std::vector<std::string> postgresql =
-      MatchedOptions(kPostgresqlOptions);
-  if (!postgresql.empty() && !args.Has("postgresql")) {
-    return parser
-        .Fail(std::format("argument {}: not allowed without argument "
-                          "--postgresql",
-                          postgresql.front()))
-        .exit_code;
+  const std::span<const std::string> argv =
+      std::span(common::CommandLine()).subspan(1);
+  if (const std::optional<std::string> error =
+          web::cli::PostgresqlArgumentError(args, argv)) {
+    return parser.Fail(*error).exit_code;
   }
   constexpr std::string_view kHostOptions[] = {"--not-host-only", "--host"};
-  const std::vector<std::string> host = MatchedOptions(kHostOptions);
+  const std::vector<std::string> host = common::ArgMatch(kHostOptions, argv);
   if (host.size() == 2) {
     return parser
         .Fail("argument --not-host-only: not allowed with argument --host, "

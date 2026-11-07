@@ -90,6 +90,14 @@ TEST(StringsTest, ParseInt) {
   EXPECT_EQ(ParseInt("+-1"), std::nullopt);
 }
 
+TEST(StringsTest, IntValueError) {
+  EXPECT_EQ(IntValueError("abc").message,
+            "invalid literal for int() with base 10: 'abc'");
+  EXPECT_EQ(IntValueError("").message,
+            "invalid literal for int() with base 10: ''");
+  EXPECT_EQ(IntValueError("abc").exit_code, 1);
+}
+
 TEST(StringsTest, ExpandTabs) {
   EXPECT_EQ(ExpandTabs("a\tb\n12345678\tc"), "a       b\n12345678        c");
 }

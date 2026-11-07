@@ -338,8 +338,8 @@ Result<int64_t> JsonSubscriptInt(yyjson_val* value, std::string_view key) {
   const std::optional<int64_t> number = JsonToInt(member.value());
   if (!number) {
     return Result<int64_t>(Error{
-        .message = "ValueError: invalid literal for int() with base 10: " +
-                   Repr(JsonToStr(member.value()))});
+        .message = "ValueError: " +
+                   IntValueError(JsonToStr(member.value())).message});
   }
   return Result<int64_t>(*number);
 }

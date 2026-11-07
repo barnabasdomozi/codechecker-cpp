@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "api/ordered_map.h"
+#include "api/thrift/products_types.h"
 #include "api/thrift/report_server_types.h"
 #include "util/json.h"
 
@@ -225,6 +226,27 @@ yyjson_mut_val* ToJson(yyjson_mut_doc* doc, const RunData& run) {
   return object;
 }
 
+yyjson_mut_val* ToJson(yyjson_mut_doc* doc, const RunHistoryData& history) {
+  yyjson_mut_val* object = yyjson_mut_obj(doc);
+  const auto& set = history.__isset;
+  AddField(doc, object, "runId", set.runId, ToJson(doc, history.runId));
+  AddField(doc, object, "runName", set.runName, ToJson(doc, history.runName));
+  AddField(doc, object, "versionTag", set.versionTag,
+           ToJson(doc, history.versionTag));
+  AddField(doc, object, "user", set.user, ToJson(doc, history.user));
+  AddField(doc, object, "time", set.time, ToJson(doc, history.time));
+  AddField(doc, object, "id", set.id, ToJson(doc, history.id));
+  AddField(doc, object, "checkCommand", set.checkCommand,
+           ToJson(doc, history.checkCommand));
+  AddField(doc, object, "codeCheckerVersion", set.codeCheckerVersion,
+           ToJson(doc, history.codeCheckerVersion));
+  AddField(doc, object, "analyzerStatistics", set.analyzerStatistics,
+           ToJson(doc, history.analyzerStatistics));
+  AddField(doc, object, "description", set.description,
+           ToJson(doc, history.description));
+  return object;
+}
+
 yyjson_mut_val* ToJson(yyjson_mut_doc* doc, const ReportData& report) {
   yyjson_mut_val* object = yyjson_mut_obj(doc);
   const auto& set = report.__isset;
@@ -258,6 +280,40 @@ yyjson_mut_val* ToJson(yyjson_mut_doc* doc, const ReportData& report) {
            ToJson(doc, report.annotations));
   AddField(doc, object, "blameInfo", set.blameInfo,
            ToJson(doc, report.blameInfo));
+  return object;
+}
+
+yyjson_mut_val* ToJson(yyjson_mut_doc* doc, const Product& product) {
+  yyjson_mut_val* object = yyjson_mut_obj(doc);
+  const auto& set = product.__isset;
+  AddField(doc, object, "id", set.id, ToJson(doc, product.id));
+  AddField(doc, object, "endpoint", set.endpoint,
+           ToJson(doc, product.endpoint));
+  AddField(doc, object, "displayedName_b64", set.displayedName_b64,
+           ToJson(doc, product.displayedName_b64));
+  AddField(doc, object, "description_b64", set.description_b64,
+           ToJson(doc, product.description_b64));
+  AddField(doc, object, "connected", set.connected,
+           yyjson_mut_bool(doc, product.connected));
+  AddField(doc, object, "accessible", set.accessible,
+           yyjson_mut_bool(doc, product.accessible));
+  AddField(doc, object, "administrating", set.administrating,
+           yyjson_mut_bool(doc, product.administrating));
+  AddField(doc, object, "databaseStatus", set.databaseStatus,
+           ToJson(doc, int64_t{product.databaseStatus}));
+  AddField(doc, object, "runCount", set.runCount,
+           ToJson(doc, product.runCount));
+  AddField(doc, object, "latestStoreToProduct", set.latestStoreToProduct,
+           ToJson(doc, product.latestStoreToProduct));
+  AddField(doc, object, "runLimit", set.runLimit,
+           ToJson(doc, product.runLimit));
+  AddField(doc, object, "admins", set.admins, ToJson(doc, product.admins));
+  AddField(doc, object, "runStoreInProgress", set.runStoreInProgress,
+           ToJson(doc, product.runStoreInProgress));
+  AddField(doc, object, "confidentiality", set.confidentiality,
+           ToJson(doc, int64_t{product.confidentiality}));
+  AddField(doc, object, "reportLimit", set.reportLimit,
+           ToJson(doc, product.reportLimit));
   return object;
 }
 

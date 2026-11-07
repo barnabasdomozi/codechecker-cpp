@@ -117,6 +117,27 @@ describe('usage/cmd-runs-history.md', () => {
     expect(result).toExitWith(0);
     expect(tableRows(result.stdout).slice(1).map((r) => r[1]).sort()).toEqual(['demo', 'demo', 'multi']);
   }, { name: 'a pattern matching no run prints every run', knownIssue: 40 });
+
+  useCase('cmd-runs-history.md', 'Run history', async () => {
+    const result = await cmd(['history', '-n', 'demo', '-o', 'json', '--url', url()]);
+    expect(result).toExitWith(0);
+    const entries = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
+    // The fields of RunHistoryData in the order of the IDL file.
+    expect(Object.keys(entries[0])).toEqual([
+      'runId', 'runName', 'versionTag', 'user', 'time', 'id', 'checkCommand',
+      'codeCheckerVersion', 'analyzerStatistics', 'description',
+    ]);
+    expect(entries.map((e) => [e.runName, e.versionTag, e.user])).toEqual([
+      ['demo', 'v2', 'Anonymous'],
+      ['demo', 'v1', 'Anonymous'],
+    ]);
+    expect(entries[1].description).toBe('first run');
+    expect(entries[0].checkCommand).toBeNull();
+    // Only the file counts of the statistics are set.
+    const stats = entries[0].analyzerStatistics as Record<string, Record<string, unknown>>;
+    expect(Object.keys(stats)).toEqual(['clangsa', 'clang-tidy', 'cppcheck']);
+    expect(stats.clangsa).toEqual({ version: null, failed: 0, successful: 3, failedFilePaths: null });
+  }, { name: 'JSON' });
 });
 
 describe('usage/cmd-results.md', () => {
@@ -252,6 +273,30 @@ describe('usage/cmd-sum.md', () => {
     expect(checkerList.map((r) => r[0])).toEqual(expect.arrayContaining(['__FAKE__', 'NOT FOUND', 'core.DivideZero']));
     expect(checkerList.length).toBeGreaterThan(500);
   }, { knownIssue: 13 });
+
+  useCase('cmd-sum.md', 'Statistics for a run', async () => {
+    const result = await cmd(['sum', '-n', 'demo', '-o', 'csv', '--url', url()]);
+    expect(result).toExitWith(0);
+    const out = lines(result.stdout);
+    expect(out[0]).toBe('Checker,Severity,Unreviewed,Confirmed,False positive,Intentional,All reports');
+    expect(out).toContain('core.DivideZero,HIGH,2,0,2,0,2');
+    expect(out).toContain('Total,-,9,0,3,0,9');
+    expect(out).toContain('Severity,All reports');
+    expect(out).toContain('HIGH,9');
+    expect(out).toContain('Total,9');
+    expect(out).toContain('Checker Name,guideline,Severity,Enabled in all selected runs,Closed Reports,Outstanding Reports');
+    expect(out).toContain('__FAKE__,,UNSPECIFIED,True,0,0');
+    // The guidelines come from the checker labels. The Python server sends
+    // the labels in no fixed order, so the order of the guidelines varies.
+    const divideZero = out.find((l) => l.startsWith('core.DivideZero,') && l.includes(',HIGH,True,')) ?? '';
+    const guidelines = divideZero.slice('core.DivideZero,'.length, divideZero.indexOf(',HIGH,True,'));
+    expect(guidelines.split(';  ').sort()).toEqual([
+      'cwe-vulnerabilities: cwe-369',
+      'owasp-top-10-2025: owasp-A10-2025',
+      'sei-cert-c: int33-c',
+      'sei-cert-cpp: int33-c',
+    ]);
+  }, { name: 'CSV', knownIssue: 13 });
 
   useCase('cmd-sum.md', 'All runs, with filters', async () => {
     const json = await cmd(['sum', '--all', '--checker-name', 'core.*', '-o', 'json', '--url', url()]);

@@ -4,6 +4,7 @@
 #define CC_COMMON_UTIL_H_
 
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -45,6 +46,13 @@ std::string FormatSize(double bytes);
 // Returns whether `value` means true: "y", "yes", "t", "true", "on" or "1"
 // in any case (Python: strtobool()).
 bool StrToBool(std::string_view value);
+
+// Returns the options of `options`, in their order, that start with one of
+// the command line arguments `args`; an empty argument starts none of them
+// (Python: arg_match()). Options given and defaults cannot be told apart in
+// an argparse::Namespace, so callers look at the command line with it.
+std::vector<std::string> ArgMatch(std::span<const std::string_view> options,
+                                  std::span<const std::string> args);
 
 }  // namespace cc::common
 

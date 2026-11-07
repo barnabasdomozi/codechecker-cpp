@@ -195,6 +195,53 @@ describe('usage/cmd-products.md', () => {
     // Removing a missing product is not an error.
     expect(await cmd(['products', 'del', 'never_existed', '--url', server().serverUrl])).toExitWith(0);
   });
+
+  useCase('cmd-products.md', 'List products', async () => {
+    const result = await cmd(['products', 'list', '-o', 'json', '--url', server().serverUrl]);
+    expect(result).toExitWith(0);
+    const list = JSON.parse(result.stdout) as Array<Record<string, Record<string, unknown>>>;
+    const product = list.find((p) => 'Default' in p)?.Default;
+    // The fields of Product in the order of the IDL file.
+    expect(Object.keys(product ?? {})).toEqual([
+      'id', 'endpoint', 'displayedName_b64', 'description_b64', 'connected',
+      'accessible', 'administrating', 'databaseStatus', 'runCount',
+      'latestStoreToProduct', 'runLimit', 'admins', 'runStoreInProgress',
+      'confidentiality', 'reportLimit',
+    ]);
+    expect(product).toMatchObject({
+      endpoint: 'Default',
+      displayedName_b64: Buffer.from('Default').toString('base64'),
+      connected: true,
+      accessible: true,
+      databaseStatus: 0,
+      runLimit: null,
+      runStoreInProgress: null,
+    });
+  }, { name: 'JSON' });
+
+  useCase('cmd-products.md', 'List products', async () => {
+    const result = await cmd(['products']);
+    expect(result).toExitWith(0);
+    expect(result.stdout).toContain('{list,add,del}');
+    expect(result.stdout).toContain('List products available on the server.');
+  }, { name: 'without an action, the help is printed' });
+
+  useCase('cmd-products.md', 'List products', async () => {
+    const protocol = await cmd(['products', 'list', '--url', 'ftp://localhost:8001']);
+    expect(protocol).toExitWith(1);
+    expect(lines(protocol.stdout)).toContain("ValueError: 'ftp' is not a protocol understood by CodeChecker");
+    const port = await cmd(['products', 'list', '--url', 'localhost:abc']);
+    expect(port).toExitWith(1);
+    expect(lines(port.stdout)).toContain("ValueError: invalid literal for int() with base 10: 'abc'");
+  }, { name: 'a malformed server URL', knownIssue: 32 });
+
+  useCase('cmd-products.md', 'Add a product (PostgreSQL)', async () => {
+    const result = await cmd(['products', 'add', 'nopg', '--db-host', 'localhost', '--url', server().serverUrl]);
+    expect(result).toExitWith(1);
+    expect(result.output).toContain('argument --db-host: not allowed without argument --postgresql');
+    const list = await cmd(['products', 'list', '--url', server().serverUrl]);
+    expect(tableRows(list.stdout).map((r) => r[1])).not.toContain('nopg');
+  }, { name: 'PostgreSQL options without --postgresql are rejected' });
 });
 
 describe('usage/cmd-components.md', () => {

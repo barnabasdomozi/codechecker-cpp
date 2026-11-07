@@ -22,6 +22,11 @@ std::string Repr(std::string_view text);
 // str() gives it: the repr of `key`.
 Error KeyError(std::string_view key);
 
+// Returns the error of the ValueError that Python's int() raises for
+// `text`, with the message that str() gives it:
+// "invalid literal for int() with base 10: '<text>'".
+Error IntValueError(std::string_view text);
+
 // Parses `text` like Python's int(): optional surrounding whitespace and
 // sign, then decimal digits. Returns nullopt where int() raises ValueError.
 // Underscores between digits are not accepted.

@@ -25,7 +25,7 @@ std::string_view DatabaseStatusMessage(DBStatus::type status) {
     case DBStatus::SCHEMA_UPGRADE_FAILED:
       return "Schema upgrade failed.";
   }
-  return "Unknown database status";
+  return kUnknownDatabaseStatus;
 }
 
 }  // namespace cc::web

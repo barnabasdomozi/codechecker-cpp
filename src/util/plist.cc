@@ -113,8 +113,7 @@ Result<void> PlistBuilder::End(std::string_view element) {
       number = ParseInt(raw);
     }
     if (!number) {
-      return Result<void>(Error{.message = std::format(
-          "invalid literal for int() with base 10: {}", Repr(data_))});
+      return Result<void>(IntValueError(data_));
     }
     value = yyjson_mut_sint(doc, *number);
   } else if (element == "real") {

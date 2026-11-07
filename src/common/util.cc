@@ -5,6 +5,7 @@
 #include <format>
 #include <iterator>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -119,6 +120,19 @@ std::string FormatSize(double bytes) {
 bool StrToBool(std::string_view value) {
   constexpr std::string_view kTrue[] = {"y", "yes", "t", "true", "on", "1"};
   return std::ranges::find(kTrue, util::AsciiLower(value)) != std::end(kTrue);
+}
+
+std::vector<std::string> ArgMatch(std::span<const std::string_view> options,
+                                  std::span<const std::string> args) {
+  std::vector<std::string> matched;
+  for (const std::string_view option : options) {
+    if (std::ranges::any_of(args, [option](const std::string& arg) {
+          return !arg.empty() && option.starts_with(arg);
+        })) {
+      matched.emplace_back(option);
+    }
+  }
+  return matched;
 }
 
 }  // namespace cc::common

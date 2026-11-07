@@ -10,8 +10,13 @@
 
 namespace cc::web {
 
+// The message for a status that has no message of its own (Python: the
+// default of db_status_msg.get()).
+inline constexpr std::string_view kUnknownDatabaseStatus =
+    "Unknown database status";
+
 // Returns the message of `status`, for example "Database is up to date."
-// (Python: database_status.db_status_msg), or "Unknown database status".
+// (Python: database_status.db_status_msg), or kUnknownDatabaseStatus.
 std::string_view DatabaseStatusMessage(DBStatus::type status);
 
 }  // namespace cc::web

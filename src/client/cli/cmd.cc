@@ -1,20 +1,27 @@
 #include "client/cli/cmd.h"
 
 #include <exception>
+#include <format>
+#include <initializer_list>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "client/cmd/cmd_line_client.h"
+#include "client/cmd/history.h"
+#include "client/cmd/products.h"
 #include "client/cmd/results.h"
 #include "client/cmd/runs.h"
+#include "client/cmd/sum.h"
 #include "common/cli/verbose.h"
 #include "common/package.h"
 #include "util/argparse.h"
 #include "util/logging.h"
 #include "util/result.h"
+#include "web/cli/postgresql_arguments.h"
 
 namespace cc::client::cli {
 namespace {
@@ -23,9 +30,15 @@ namespace argparse = util::argparse;
 
 constexpr util::Logger kLog("system");
 
-// The Namespace entry that names the action to run (Python: the `func`
-// default of each action's parser).
+// The Namespace entries that name the action to run: of `cmd`, and of
+// `cmd products` (Python: the `func` default of each action's parser).
 constexpr std::string_view kActionDest = "cmd_action";
+constexpr std::string_view kProductsActionDest = "products_action";
+
+// The defaults of `cmd products add` that are replaced by values that
+// depend on the endpoint.
+constexpr std::string_view kSqliteDefault = "<ENDPOINT>.sqlite";
+constexpr std::string_view kPostgresqlDefault = "<ENDPOINT>";
 
 // The description in the help of `cmd`.
 constexpr std::string_view kCmdDescription =
@@ -60,6 +73,33 @@ Get analysis results for a run and filter the analysis results:
 
     codechecker-cpp cmd results my_run --review-status confirmed unreviewed \
         --component my_component_name)";
+
+// The examples at the end of the help of `cmd sum`.
+constexpr std::string_view kSumEpilog =
+    R"(Example scenario: Get checker statistics
+------------------------------------------------
+Get statistics for a run:
+    codechecker-cpp cmd sum -n my_run
+
+Get statistics for all runs filtered by multiple checker names:
+    codechecker-cpp cmd sum --all --checker-name "core.*" "deadcode.*"
+
+Get statistics for all runs and only for severity 'high':
+    codechecker-cpp cmd sum --all --severity "high")";
+
+// The description in the help of `cmd products`.
+constexpr std::string_view kProductsDescription =
+    "CodeChecker organises its databases into products. Each product has an "
+    "individually configured database which stores the analysis results. "
+    "These subcommands are used to manage the products configured by the "
+    "server. Please see the individual subcommands for details.";
+
+// The description in the help of `cmd products del`.
+constexpr std::string_view kProductsDelDescription =
+    "Removes the specified product from the list of products managed by the "
+    "server. NOTE: This only removes the association and disconnects the "
+    "server from the database -- NO actual ANALYSIS DATA is REMOVED. "
+    "Configuration, such as access control, however, WILL BE LOST!";
 
 // Appended to the help of each TIMESTAMP option; it starts with a space.
 constexpr std::string_view kTimestampFormat =
@@ -108,28 +148,54 @@ constexpr std::string_view kReportStatusHelp =
     "- Closed: Reports marked as fixed, false positive, or otherwise "
     "resolved.\n";
 
-// Adds the options every action has: --url, -o and --verbose (Python:
-// __add_common_arguments() for a product URL and the default output
-// formats).
-void AddCommonArguments(argparse::Parser& parser) {
+// Which --url option a parser has (Python: the needs_product_url argument
+// of __add_url_arguments()).
+enum class UrlKind {
+  kNone,     // None, for a parser that does not connect to a server.
+  kProduct,  // --url PRODUCT_URL, for the actions on one product.
+  kServer,   // --url SERVER_URL, for the actions on the server itself.
+};
+
+// Whether a parser has -o/--output (Python: the output_formats argument of
+// __add_common_arguments()).
+enum class OutputOption { kNone, kDefaultFormats };
+
+// Adds the options that the actions have in common: the --url of `url`,
+// -o if `output` says so, and --verbose (Python: __add_common_arguments()).
+void AddCommonArguments(argparse::Parser& parser, UrlKind url,
+                        OutputOption output) {
   const int group = parser.AddArgumentGroup("common arguments", "");
-  parser.AddArgument(
-      {.flags = {"--url"},
-       .dest = "product_url",
-       .metavar = "PRODUCT_URL",
-       .default_value = "localhost:8001/Default",
-       .help = "The URL of the product which will be accessed by the client, "
-               "in the format of '[http[s]://]host:port/Endpoint'.",
-       .group = group});
-  parser.AddArgument(
-      {.flags = {"-o", "--output"},
-       .dest = "output_format",
-       // Python: DEFAULT_OUTPUT_FORMATS.
-       .choices = {"plaintext", "rows", "table", "csv", "json"},
-       .default_value = "plaintext",
-       .help = "The output format(s) to use in showing the data. Mind that "
-               "some output formats are (like 'json') more verbose than "
-               "others (like 'plaintext')."});
+  if (url == UrlKind::kProduct) {
+    parser.AddArgument(
+        {.flags = {"--url"},
+         .dest = "product_url",
+         .metavar = "PRODUCT_URL",
+         .default_value = "localhost:8001/Default",
+         .help = "The URL of the product which will be accessed by the "
+                 "client, in the format of "
+                 "'[http[s]://]host:port/Endpoint'.",
+         .group = group});
+  } else if (url == UrlKind::kServer) {
+    parser.AddArgument(
+        {.flags = {"--url"},
+         .dest = "server_url",
+         .metavar = "SERVER_URL",
+         .default_value = "localhost:8001",
+         .help = "The URL of the server to access, in the format of "
+                 "'[http[s]://]host:port'.",
+         .group = group});
+  }
+  if (output == OutputOption::kDefaultFormats) {
+    parser.AddArgument(
+        {.flags = {"-o", "--output"},
+         .dest = "output_format",
+         // Python: DEFAULT_OUTPUT_FORMATS.
+         .choices = {"plaintext", "rows", "table", "csv", "json"},
+         .default_value = "plaintext",
+         .help = "The output format(s) to use in showing the data. Mind "
+                 "that some output formats are (like 'json') more verbose "
+                 "than others (like 'plaintext')."});
+  }
   common::cli::AddVerboseArgument(parser, group);
 }
 
@@ -181,19 +247,19 @@ void AddFlagFilter(argparse::Parser& parser, std::string flag,
 }
 
 // Adds the report filter options, with the defaults of
-// cmd::DefaultFilterValue() (Python: __add_filtering_arguments() with
+// cmd::DefaultFilterValue(), except that --uniqueing defaults to
+// `uniqueing` (Python: __add_filtering_arguments() with
 // DEFAULT_FILTER_VALUES, outside diff mode).
-void AddFilteringArguments(argparse::Parser& parser) {
+void AddFilteringArguments(argparse::Parser& parser,
+                           std::string_view uniqueing) {
   const int group = parser.AddArgumentGroup("filter arguments", "");
   const std::string timestamp(kTimestampFormat);
   const std::string detection_date(kDetectionDateHelp);
-  const std::optional<std::vector<std::string>> uniqueing =
-      cmd::DefaultFilterValue("uniqueing");
   parser.AddArgument(
       {.flags = {"--uniqueing"},
        .dest = "uniqueing",
        .choices = {"on", "off"},
-       .default_value = uniqueing->front(),
+       .default_value = std::string(uniqueing),
        .help = "The same bug may appear several times if it is found on "
                "different execution paths, i.e. through different function "
                "calls. By turning on uniqueing a report appears only once "
@@ -295,6 +361,18 @@ void AddFilteringArguments(argparse::Parser& parser) {
                 std::string(kReportStatusHelp), group);
 }
 
+// Adds --filter-preset (Python: __add_filter_preset_argument()).
+void AddFilterPresetArgument(argparse::Parser& parser) {
+  parser.AddArgument(
+      {.flags = {"--filter-preset"},
+       .dest = "filter_preset_name",
+       .metavar = "PRESET_NAME",
+       .help = "Use a pre-configured filter preset. The preset is loaded from "
+               "the server and applied to the results. Use 'codechecker-cpp "
+               "cmd filter-preset list --url <PRODUCT_URL>' to see available "
+               "presets."});
+}
+
 // Sets up `parser` as the parser of `cmd runs`: its help and options (Python:
 // __register_runs() and __add_common_arguments()).
 void AddRunsArguments(argparse::Parser& parser) {
@@ -357,7 +435,29 @@ void AddRunsArguments(argparse::Parser& parser) {
                       .choices = {"asc", "desc"},
                       .default_value = "desc",
                       .help = "Sort order of the run data."});
-  AddCommonArguments(parser);
+  AddCommonArguments(parser, UrlKind::kProduct, OutputOption::kDefaultFormats);
+}
+
+// Sets up `parser` as the parser of `cmd history` (Python:
+// __register_run_histories() and __add_common_arguments()).
+void AddHistoryArguments(argparse::Parser& parser) {
+  parser.set_help_format(argparse::HelpFormat::kArgumentDefaults);
+  parser.set_description("Show run history for some analysis runs.");
+  parser.AddArgument(
+      {.flags = {"-n", "--name"},
+       .dest = "names",
+       .nargs = argparse::Nargs::kZeroOrMore,
+       .metavar = "RUN_NAME",
+       .help = "Names of the analysis runs to show history for. If this "
+               "argument is not supplied it will show the history for all "
+               "runs. This has the following format: \"<run_name_1> "
+               "<run_name_2> <run_name_3>\" where run names can contain "
+               "multiple * quantifiers which matches any number of "
+               "characters (zero or more). So if you have run_1_a_name, "
+               "run_2_b_name, run_2_c_name, run_3_d_name then \"run_2* "
+               "run_3_d_name\" shows history for the last three runs. Use "
+               "'codechecker-cpp cmd runs' to get the available runs."});
+  AddCommonArguments(parser, UrlKind::kProduct, OutputOption::kDefaultFormats);
 }
 
 // Sets up `parser` as the parser of `cmd results`: its help and options
@@ -384,16 +484,166 @@ void AddResultsArguments(argparse::Parser& parser) {
        .help = "Get report details for reports such as bug path events, bug "
                "report points etc. Detailed view contains Git information if "
                "it was available and stored for the queried project."});
-  AddFilteringArguments(parser);
+  AddFilteringArguments(parser, cmd::DefaultFilterValue("uniqueing")->front());
+  AddFilterPresetArgument(parser);
+  AddCommonArguments(parser, UrlKind::kProduct, OutputOption::kDefaultFormats);
+}
+
+// Sets up `parser` as the parser of `cmd sum` (Python: __register_sum()
+// and __add_common_arguments()).
+void AddSumArguments(argparse::Parser& parser) {
+  parser.set_help_format(argparse::HelpFormat::kCodeChecker);
+  parser.set_description("Show checker statistics for some analysis runs.");
+  parser.set_epilog(std::string(kSumEpilog));
+  const int runs = parser.AddMutuallyExclusiveGroup(
+      argparse::ExclusiveGroup::kRequired);
+  // The help describes run names separated by ':', which does not work
+  // (known-issues #54).
   parser.AddArgument(
-      {.flags = {"--filter-preset"},
-       .dest = "filter_preset_name",
-       .metavar = "PRESET_NAME",
-       .help = "Use a pre-configured filter preset. The preset is loaded from "
-               "the server and applied to the results. Use 'codechecker-cpp "
-               "cmd filter-preset list --url <PRODUCT_URL>' to see available "
-               "presets."});
-  AddCommonArguments(parser);
+      {.flags = {"-n", "--name"},
+       .dest = "names",
+       .nargs = argparse::Nargs::kOneOrMore,
+       .metavar = "RUN_NAME",
+       .help = "Names of the analysis runs to show result count breakdown "
+               "for. This has the following format: "
+               "<run_name_1>:<run_name_2>:<run_name_3> where run names can "
+               "contain multiple * quantifiers which matches any number of "
+               "characters (zero or more). So if you have run_1_a_name, "
+               "run_2_b_name, run_2_c_name, run_3_d_name then "
+               "\"run_2*:run_3_d_name\" selects the last three runs. Use "
+               "'codechecker-cpp cmd runs' to get the available runs.",
+       .exclusive_group = runs});
+  parser.AddArgument({.flags = {"-a", "--all"},
+                      .dest = "all_results",
+                      .action = argparse::ArgumentAction::kStoreTrue,
+                      .help = "Show breakdown for all analysis runs.",
+                      .exclusive_group = runs});
+  // Python sets the default in the shared defaults, after `results` and
+  // `diff` took theirs.
+  AddFilteringArguments(parser, "on");
+  AddFilterPresetArgument(parser);
+  AddCommonArguments(parser, UrlKind::kProduct, OutputOption::kDefaultFormats);
+}
+
+// Sets up `parser` as the parser of `cmd products list` (Python: the
+// `list` part of __register_products()).
+void AddProductsListArguments(argparse::Parser& parser) {
+  parser.set_help_format(argparse::HelpFormat::kArgumentDefaults);
+  parser.set_description(
+      "List the name and basic information about products added to the "
+      "server.");
+  AddCommonArguments(parser, UrlKind::kServer, OutputOption::kDefaultFormats);
+}
+
+// Adds the endpoint argument of `cmd products add` and `del`, whose help is
+// `help`.
+void AddEndpointArgument(argparse::Parser& parser, std::string help) {
+  parser.AddArgument(
+      {.dest = "endpoint", .metavar = "ENDPOINT", .help = std::move(help)});
+}
+
+// Adds the database options of `cmd products add` (Python: the database
+// part of __register_add()).
+void AddProductDatabaseArguments(argparse::Parser& parser) {
+  const int database_group = parser.AddArgumentGroup(
+      "database arguments",
+      "NOTE: These database arguments are relative to the server machine, as "
+      "it is the server which will make the database connection.");
+  const int database_modes = parser.AddMutuallyExclusiveGroup();
+  parser.AddArgument(
+      {.flags = {"--sqlite"},
+       .dest = "sqlite",
+       .metavar = "SQLITE_FILE",
+       .default_value = std::string(kSqliteDefault),
+       .help = "Path of the SQLite database file to use. All paths will be "
+               "relative to the server's <WORKSPACE_DIRECTORY>. If an SQLite "
+               "server needs to have a different directory, use symlinks "
+               "inside the config directory.",
+       .group = database_group,
+       .exclusive_group = database_modes});
+  parser.AddArgument(
+      {.flags = {"--postgresql"},
+       .dest = "postgresql",
+       .action = argparse::ArgumentAction::kStoreTrue,
+       .help = "Specifies that a PostgreSQL database is to be used instead "
+               "of SQLite. See the \"PostgreSQL arguments\" section on how "
+               "to configure the database connection.",
+       .group = database_group,
+       .exclusive_group = database_modes});
+
+  const int postgresql_group = parser.AddArgumentGroup(
+      "PostgreSQL arguments",
+      "Values of these arguments are ignored, unless '--postgresql' is "
+      "specified! The database specified here must exist, and be "
+      "connectible by the server.");
+  parser.AddArgument({.flags = {"--dbaddress", "--db-host"},
+                      .dest = "dbaddress",
+                      .default_value = "localhost",
+                      .help = "Database server address.",
+                      .group = postgresql_group});
+  parser.AddArgument({.flags = {"--dbport", "--db-port"},
+                      .dest = "dbport",
+                      .type = argparse::IntType,
+                      .default_value = "5432",
+                      .help = "Database server port.",
+                      .group = postgresql_group});
+  parser.AddArgument({.flags = {"--dbusername", "--db-username"},
+                      .dest = "dbusername",
+                      .default_value = std::string(kPostgresqlDefault),
+                      .help = "Username to use for connection.",
+                      .group = postgresql_group});
+  parser.AddArgument({.flags = {"--dbpassword", "--db-password"},
+                      .dest = "dbpassword",
+                      .default_value = "",
+                      .help = "Password to use for authenticating the "
+                              "connection.",
+                      .group = postgresql_group});
+  parser.AddArgument({.flags = {"--dbname", "--db-name"},
+                      .dest = "dbname",
+                      .default_value = std::string(kPostgresqlDefault),
+                      .help = "Name of the database to use.",
+                      .group = postgresql_group});
+}
+
+// Sets up `parser` as the parser of `cmd products add` (Python:
+// __register_add() and __add_common_arguments()).
+void AddProductsAddArguments(argparse::Parser& parser) {
+  parser.set_help_format(argparse::HelpFormat::kArgumentDefaults);
+  parser.set_description(
+      "Create a new product to be managed by the server by providing the "
+      "product's details and database connection.");
+  AddEndpointArgument(parser,
+                      "The URL endpoint where clients can access the "
+                      "analysis results for this product.");
+  parser.AddArgument(
+      {.flags = {"-n", "--name"},
+       .dest = "display_name",
+       .help = "A custom display name for the product, which will be shown "
+               "in the viewer. This is purely for decoration and user "
+               "experience, program calls use the <ENDPOINT>."});
+  parser.AddArgument({.flags = {"--description"},
+                      .dest = "description",
+                      .help = "A custom textual description to be shown "
+                              "alongside the product."});
+  parser.AddArgument(
+      {.flags = {"--report-limit"},
+       .dest = "report_limit",
+       .type = argparse::IntType,
+       .help = "The maximum number of reports allowed to store in one run, "
+               "if exceeded, the store action will be rejected."});
+  AddProductDatabaseArguments(parser);
+  AddCommonArguments(parser, UrlKind::kServer, OutputOption::kNone);
+}
+
+// Sets up `parser` as the parser of `cmd products del` (Python:
+// __register_del() and __add_common_arguments()).
+void AddProductsDelArguments(argparse::Parser& parser) {
+  parser.set_help_format(argparse::HelpFormat::kArgumentDefaults);
+  parser.set_description(std::string(kProductsDelDescription));
+  AddEndpointArgument(parser,
+                      "The URL endpoint where clients can access the "
+                      "analysis results for the product.");
+  AddCommonArguments(parser, UrlKind::kServer, OutputOption::kNone);
 }
 
 // One action of `cmd`: its parser and its handler.
@@ -406,12 +656,111 @@ struct Action {
   Result<void> (*run)(const argparse::Namespace& args);
 };
 
+// Adds `actions` to `parser` as its subcommands, listed in the help
+// section "available actions"; each one sets `dest` to its name.
+void AddActions(argparse::Parser& parser, std::span<const Action> actions,
+                std::string_view dest) {
+  const int group = parser.AddArgumentGroup("available actions", "");
+  parser.AddSubparsers(/*help=*/"", group);
+  for (const Action& action : actions) {
+    argparse::Parser& subparser =
+        parser.AddParser(std::string(action.name), std::string(action.help));
+    subparser.SetDefault(std::string(dest), std::string(action.name));
+    action.add_arguments(subparser);
+  }
+}
+
+// Runs the action of `actions` that `args` names in `dest`.
+Result<void> RunAction(std::span<const Action> actions, std::string_view dest,
+                       const argparse::Namespace& args) {
+  for (const Action& action : actions) {
+    if (action.name == args.Get(dest)) return action.run(args);
+  }
+  // The parser knows no other actions.
+  std::terminate();
+}
+
+// Prints the help of `cmd` or of its action that `arguments`, a command
+// line of `cmd` ending in --help, asks for, and returns the error that ends
+// the command after it (Python: the entry point parses the command line
+// again with --help when no parser set a handler). The launcher has shown
+// the logo.
+Error PrintCmdHelp(const std::vector<std::string>& arguments) {
+  argparse::Parser parser(std::format("{} cmd", common::kProgramName));
+  AddCmdArguments(parser);
+  const Result<argparse::Namespace> help = parser.ParseArgs(arguments);
+  return help.ok() ? Error{.exit_code = 0} : help.error();
+}
+
+// Runs `cmd products add` after the checks and the defaults that need the
+// command line (Python: the __handle() of the add action).
+Result<void> RunProductsAdd(const argparse::Namespace& parsed) {
+  argparse::Parser parser(
+      std::format("{} cmd products add", common::kProgramName));
+  AddProductsAddArguments(parser);
+  if (const std::optional<std::string> error =
+          web::cli::PostgresqlArgumentError(
+              parsed, std::span(common::CommandLine()).subspan(1))) {
+    return Result<void>(parser.Fail(*error));
+  }
+  argparse::Namespace args = parsed;
+  // A value given that equals the placeholder is replaced too.
+  const std::string endpoint = args.Get("endpoint");
+  if (args.Get("sqlite") == kSqliteDefault) {
+    args.Set("sqlite", endpoint + ".sqlite");
+  }
+  for (const std::string_view dest : {"dbusername", "dbname"}) {
+    if (args.Get(dest) == kPostgresqlDefault) args.Set(dest, endpoint);
+  }
+  return cmd::AddProduct(args);
+}
+
+// The actions of `cmd products`, in the order of the help.
+constexpr Action kProductsActions[] = {
+    {"list", "List products available on the server.",
+     &AddProductsListArguments, &cmd::ListProducts},
+    {"add", "Register a new product to the server.", &AddProductsAddArguments,
+     &RunProductsAdd},
+    {"del", "Delete a product from the server's products.",
+     &AddProductsDelArguments, &cmd::DelProduct},
+};
+
+// Sets up `parser` as the parser of `cmd products`, whose actions have
+// parsers of their own (Python: __register_products() and
+// __add_common_arguments()).
+void AddProductsArguments(argparse::Parser& parser) {
+  parser.set_help_format(argparse::HelpFormat::kArgumentDefaults);
+  parser.set_description(std::string(kProductsDescription));
+  parser.set_epilog(
+      "Most of these commands require authentication and appropriate access "
+      "rights. Please see 'codechecker-cpp cmd login' to authenticate.");
+  AddActions(parser, kProductsActions, kProductsActionDest);
+  AddCommonArguments(parser, UrlKind::kNone, OutputOption::kNone);
+}
+
+// Runs the action of `cmd products` in `args`. Without an action, prints
+// the help of `cmd products`.
+Result<void> RunProducts(const argparse::Namespace& args) {
+  if (!args.Has(kProductsActionDest)) {
+    return Result<void>(PrintCmdHelp({"products", "--help"}));
+  }
+  return RunAction(kProductsActions, kProductsActionDest, args);
+}
+
 // The actions, in the order of the help.
 constexpr Action kActions[] = {
     {"runs", "List the available analysis runs.", &AddRunsArguments,
      &cmd::ListRuns},
+    {"history", "Show run history of multiple runs.", &AddHistoryArguments,
+     &cmd::ListRunHistories},
     {"results", "List analysis result (finding) summary for a given run.",
      &AddResultsArguments, &cmd::ListResults},
+    {"sum", "Show statistics of checkers.", &AddSumArguments,
+     &cmd::ListResultTypes},
+    {"products",
+     "Access subcommands related to configuring the products managed by a "
+     "CodeChecker server.",
+     &AddProductsArguments, &RunProducts},
 };
 
 }  // namespace
@@ -420,34 +769,16 @@ void AddCmdArguments(argparse::Parser& parser) {
   parser.set_help_format(argparse::HelpFormat::kCodeChecker);
   parser.set_allow_abbrev(false);
   parser.set_description(std::string(kCmdDescription));
-  const int group = parser.AddArgumentGroup("available actions", "");
-  parser.AddSubparsers(/*help=*/"", group);
-  for (const Action& action : kActions) {
-    argparse::Parser& subparser =
-        parser.AddParser(std::string(action.name), std::string(action.help));
-    subparser.SetDefault(std::string(kActionDest), std::string(action.name));
-    action.add_arguments(subparser);
-  }
+  AddActions(parser, kActions, kActionDest);
 }
 
 int RunCmd(const argparse::Namespace& args) {
-  if (!args.Has(kActionDest)) {
-    // Python: the entry point parses the command line again with --help
-    // when no parser set a handler. The launcher has shown the logo.
-    argparse::Parser parser(std::string(common::kProgramName) + " cmd");
-    AddCmdArguments(parser);
-    const Result<argparse::Namespace> help = parser.ParseArgs({"--help"});
-    return help.ok() ? 0 : help.error().exit_code;
-  }
-  for (const Action& action : kActions) {
-    if (action.name != args.Get(kActionDest)) continue;
-    const Result<void> done = action.run(args);
-    if (done.ok()) return 0;
-    if (!done.error().message.empty()) kLog.Error(done.error().message);
-    return done.error().exit_code;
-  }
-  // The parser knows no other actions.
-  std::terminate();
+  const Result<void> done = args.Has(kActionDest)
+                                ? RunAction(kActions, kActionDest, args)
+                                : Result<void>(PrintCmdHelp({"--help"}));
+  if (done.ok()) return 0;
+  if (!done.error().message.empty()) kLog.Error(done.error().message);
+  return done.error().exit_code;
 }
 
 }  // namespace cc::client::cli

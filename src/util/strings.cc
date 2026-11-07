@@ -197,6 +197,11 @@ Error KeyError(std::string_view key) {
   return Error{.message = Repr(key)};
 }
 
+Error IntValueError(std::string_view text) {
+  return Error{.message =
+                   "invalid literal for int() with base 10: " + Repr(text)};
+}
+
 std::optional<int64_t> ParseInt(std::string_view text) {
   text = StripAsciiWhitespace(text);
   if (text.starts_with('+')) {

@@ -178,6 +178,7 @@ if(CC_BUILD_WEB)
   target_link_libraries(cc_api PUBLIC third_party::thrift)
 
   add_library(cc_web STATIC
+    web/cli/postgresql_arguments.cc
     web/cli/web_version.cc
     web/convert.cc
     web/database_status.cc
@@ -191,8 +192,11 @@ if(CC_BUILD_WEB)
     client/client.cc
     client/cmd/cmd_line.cc
     client/cmd/cmd_line_client.cc
+    client/cmd/history.cc
+    client/cmd/products.cc
     client/cmd/results.cc
     client/cmd/runs.cc
+    client/cmd/sum.cc
     client/credentials/user_credentials.cc
     client/product.cc
     client/store/assemble_zip.cc
