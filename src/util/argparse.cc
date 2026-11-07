@@ -1114,6 +1114,11 @@ Result<std::string> FloatType(const std::string& value) {
 }
 
 Error Parser::Fail(std::string_view message) const {
+  if (!help_banner_.empty()) {
+    Write(Stream::kStdout, help_banner_);
+    // The banner comes before the error on a terminal.
+    Flush(Stream::kStdout);
+  }
   Write(Stream::kStderr, FormatUsage());
   Write(Stream::kStderr, std::format("{}: error: {}\n", prog_, message));
   return Error{.exit_code = error_exit_code_};

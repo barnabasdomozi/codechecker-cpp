@@ -217,9 +217,15 @@ class Parser {
   // Sets the exit code of parse errors; plain argparse uses 2. Subcommand
   // parsers added later get the same code.
   void set_error_exit_code(int exit_code) { error_exit_code_ = exit_code; }
-  // Sets the text printed before the help for -h, such as a logo; it is not
-  // part of FormatHelp(). Subcommand parsers added later get the same text.
-  void set_help_banner(std::string banner) { help_banner_ = std::move(banner); }
+  // Sets the text printed on stdout before the help for -h and before parse
+  // errors, such as a logo; it is not part of FormatHelp(). The subcommand
+  // parsers, also those added later, get the same text.
+  void set_help_banner(std::string banner) {
+    for (const std::unique_ptr<Parser>& subparser : subparsers_) {
+      subparser->set_help_banner(banner);
+    }
+    help_banner_ = std::move(banner);
+  }
 
   void AddArgument(Argument argument);
 
@@ -259,8 +265,9 @@ class Parser {
   std::string FormatUsage() const;
   std::string FormatHelp() const;
 
-  // Prints the usage and "<prog>: error: <message>" on stderr and returns
-  // the error to end the command with (Python: error()).
+  // Prints the help banner on stdout, then the usage and "<prog>: error:
+  // <message>" on stderr, and returns the error to end the command with
+  // (Python: error()).
   Error Fail(std::string_view message) const;
 
  private:

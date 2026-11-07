@@ -1041,10 +1041,13 @@ void AddParseArguments(argparse::Parser& parser) {
   common::cli::AddVerboseArgument(parser);
 }
 
+bool ExportsData(const argparse::Namespace& args) {
+  return args.Has("export") && args.Get("export") != "html";
+}
+
 int RunParse(const argparse::Namespace& args) {
   // Exported data goes to stdout, so the log goes to stderr then.
-  const bool to_stderr = args.Has("export") && args.Get("export") != "html";
-  util::SetupLogger(common::cli::Verbose(args), to_stderr
+  util::SetupLogger(common::cli::Verbose(args), ExportsData(args)
                                                     ? util::Stream::kStderr
                                                     : util::Stream::kStdout);
   const Result<int> result = Parse(args);

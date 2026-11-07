@@ -44,6 +44,11 @@ void AddTrimPathPrefixArgument(util::argparse::Parser& parser, int group);
 // Adds the arguments of `parse`.
 void AddParseArguments(util::argparse::Parser& parser);
 
+// Returns whether `parse` run with `args` exports the reports in a format for
+// other programs: -e/--export other than html, which is a folder of pages.
+// Such an export goes to stdout unless -o/--output is given.
+bool ExportsData(const util::argparse::Namespace& args);
+
 // Runs `parse` and returns the exit code: 2 if a report was printed or
 // exported, 0 if none was (or for --status), 1 on errors.
 int RunParse(const util::argparse::Namespace& args);

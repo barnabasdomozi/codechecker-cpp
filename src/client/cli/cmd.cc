@@ -10,7 +10,6 @@
 #include "client/cmd/cmd_line_client.h"
 #include "client/cmd/results.h"
 #include "client/cmd/runs.h"
-#include "common/cli/logo.h"
 #include "common/cli/verbose.h"
 #include "common/package.h"
 #include "util/argparse.h"
@@ -434,9 +433,8 @@ void AddCmdArguments(argparse::Parser& parser) {
 int RunCmd(const argparse::Namespace& args) {
   if (!args.Has(kActionDest)) {
     // Python: the entry point parses the command line again with --help
-    // when no parser set a handler.
+    // when no parser set a handler. The launcher has shown the logo.
     argparse::Parser parser(std::string(common::kProgramName) + " cmd");
-    parser.set_help_banner(common::cli::TerminalLogo());
     AddCmdArguments(parser);
     const Result<argparse::Namespace> help = parser.ParseArgs({"--help"});
     return help.ok() ? 0 : help.error().exit_code;

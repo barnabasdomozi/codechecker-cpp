@@ -12,6 +12,7 @@
 #include <string_view>
 #include <vector>
 
+#include "analyzer/cli/parse.h"
 #include "common/cli/logo.h"
 #include "common/cli/verbose.h"
 #include "common/cmd_config.h"
@@ -97,6 +98,20 @@ Result<util::argparse::Namespace> SpliceConfigFile(
   return parsed;
 }
 
+// Returns whether the subcommand run with `args` writes data for other
+// programs to stdout, such as JSON or CSV. The logo is left out then, so that
+// what a terminal shows is only the data. Pipes and files never get the logo
+// (TerminalLogo()).
+bool WritesDataToStdout(const util::argparse::Namespace& args) {
+  // -o/--output of the listing subcommands (version, checkers, cmd results,
+  // ...); their other formats are for people.
+  if (args.Has("output_format")) {
+    const std::string& format = args.Get("output_format");
+    if (format == "json" || format == "csv") return true;
+  }
+  return analyzer::cli::ExportsData(args) && !args.Has("output_path");
+}
+
 // The entry point in the child process (architecture.md §5.2). `argv`
 // starts with the program name.
 int Main(std::vector<std::string> argv) {
@@ -147,6 +162,15 @@ int Main(std::vector<std::string> argv) {
 
   Result<util::argparse::Namespace> parsed = parser.ParseArgs(args);
   if (!parsed.ok()) return parsed.error().exit_code;
+  // The logo comes before anything a subcommand prints, the messages about
+  // its config file included. Without a subcommand, the help shows it.
+  if (parsed.value().Has(kSubcommandDest) &&
+      !WritesDataToStdout(parsed.value())) {
+    util::Write(util::Stream::kStdout, common::cli::TerminalLogo());
+    util::Flush(util::Stream::kStdout);
+    // Errors of parsing the command line again must not show it twice.
+    parser.set_help_banner("");
+  }
   if (subcommands.size() == 1 && subcommands[0].config_file &&
       parsed.value().Has(kSubcommandDest)) {
     parsed = SpliceConfigFile(parser, parsed.value(), &argv);

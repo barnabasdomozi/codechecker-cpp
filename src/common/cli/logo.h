@@ -1,5 +1,5 @@
-// The logo of codechecker-cpp, shown above the help pages and when a server
-// starts.
+// The logo of codechecker-cpp, shown above the help pages and before every
+// subcommand runs, unless its output on stdout is read by other programs.
 
 #ifndef CC_COMMON_CLI_LOGO_H_
 #define CC_COMMON_CLI_LOGO_H_
