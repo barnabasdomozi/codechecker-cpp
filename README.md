@@ -1,6 +1,10 @@
-# CodeChecker-cpp
+<p align="center">
+  <img src="docs/images/terminal-logo.svg" alt="The codechecker-cpp logo as it appears in the terminal">
+</p>
 
-CodeChecker-cpp is a port of [CodeChecker](https://github.com/Ericsson/codechecker)
+# codechecker-cpp
+
+codechecker-cpp is a port of [CodeChecker](https://github.com/Ericsson/codechecker)
 from Python to C++.
 
 The original Python project is
