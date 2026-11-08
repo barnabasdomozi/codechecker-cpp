@@ -640,6 +640,16 @@ cmake --build --preset dev --target blackbox     # black-box suite (architecture
 The deps build is a separate step on purpose. It is slow, it is needed only
 when a submodule changes, and every preset below shares it.
 
+`--parallel` without a number runs one job per core. CMake itself would run
+`make -j`, which has no job limit: every library of the deps build and every
+source file of the project would compile at once, until the machine runs out
+of memory and the kernel kills the compiler. So with the Makefile generator,
+the top-level `CMakeLists.txt` sets `CMAKE_MAKE_PROGRAM` to
+`<build folder>/cc-make.sh`, configured from `cmake/make.sh.in`, which runs
+make with a bare `-j` replaced by `-j$(nproc)`. A job count that is given
+(`--parallel 4`, `-j4`) is kept. The libraries of the deps build share the
+job server of the top-level make (§3.1).
+
 `CMakePresets.json` (binary folder `build/<preset>`, all but `deps` with
 `CC_DEPS_PREFIX=${sourceDir}/build/deps/install`). Build and test commands
 take the preset, never a folder:

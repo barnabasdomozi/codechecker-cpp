@@ -1,0 +1,27 @@
+#!/bin/sh
+# The make that the build runs (CMAKE_MAKE_PROGRAM), configured from
+# cmake/make.sh.in. `cmake --build --parallel` without a number passes a bare
+# -j, which gives make no job limit; this replaces it with -j<cores>.
+make='@CC_MAKE@'
+jobs=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
+
+# Rebuild the arguments in place: take each one from the front, append it
+# (or its replacement) at the end.
+n=$#
+while [ "$n" -gt 0 ]; do
+  arg=$1
+  shift
+  n=$((n - 1))
+  if [ "$arg" = -j ] || [ "$arg" = --jobs ]; then
+    # "-j 8" keeps its number.
+    if [ "$n" -eq 0 ]; then
+      arg=-j$jobs
+    else
+      case $1 in
+        '' | *[!0-9]*) arg=-j$jobs ;;
+      esac
+    fi
+  fi
+  set -- "$@" "$arg"
+done
+exec "$make" "$@"

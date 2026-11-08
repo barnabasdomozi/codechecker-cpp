@@ -5,6 +5,25 @@
 #   cmake --preset dev && cmake --build --preset dev && ctest --preset dev
 
 cmake_minimum_required(VERSION 3.28)
+
+# `cmake --build --parallel` without a number runs `make -j`, which starts
+# every compiler at once until the machine runs out of memory. With
+# Makefiles, the build runs make through cmake/make.sh.in, which turns a bare
+# -j into -j<cores> (build-system.md §5). It must be set before project().
+if(CMAKE_GENERATOR MATCHES "Makefiles")
+  set(cc_make_wrapper ${CMAKE_BINARY_DIR}/cc-make.sh)
+  if(CMAKE_MAKE_PROGRAM AND NOT CMAKE_MAKE_PROGRAM STREQUAL cc_make_wrapper)
+    set(CC_MAKE ${CMAKE_MAKE_PROGRAM} CACHE FILEPATH "The make the build runs")
+  else()
+    find_program(CC_MAKE NAMES gmake make REQUIRED)
+  endif()
+  configure_file(cmake/make.sh.in ${cc_make_wrapper} @ONLY
+    FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+  set(CMAKE_MAKE_PROGRAM ${cc_make_wrapper} CACHE FILEPATH
+      "make, through the wrapper that limits a bare -j" FORCE)
+endif()
+
 # The version the port reports is the reference's (architecture.md, open
 # question 1). An empty CC_VERSION_RC means a release, not a release
 # candidate.
