@@ -13,7 +13,10 @@ describe('usage/web-ui.md', () => {
       const response = await fetch(`http://localhost:${server().port}${page}`);
       expect(response.status).toBe(200);
       expect(response.headers.get('content-type') ?? '').toContain('text/html');
-      expect(await response.text()).toContain('<html');
+      const html = await response.text();
+      expect(html).toContain('<html');
+      // The original design unless the server runs with --web-ui-v2.
+      expect(html).not.toContain('data-web-ui="v2"');
     }
   });
 });

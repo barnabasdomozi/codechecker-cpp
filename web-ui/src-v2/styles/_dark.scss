@@ -1,0 +1,133 @@
+// Dark mode fixes for colors that the shared components of src/ hard-code
+// for a light background.
+
+html[data-cc-theme="dark"] {
+  // The bug path messages of the report page read these variables of
+  // src/styles/global.css.
+  --color-report-step-message-error: #f87171;
+  --color-report-step-message-error-light: rgba(239, 68, 68, .16);
+  --color-report-step-message-fixit: #f59e0b;
+  --color-report-step-message-fixit-light: rgba(245, 158, 11, .16);
+  --color-report-step-message-macro: #818cf8;
+  --color-report-step-message-macro-light: rgba(129, 140, 248, .16);
+  --color-report-step-message-note: #94a3b8;
+  --color-report-step-message-note-light: rgba(148, 163, 184, .16);
+  --color-report-step-message-default: #38bdf8;
+  --color-report-step-message-default-light: rgba(14, 165, 233, .16);
+
+  // The report tree marks nested function calls with light inline
+  // backgrounds: the white one goes, the others keep dark text.
+  .v-treeview .v-list-item-title [style*="background-color"] {
+    color: #1e2235;
+  }
+
+  .v-treeview .v-list-item-title [style*="background-color: rgb(255, 255, 255)"],
+  .v-treeview .v-list-item-title [style*="background-color: #ffffff"] {
+    background-color: transparent !important;
+    color: inherit;
+  }
+
+  // Tooltips stand out from the dark page.
+  .v-tooltip > .v-overlay__content {
+    background: #1e293b !important;
+    border: 1px solid rgba(191, 219, 254, .16);
+  }
+
+  // Text classes for dark text on light backgrounds.
+  .text-grey-darken-4,
+  .text-grey-darken-3,
+  .text-black {
+    color: rgb(var(--v-theme-on-surface)) !important;
+  }
+
+  .text-grey-darken-1,
+  .text-grey-darken-2 {
+    color: var(--cc-muted) !important;
+  }
+
+  .bg-white {
+    background-color: rgb(var(--v-theme-surface-bright)) !important;
+  }
+
+  // The report page: file tree header, kbd hints.
+  .tree-header {
+    background: rgb(var(--v-theme-surface));
+    border-bottom-color: var(--cc-border);
+  }
+
+  // The source code viewer of the report detail page.
+  #editor-wrapper {
+    border-color: var(--cc-border);
+
+    .header,
+    .blame-gutter {
+      background-color: rgb(var(--v-theme-surface-variant));
+    }
+
+    // Inverted with the line, so this is a light highlight.
+    .editor .cm-line:hover {
+      background-color: rgba(0, 0, 0, .06);
+    }
+  }
+
+  // CodeMirror's syntax colors are made for a light background. Inverting
+  // the lines and turning the hue back keeps each color but makes it light.
+  .cm-editor .cm-line {
+    color: #1e2235;
+    filter: invert(1) hue-rotate(180deg);
+  }
+
+  .cm-editor {
+    background: transparent;
+
+    .cm-gutters {
+      background: rgb(var(--v-theme-surface-variant));
+      color: var(--cc-muted);
+      border-right-color: var(--cc-border);
+    }
+
+    .cm-activeLineGutter {
+      background: rgba(var(--v-theme-primary), .15);
+    }
+
+    .cm-cursor {
+      border-left-color: #e2e8f0;
+    }
+
+    .cm-selectionBackground,
+    &.cm-focused .cm-selectionBackground {
+      background: rgba(96, 165, 250, .3) !important;
+    }
+  }
+
+  .checker-step {
+    background-color: rgba(238, 238, 187, .18);
+  }
+
+  // Run history timeline and tooltips of the run list.
+  .v-timeline-item.run-history:hover {
+    background-color: rgba(255, 255, 255, .05);
+  }
+
+  .analyzer-statistics-tooltip-card,
+  .analyzer-statistics-tooltip {
+    background-color: rgb(var(--v-theme-surface-bright)) !important;
+  }
+
+  // Filter toolbar of the report filter.
+  .v-expansion-panel-title:hover .toolbar-items,
+  .v-expansion-panel-title:focus-within .toolbar-items,
+  .toolbar-items:focus-within {
+    background-color: rgba(255, 255, 255, .08);
+  }
+
+  // The analysis info dialog's checker colors.
+  .analysis-info .checker,
+  .checker-name {
+    color: inherit;
+  }
+
+  .v-chip.text-black {
+    color: rgb(var(--v-theme-on-surface)) !important;
+  }
+}

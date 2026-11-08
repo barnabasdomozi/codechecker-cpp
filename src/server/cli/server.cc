@@ -93,6 +93,25 @@ int IntArgument(const argparse::Namespace& args, std::string_view dest) {
   return static_cast<int>(util::ParseInt(args.Get(dest)).value_or(0));
 }
 
+// Returns the folder of the web UI files to serve: www-v2/ of the package
+// for the new design, or www/. Falls back to www/ if www-v2/ is missing, as
+// in a package built with a prebuilt www/ folder.
+std::string WebUiRoot(bool v2) {
+  const std::string www = util::pypath::Join({common::DataFilesDir(), "www"});
+  if (!v2) return www;
+  const std::string www_v2 =
+      util::pypath::Join({common::DataFilesDir(), "www-v2"});
+  if (util::pypath::IsDir(www_v2)) {
+    kLog.Info("Serving the web UI v2.");
+    return www_v2;
+  }
+  kLog.Warning(std::format(
+      "The web UI v2 is not in the package ({} is missing). Serving the "
+      "original web UI.",
+      www_v2));
+  return www;
+}
+
 // The status of a product database for the status table.
 struct ProductStatus {
   std::string endpoint;
@@ -531,7 +550,7 @@ int InitAndStart(const argparse::Namespace& args) {
                                       args.Get("view_port")),
       .api_handler_processes = std::nullopt,
       .task_worker_processes = std::nullopt,
-      .www_root = util::pypath::Join({common::DataFilesDir(), "www"}),
+      .www_root = WebUiRoot(args.GetBool("web_ui_v2")),
       .package_version =
           version.ok() ? version.value().git_tag.value_or("") : ""};
   if (args.Has("api_handler_processes")) {
@@ -614,6 +633,13 @@ void AddServerArguments(argparse::Parser& parser) {
        .default_value = "False",
        .help = "Skip performing cleanup jobs on the database like removing "
                "unused files."});
+  parser.AddArgument(
+      {.flags = {"--web-ui-v2"},
+       .dest = "web_ui_v2",
+       .action = argparse::ArgumentAction::kStoreTrue,
+       .default_value = "False",
+       .help = "Serve the web UI with the new, modern design instead of the "
+               "original one."});
   common::AddConfigOption(parser, 0);
 
   const int database_group =

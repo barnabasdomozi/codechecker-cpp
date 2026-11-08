@@ -23,7 +23,7 @@ schema and the start-up database checks in
 CodeChecker server [-w WORKSPACE] [-f CONFIG_DIRECTORY] [--machine-id ID]
                    [--api-handler-processes N] [--task-worker-processes N]
                    [--host ADDRESS | --not-host-only] [-v/-p/--view-port/--port PORT]
-                   [--skip-db-cleanup] [--config FILE]
+                   [--skip-db-cleanup] [--web-ui-v2] [--config FILE]
                    [--sqlite SQLITE_FILE | --postgresql]
                    [--db-host/--dbaddress H] [--db-port/--dbport P]
                    [--db-username/--dbusername U] [--db-name/--dbname N]
@@ -44,6 +44,7 @@ CodeChecker server [-w WORKSPACE] [-f CONFIG_DIRECTORY] [--machine-id ID]
 | port | `8001` | `0` = the OS picks a free port |
 | `--sqlite` | `<workspace>/config.sqlite` | made absolute against the current directory |
 | `--postgresql` | | config DB on PostgreSQL; the `--db-*` defaults are `localhost`, `5432`, `codechecker`, `config` |
+| `--web-ui-v2` | | serve the web UI with the new design (`<package>/www-v2`); not in the Python reference |
 
 Groups: `--sqlite`/`--postgresql` mutually exclusive; `-l`/`-r`/`-s`/`--stop-all`
 mutually exclusive; `--db-status`/`--db-upgrade-schema`/`--db-force-upgrade`
@@ -132,7 +133,11 @@ first if missing.
    `Default` product, product status table and upgrades:
    [server-database.md](server-database.md) §3.
 5. Package data: web root `<package>/www`, version = git describe tag
-   ([server-api.md](server-api.md) §2.4).
+   ([server-api.md](server-api.md) §2.4). With `--web-ui-v2` the web root is
+   `<package>/www-v2` (INFO `Serving the web UI v2.`). If that folder is
+   missing: WARNING `The web UI v2 is not in the package (<path> is
+   missing). Serving the original web UI.`, and the web root stays
+   `<package>/www`.
 6. `start_server` (§5). A bind failure with `EADDRINUSE` →
    ERROR `Couldn't start the server: [Errno 98] Address already in use`,
    ERROR `Server can't be started, maybe port number (<p>) is already used.

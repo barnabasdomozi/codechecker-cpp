@@ -11,6 +11,10 @@ http://localhost:8001/Default/         # runs of the "Default" product
 ✅ Both URLs return HTTP `200` on the test server. The web UI itself was not
 tested interactively.
 
+`CodeChecker server --web-ui-v2` serves the same pages with a new design
+(new theme, dark mode, product cards, loading animations; see
+[server.md](server.md#new-web-ui-design-)).
+
 The web application is a Vue app (source in
 `web/server/vue-cli/src`, built files in `www/` of the package). Its pages
 (router paths):

@@ -10,7 +10,8 @@ export default defineConfig([
   {
     ignores: [
       "node_modules/**",
-      "dist/**"
+      "dist/**",
+      "dist-v2/**"
     ]
   },
   js.configs.recommended,

@@ -1,0 +1,73 @@
+// Small touches on the shared pages of src/.
+
+html[data-web-ui="v2"] {
+  // The run list is a card on the page background.
+  #product > .v-card {
+    border-radius: var(--cc-radius-lg) !important;
+    overflow: hidden;
+  }
+
+  // Its filter toolbar keeps off the card's edge and rounded corner.
+  #product .run-filter-toolbar > .v-toolbar__content {
+    padding: 14px 16px 0 !important;
+  }
+
+  // A click anywhere on a report row opens the report (views/Reports.vue).
+  .cc-reports .reports-table tbody > tr.v-data-table__tr {
+    cursor: pointer;
+  }
+}
+
+// The statistics pages (src-v2/components/Statistics): summary tiles and
+// panels, one under the other.
+html[data-web-ui="v2"] {
+  .cc-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 20px 24px;
+  }
+
+  .cc-stats__pair {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .cc-stats__chart {
+    position: relative;
+    height: 360px;
+    max-width: 440px;
+    margin: 0 auto;
+  }
+
+  .cc-stats__chart-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    margin: auto;
+  }
+
+  .cc-stats__guideline {
+    flex: 0 1 440px;
+    min-width: 260px;
+  }
+
+  // The total row of the statistics tables.
+  .cc-panel .v-table tr.total-row > td {
+    border-top: 2px solid var(--cc-border);
+    background-color: rgba(var(--v-theme-on-surface), .025);
+    font-weight: 700;
+  }
+
+  // The checkers of a guideline rule, listed inside one cell.
+  .cc-panel .guideline-statistics table td {
+    border-bottom-color: var(--cc-border);
+  }
+
+  // Highlighted rows (rules and checkers with outstanding reports), in
+  // both themes.
+  .v-table tr.highlight-row > td {
+    background-color: rgba(var(--v-theme-error), .07) !important;
+  }
+}

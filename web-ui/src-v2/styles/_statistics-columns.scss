@@ -1,0 +1,74 @@
+// Web UI v2 version of src/components/Statistics/_colored-columns.scss,
+// with the same parameters. Instead of filling the review status columns,
+// a red (outstanding) or green (suppressed) line marks each group in the
+// header, and only the two sum columns are tinted.
+
+$class-name: "" !default;
+$unreviewed_col: 3 !default;
+$colspan: 1 !default;
+
+$outstanding_reports_col: $unreviewed_col + 2;
+$false_positive_col: $outstanding_reports_col + 1;
+$suppressed_reports_col: $false_positive_col + 2;
+$all_reports_col: $suppressed_reports_col + 1;
+
+// The total row merges the leading columns into one cell, so its indexes
+// are shifted.
+$total-row-offset: $unreviewed_col - 2;
+
+$outstanding-color: var(--color-soft-red);
+$suppressed-color: var(--color-soft-green);
+
+$tr: "tr:not(.v-data-table__expanded__content):not(.total-row)";
+$table: "#{$class-name} > .v-table__wrapper > table";
+
+@mixin cells($cols...) {
+  @each $col in $cols {
+    #{$table} > thead > tr > th:nth-child(#{$col}),
+    #{$table} > tbody > #{$tr} > td:nth-child(#{$col}),
+    #{$table} > tbody > tr.total-row > td:nth-child(#{$col - $total-row-offset}) {
+      @content;
+    }
+  }
+}
+
+@mixin header-cells($from, $to) {
+  @for $col from $from through $to {
+    #{$table} > thead > tr > th:nth-child(#{$col}) {
+      @content;
+    }
+  }
+}
+
+// The line over each group of columns.
+@include header-cells($unreviewed_col, $outstanding_reports_col) {
+  box-shadow: inset 0 3px 0 $outstanding-color;
+}
+
+@include header-cells($false_positive_col, $suppressed_reports_col) {
+  box-shadow: inset 0 3px 0 $suppressed-color;
+}
+
+@include header-cells($all_reports_col, $all_reports_col) {
+  box-shadow: inset 0 3px 0 rgba(100, 116, 139, .5);
+}
+
+// The sum columns: a light tint and bold numbers.
+@include cells($outstanding_reports_col) {
+  background-color: color-mix(in srgb, #{$outstanding-color} 6%, transparent);
+  font-weight: 650;
+}
+
+@include cells($suppressed_reports_col) {
+  background-color: color-mix(in srgb, #{$suppressed-color} 6%, transparent);
+  font-weight: 650;
+}
+
+@include cells($all_reports_col) {
+  font-weight: 650;
+}
+
+// A line between the groups.
+@include cells($unreviewed_col, $false_positive_col, $all_reports_col) {
+  border-left: 1px solid var(--cc-border);
+}

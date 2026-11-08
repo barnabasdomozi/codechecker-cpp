@@ -1,0 +1,333 @@
+// Restyled Vuetify and third-party components. The html[data-web-ui="v2"]
+// prefix wins over Vuetify's own rules, also in dialogs and menus, which
+// Vuetify moves to the end of <body>.
+
+html[data-web-ui="v2"] {
+  // Buttons: no capitals, a soft press.
+  .v-btn {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+    transition: transform .15s var(--cc-ease-out), box-shadow .25s ease,
+      background-color .2s ease, opacity .2s ease;
+
+    &:active:not(.v-btn--disabled) {
+      transform: scale(.96);
+    }
+  }
+
+  .v-btn--variant-flat.bg-primary,
+  .v-btn--variant-elevated.bg-primary {
+    background: var(--cc-gradient) !important;
+    background-size: 160% 160% !important;
+    box-shadow: var(--cc-shadow-brand);
+
+  }
+
+  // Cards and sheets: a thin border and a soft shadow instead of elevation.
+  .v-card {
+    border: 1px solid var(--cc-border);
+    box-shadow: var(--cc-shadow-sm);
+
+    &.v-card--variant-flat {
+      box-shadow: none;
+    }
+
+    &.v-card--variant-text,
+    &.v-card--variant-plain {
+      border-color: transparent;
+    }
+  }
+
+  .v-card .v-card {
+    box-shadow: none;
+  }
+
+  .v-card-title {
+    font-weight: 650;
+    letter-spacing: -.01em;
+  }
+
+  // Overlays: blurred backdrop, rounded content.
+  .v-overlay__scrim {
+    background: rgb(15, 23, 42);
+    backdrop-filter: blur(4px);
+  }
+
+  .v-overlay--active > .v-overlay__scrim {
+    opacity: .38;
+  }
+
+  .v-dialog > .v-overlay__content > .v-card,
+  .v-dialog > .v-overlay__content > form > .v-card {
+    border-radius: var(--cc-radius-lg);
+    box-shadow: var(--cc-shadow-lg);
+    overflow: hidden;
+  }
+
+  .v-dialog .v-toolbar,
+  .v-dialog .v-card-title.bg-primary,
+  .v-dialog .v-card-title.primary {
+    background: var(--cc-gradient) !important;
+    color: #fff !important;
+  }
+
+  .v-menu > .v-overlay__content,
+  .v-autocomplete__content,
+  .v-select__content,
+  .v-combobox__content {
+    border-radius: var(--cc-radius) !important;
+    box-shadow: var(--cc-shadow-lg) !important;
+    border: 1px solid var(--cc-border);
+  }
+
+  .v-menu > .v-overlay__content > .v-list,
+  .v-menu > .v-overlay__content > .v-card {
+    border: none;
+    border-radius: var(--cc-radius) !important;
+  }
+
+  .v-list-item {
+    transition: background-color .2s ease;
+  }
+
+  .v-list-item--density-default,
+  .v-list-item--density-comfortable {
+    border-radius: var(--cc-radius-sm);
+  }
+
+  .v-menu .v-list {
+    padding: 6px;
+  }
+
+  .v-menu .v-list-item {
+    border-radius: var(--cc-radius-sm);
+  }
+
+  // Tooltips are opaque, so the page never shows through their text.
+  .v-tooltip > .v-overlay__content {
+    border-radius: var(--cc-radius-sm);
+    background: #0f172a !important;
+    color: #e2e8f0 !important;
+    box-shadow: var(--cc-shadow-lg);
+    font-weight: 500;
+    line-height: 1.5;
+    padding: 6px 10px;
+  }
+
+  // Inputs: rounded outlines with a glow on focus.
+  .v-field {
+    border-radius: var(--cc-radius-sm);
+    transition: box-shadow .25s ease;
+  }
+
+  .v-field--variant-outlined.v-field--focused,
+  .v-field--variant-solo.v-field--focused {
+    box-shadow: 0 0 0 4px rgba(29, 78, 216, .15);
+  }
+
+  .v-field--variant-solo,
+  .v-field--variant-solo-filled {
+    box-shadow: none;
+    border: 1px solid var(--cc-border);
+  }
+
+  // Chips.
+  .v-chip {
+    font-weight: 550;
+    transition: transform .2s var(--cc-ease-out), box-shadow .2s ease;
+  }
+
+  .v-chip--link:hover {
+    transform: translateY(-1px);
+  }
+
+  // Tabs: an animated pill under the active tab.
+  .v-tabs {
+    .v-tab {
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 600;
+      border-radius: var(--cc-radius-sm) var(--cc-radius-sm) 0 0;
+    }
+
+    .v-tab__slider {
+      height: 3px;
+      border-radius: 3px 3px 0 0;
+      background: var(--cc-gradient);
+    }
+  }
+
+  // Tables.
+  .v-table {
+    background: transparent;
+
+    > .v-table__wrapper > table {
+      > thead > tr > th {
+        font-size: .72rem;
+        font-weight: 650;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: var(--cc-muted);
+        background: rgb(var(--v-theme-surface));
+        border-bottom: 1px solid var(--cc-border) !important;
+      }
+
+      > tbody > tr {
+        transition: background-color .2s ease, box-shadow .2s ease;
+
+        > td {
+          border-bottom: 1px solid var(--cc-border) !important;
+        }
+      }
+
+      > tbody > tr:hover > td {
+        background: rgba(var(--v-theme-primary), .045);
+      }
+    }
+  }
+
+  .v-data-table-footer {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    border-top: 1px solid var(--cc-border);
+  }
+
+  .v-data-table-progress .v-progress-linear__indeterminate,
+  .v-progress-linear__indeterminate {
+    background: var(--cc-gradient);
+  }
+
+  // Expansion panels, as in the report filter.
+  .v-expansion-panel::after {
+    border-color: var(--cc-border);
+  }
+
+  .v-expansion-panel-title {
+    font-weight: 600;
+    transition: background-color .2s ease, color .2s ease;
+  }
+
+  .v-expansion-panel--active > .v-expansion-panel-title {
+    color: rgb(var(--v-theme-primary));
+  }
+
+  // Alerts.
+  .v-alert {
+    border-radius: var(--cc-radius);
+  }
+
+  // Snackbars (notifications).
+  .v-snackbar__wrapper {
+    border-radius: var(--cc-radius) !important;
+    box-shadow: var(--cc-shadow-lg) !important;
+    backdrop-filter: blur(8px);
+  }
+
+  // Checkboxes and switches animate when they change.
+  .v-selection-control__input > .v-icon {
+    transition: transform .2s var(--cc-ease-spring), color .2s ease;
+  }
+
+  .v-selection-control--dirty .v-selection-control__input > .v-icon {
+    animation: cc-pop .3s var(--cc-ease-out);
+  }
+
+  .v-btn-group {
+    border-radius: var(--cc-radius-sm);
+  }
+
+  // Toggle groups (such as Report List / File Tree): a primary outline,
+  // and the selected button filled with the theme gradient. This also wins
+  // over pages that color the selected button themselves.
+  .v-btn-toggle {
+    border: 1px solid rgba(var(--v-theme-primary), .45) !important;
+    border-radius: var(--cc-radius-sm);
+    overflow: hidden;
+
+    > .v-btn {
+      border: none !important;
+      background: transparent;
+      color: rgb(var(--v-theme-primary)) !important;
+      opacity: 1;
+      transition: background-color .2s ease, color .2s ease;
+
+      &:not(:first-child) {
+        border-inline-start: 1px solid
+          rgba(var(--v-theme-primary), .3) !important;
+      }
+
+      &:not(.v-btn--active):hover {
+        background: rgba(var(--v-theme-primary), .08);
+      }
+    }
+
+    > .v-btn.v-btn--active {
+      background: var(--cc-gradient) !important;
+      color: #fff !important;
+
+      .v-btn__overlay {
+        opacity: 0 !important;
+      }
+    }
+  }
+
+  .v-pagination__item--is-active .v-btn {
+    background: var(--cc-gradient);
+    color: #fff;
+  }
+
+  kbd {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: rgba(var(--v-theme-on-surface), .08);
+    box-shadow: inset 0 -1px 0 rgba(var(--v-theme-on-surface), .15);
+    font-size: .85em;
+    color: inherit;
+  }
+
+  // Split panes of the report and statistics pages.
+  .splitpanes.default-theme {
+    .splitpanes__pane {
+      background-color: transparent;
+    }
+
+    .splitpanes__splitter {
+      background: transparent;
+      border-left: none;
+      width: 10px;
+      min-width: 10px;
+      margin-left: 0;
+      transition: background-color .25s ease;
+
+      &::before,
+      &::after {
+        background-color: rgba(100, 116, 139, .4);
+        border-radius: 2px;
+        transition: background-color .25s ease, height .25s ease;
+      }
+
+      &:hover {
+        background: rgba(var(--v-theme-primary), .06);
+
+        &::before,
+        &::after {
+          background-color: rgb(var(--v-theme-primary));
+          height: 40px;
+        }
+      }
+    }
+  }
+
+  // Page links (router-link and plain anchors in content).
+  .v-main a:not(.v-btn):not(.v-list-item):not(.v-tab):not(.v-chip) {
+    color: rgb(var(--v-theme-primary));
+    text-decoration: none;
+    transition: color .2s ease;
+
+    &:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  }
+}

@@ -1,0 +1,166 @@
+// Keyframes, named transitions and reusable animation classes.
+
+@keyframes cc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cc-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cc-pop {
+  0% {
+    opacity: 0;
+    transform: scale(.9);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes cc-gradient-pan {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes cc-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes cc-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cc-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes cc-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(29, 78, 216, .45);
+  }
+  100% {
+    box-shadow: 0 0 0 12px rgba(29, 78, 216, 0);
+  }
+}
+
+// Page changes: the old page goes at once and the new one fades in
+// quickly, so a navigation is never held up by its animation. Only the
+// opacity changes: a transform would move the page while the FillHeight
+// directive measures it, and a blur is costly on large pages.
+.cc-page-enter-active {
+  transition: opacity var(--cc-motion-page) var(--cc-ease-enter);
+}
+
+.cc-page-enter-from {
+  opacity: 0;
+}
+
+// Dialogs spring in from below.
+.cc-dialog-transition-enter-active {
+  transition: transform .4s var(--cc-ease-spring), opacity .25s ease-out;
+}
+
+.cc-dialog-transition-leave-active {
+  transition: transform .18s ease-in, opacity .18s ease-in;
+}
+
+.cc-dialog-transition-enter-from {
+  opacity: 0;
+  transform: translateY(24px) scale(.94);
+}
+
+.cc-dialog-transition-leave-to {
+  opacity: 0;
+  transform: translateY(8px) scale(.97);
+}
+
+// Menus and tooltips grow from their activator.
+.cc-menu-transition-enter-active {
+  transition: transform .22s var(--cc-ease-out), opacity .18s ease-out;
+}
+
+.cc-menu-transition-leave-active {
+  transition: transform .12s ease-in, opacity .12s ease-in;
+}
+
+.cc-menu-transition-enter-from,
+.cc-menu-transition-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(.97);
+}
+
+// Items of a <transition-group name="cc-list">.
+.cc-list-enter-active {
+  transition: transform .45s var(--cc-ease-out), opacity .35s ease-out;
+}
+
+.cc-list-leave-active {
+  transition: transform .2s ease-in, opacity .2s ease-in;
+}
+
+.cc-list-enter-from {
+  opacity: 0;
+  transform: translateY(14px) scale(.98);
+}
+
+.cc-list-leave-to {
+  opacity: 0;
+  transform: scale(.96);
+}
+
+.cc-list-move {
+  transition: transform .4s var(--cc-ease-out);
+}
+
+// Elements that rise in when they appear. Set --cc-delay for a stagger.
+.cc-rise {
+  animation: cc-rise var(--cc-motion-enter) var(--cc-ease-enter) both;
+  animation-delay: var(--cc-delay, 0ms);
+}
+
+.cc-pop {
+  animation: cc-pop var(--cc-motion-enter) var(--cc-ease-enter) both;
+  animation-delay: var(--cc-delay, 0ms);
+}
+
+// Cards that lift on hover.
+.cc-hover-lift {
+  transition: transform .3s var(--cc-ease-out), box-shadow .3s var(--cc-ease-out),
+    border-color .3s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--cc-shadow-lg) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,56 @@
+<!--
+  Shown inside #app until the Vue app is mounted over it. vite.config.mjs
+  inserts it into index.html. The script picks the theme early, so a dark
+  page does not flash white while the scripts load.
+-->
+<script>
+  (function () {
+    var theme = null;
+    try { theme = localStorage.getItem("cc-web-ui-v2-theme"); } catch (e) {}
+    if (theme !== "light" && theme !== "dark") {
+      theme = window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-cc-theme", theme);
+  })();
+</script>
+<style>
+  html { background: #f5f6fb; }
+  html[data-cc-theme="dark"] { background: #0b1020; }
+  .cc-splash {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px;
+    font-family: "Inter Variable", system-ui, sans-serif; color: #6b7280;
+  }
+  .cc-splash__mark {
+    width: 64px; height: 64px; border-radius: 18px;
+    background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+    box-shadow: 0 12px 40px -8px rgba(29, 78, 216, .55);
+    animation: cc-splash-pulse 1.6s ease-in-out infinite;
+  }
+  .cc-splash__bar {
+    width: 160px; height: 4px; border-radius: 4px; overflow: hidden;
+    background: rgba(29, 78, 216, .15);
+  }
+  .cc-splash__bar::after {
+    content: ""; display: block; width: 40%; height: 100%;
+    border-radius: 4px; background: linear-gradient(90deg, #1e3a8a, #3b82f6);
+    animation: cc-splash-slide 1.2s ease-in-out infinite;
+  }
+  @keyframes cc-splash-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(.92); opacity: .75; }
+  }
+  @keyframes cc-splash-slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(250%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cc-splash__mark, .cc-splash__bar::after { animation: none; }
+  }
+</style>
+<div class="cc-splash" aria-label="Loading CodeChecker">
+  <div class="cc-splash__mark"></div>
+  <div class="cc-splash__bar"></div>
+</div>

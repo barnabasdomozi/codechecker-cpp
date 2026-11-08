@@ -125,6 +125,18 @@ CodeChecker server -w ./ws -v 8555 --skip-db-cleanup
 Normally the server removes unused files and data from the databases at
 start ("Garbage collection").
 
+## New web UI design ✅
+
+```sh
+CodeChecker server -w ./ws -v 8555 --web-ui-v2
+```
+
+Serves the web UI with the new design: a new theme, a dark mode, products
+shown as cards, and animations as content loads. It has the same layout,
+pages and features as the original web UI, which stays the default. Not in the Python CodeChecker. If the package has
+no `www-v2/` (for example when it was built with a prebuilt `www/` folder),
+the server logs a warning and serves the original web UI.
+
 ## HTTPS ✅
 
 Put `cert.pem` and `key.pem` into the config directory:

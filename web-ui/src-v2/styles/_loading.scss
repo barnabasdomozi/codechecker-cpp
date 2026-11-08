@@ -1,0 +1,134 @@
+// Animations for content that loads in: each piece rises or fades in when
+// it appears, and tables show that they are reloading.
+//
+// Only the first items of a table or list animate: every animated element
+// costs style work on each frame, and a table with thousands of rows would
+// stall the page. The rest appear at once.
+
+// Stagger the first $count items, each $steps of --cc-motion-step after
+// the previous one, and leave the others alone.
+@mixin first-items($count, $steps) {
+  &:nth-child(-n + #{$count}) {
+    @content;
+  }
+
+  @if $steps > 0 {
+    @for $i from 2 through $count {
+      &:nth-child(#{$i}) {
+        animation-delay: calc(var(--cc-motion-step) * #{($i - 1) * $steps});
+      }
+    }
+  }
+}
+
+@keyframes cc-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+html[data-web-ui="v2"] {
+  // Table rows rise in one after the other when a table gets new data.
+  .v-data-table .v-data-table__tr {
+    @include first-items(10, .75) {
+      animation: cc-rise var(--cc-motion-enter) var(--cc-ease-enter) both;
+    }
+  }
+
+  // The row that opens below an expanded table row.
+  .v-data-table__tr + tr:not(.v-data-table__tr) > td {
+    animation: cc-rise var(--cc-motion-enter) var(--cc-ease-enter) both;
+  }
+
+  // While a table reloads, its rows dim and a light sweeps across them.
+  // The dimming waits a moment, so a quick load does not flicker, and it
+  // clears at once when the data is there.
+  .v-data-table {
+    tbody {
+      transition: opacity .12s ease;
+    }
+
+    > .v-table__wrapper {
+      position: relative;
+    }
+  }
+
+  .v-data-table--loading {
+    tbody {
+      opacity: .55;
+      transition: opacity .2s ease .3s;
+    }
+
+    > .v-table__wrapper::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(
+        100deg, transparent 30%, rgba(var(--v-theme-primary), .08) 50%,
+        transparent 70%
+      );
+      animation: cc-shimmer 1.2s ease-in-out infinite;
+    }
+  }
+
+  // Widgets and columns of the product pages.
+  #product .v-container > .v-row > .v-col {
+    @include first-items(8, 1) {
+      animation: cc-rise var(--cc-motion-enter) var(--cc-ease-enter) both;
+    }
+  }
+
+  // Charts fade in once they are drawn.
+  #product canvas {
+    animation: cc-fade var(--cc-motion-enter) var(--cc-ease-enter) both;
+  }
+
+  // Report tree items slide in as they are loaded or expanded.
+  .v-treeview-item {
+    @include first-items(30, 0) {
+      animation: cc-slide-in var(--cc-motion-enter) var(--cc-ease-enter) both;
+    }
+  }
+
+  // The source code of a report fades in, then its bug path messages pop in.
+  #editor-wrapper .cm-content {
+    animation: cc-fade var(--cc-motion-enter) var(--cc-ease-enter) both;
+  }
+
+  .report-step-msg {
+    animation: cc-pop var(--cc-motion-enter) var(--cc-ease-enter) calc(var(--cc-motion-step) * 4) both;
+  }
+
+  // Run history entries of an expanded run.
+  .v-timeline-item {
+    @include first-items(10, 1) {
+      animation: cc-rise var(--cc-motion-enter) var(--cc-ease-enter) both;
+    }
+  }
+
+  // Items of menus and dialogs appear one after the other.
+  .v-menu .v-list > .v-list-item {
+    @include first-items(10, .5) {
+      animation: cc-rise var(--cc-motion-enter) var(--cc-ease-enter) both;
+    }
+  }
+
+  .v-dialog .v-list > .v-list-item {
+    @include first-items(12, .5) {
+      animation: cc-rise var(--cc-motion-enter) var(--cc-ease-enter) both;
+    }
+  }
+
+  // Skeleton placeholders shimmer with the theme color.
+  .v-skeleton-loader__bone::after {
+    background: linear-gradient(
+      90deg, transparent, rgba(var(--v-theme-primary), .08), transparent
+    );
+  }
+}

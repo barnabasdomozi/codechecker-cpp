@@ -531,13 +531,17 @@ With `CC_BUILD_WEB_UI=ON`, the `web_ui` target:
    configuration (`vite.config.mjs`) reads them from
    `../../../codechecker_api`, so the folder layout must stay the same;
 2. runs `npm ci` and `npm run build` there. `npm ci` installs exactly the
-   versions in the lockfile;
-3. copies `dist/` to `build/<preset>/www/`.
+   versions in the lockfile. `npm run build` builds the web UI twice: into
+   `dist/`, and with `--mode v2` into `dist-v2/` (see
+   [Web UI v2](#web-ui-v2));
+3. copies `dist/` to `build/<preset>/www/` and `dist-v2/` to
+   `build/<preset>/www-v2/`.
 
 The source tree stays clean, because `node_modules/` and `dist/` are created
 in the build folder. With `CC_BUILD_WEB_UI=OFF`, a prebuilt folder can be
 given with `CC_WEB_UI_DIR`; the `web_ui` target then copies it to
-`build/<preset>/www/`. Without either one, the build folder has no `www/`.
+`build/<preset>/www/`, and the build folder has no `www-v2/`. Without either
+one, the build folder has no `www/`.
 
 #### Changes to the web UI
 
@@ -567,7 +571,47 @@ The reference builds the web UI with webpack. The port builds it with Vite:
   `util`. The npm `buffer`, `events` and `util` packages provide them, and
   `Buffer` is injected into each module that uses it (the replacement for
   webpack's `ProvidePlugin`).
-- **ESLint does not run during the build.** Run `npx eslint src`.
+- **ESLint does not run during the build.** Run `npx eslint src src-v2`.
+
+#### Web UI v2
+
+`server --web-ui-v2` serves `www-v2/`: the same application and page
+layout with a new design (a new theme, a dark mode, product cards on the
+Products page, and animations as content loads). Not in the reference.
+
+- **`src-v2/` is an overlay of `src/`.** In the `v2` build mode, a Vite
+  plugin in `vite.config.mjs` resolves every module of `src/` to the file
+  with the same path under `src-v2/`, if there is one. So
+  `src-v2/components/Layout/TheHeader.vue` replaces the original header and
+  `src-v2/views/Products.vue` replaces `src/views/Products.vue`, while the store, the API services, the router
+  and every page that `src-v2/` does not replace are shared. `@v2/` imports
+  from `src-v2/`, and `@v1/<path>` imports the original `src/<path>` even
+  where `src-v2/` replaces it. The original build does not use `src-v2/`.
+- **Theme and global styles.** `src/plugins/vuetify.js` creates Vuetify for
+  the original UI; `src-v2/plugins/vuetify.js` replaces it with the light
+  and dark themes of v2 and loads `src-v2/styles/`, which restyles the
+  shared Vuetify components. Those styles are scoped to
+  `html[data-web-ui="v2"]`, which the plugin adds to `index.html` together
+  with a splash screen (`src-v2/splash.html`).
+- **Inter font.** v2 bundles the Inter variable font
+  (`@fontsource-variable/inter`), so the page loads no files from other
+  sites (the server's Content-Security-Policy would block them).
+- **Development.** `npm run server:dev:v2` starts the Vite dev server with
+  v2; `npm run build:v1` and `npm run build:v2` build one of the two.
+- **Motion.** Every animation takes its timing from `--cc-motion-page`,
+  `--cc-motion-enter` and `--cc-motion-step` in
+  `src-v2/styles/_tokens.scss`, so the speed of the whole UI is set there.
+- **Performance.** Only the first rows of a table or list animate (an
+  animation per row of a long table stalls the page), and the old page is
+  removed at once on navigation. The long statistics tables (checker,
+  checker coverage, guideline) show pages of 50 rows
+  (`src-v2/components/Statistics/pagination.js`); the original shows all
+  rows, which takes seconds for the ~2000 checkers of the coverage page.
+  Once the first page is shown, the code of the main pages is loaded in the
+  background, one file at a time.
+- **Stale files.** The `web_ui` target removes the previous copy of `src/`,
+  `src-v2/` and `public/` before copying `web-ui/`: a file deleted from
+  `src-v2/` would otherwise still replace its `src/` counterpart.
 
 ## 5. Commands and presets
 

@@ -194,7 +194,8 @@ because the test suite and users rely on it:
 │   ├── api_version.json                     its Python packages
 │   └── html/                                HTML report templates and static files
 ├── config/                                  as in the Python package
-└── www/                                     the built web UI
+├── www/                                     the built web UI
+└── www-v2/                                  the web UI with the new design (server --web-ui-v2)
 ```
 
 - There is no `lib/python3/`. Data files that the Python version reads from

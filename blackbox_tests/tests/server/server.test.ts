@@ -126,6 +126,18 @@ describe('usage/server.md', () => {
     });
   });
 
+  useCase('server.md', 'New web UI design', async () => {
+    await withServer({ args: ['--web-ui-v2'] }, async (server) => {
+      await server.waitForOutput('Server waiting for client requests on');
+      expect(logMessages(server.output, 'INFO')).toContain('Serving the web UI v2.');
+      for (const page of ['/', '/Default/runs']) {
+        const response = await fetch(`http://localhost:${server.port}${page}`);
+        expect(response.status).toBe(200);
+        expect(await response.text()).toContain('data-web-ui="v2"');
+      }
+    });
+  });
+
   useCase('server.md', 'HTTPS', async () => {
     const ws = path.join(box.newDir('https'), 'ws');
     const cert = await httpsWorkspace(ws);

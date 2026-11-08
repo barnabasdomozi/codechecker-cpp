@@ -1,0 +1,9 @@
+// Global styles of the web UI v2, loaded once by src-v2/plugins/vuetify.js.
+// They restyle the shared components of src/ without changing them.
+
+@use "./tokens";
+@use "./animations";
+@use "./components";
+@use "./loading";
+@use "./pages";
+@use "./dark";

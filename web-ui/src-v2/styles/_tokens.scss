@@ -1,0 +1,130 @@
+// Design tokens and base element styles.
+
+:root {
+  --cc-font: "Inter Variable", "Inter", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", Roboto, sans-serif;
+  --cc-font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo,
+    Consolas, monospace;
+
+  // One hue: the gradients only shift between two shades of dark blue.
+  --cc-brand-1: #1e3a8a;
+  --cc-brand-2: #1d4ed8;
+  --cc-gradient: linear-gradient(
+    135deg, var(--cc-brand-1) 0%, var(--cc-brand-2) 100%
+  );
+  --cc-gradient-soft: linear-gradient(
+    135deg, rgba(30, 58, 138, .12), rgba(29, 78, 216, .08)
+  );
+
+  --cc-radius-sm: 8px;
+  --cc-radius: 12px;
+  --cc-radius-lg: 18px;
+
+  // Motion: every animation of the page uses these, so they set how fast
+  // the whole UI feels. The page fade, content rising or fading in as it
+  // loads, and the delay between items that appear one after the other.
+  --cc-motion-page: .35s;
+  --cc-motion-enter: .5s;
+  --cc-motion-step: 40ms;
+  // The curve of content coming in: an even ease-out, so the motion can be
+  // followed. (--cc-ease-out is quicker, for hover and press feedback.)
+  --cc-ease-enter: cubic-bezier(.33, 1, .68, 1);
+
+  --cc-ease-out: cubic-bezier(.22, 1, .36, 1);
+  --cc-ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+
+  --cc-border: rgba(30, 34, 53, .08);
+  --cc-glass: rgba(255, 255, 255, .72);
+  --cc-glass-strong: rgba(255, 255, 255, .9);
+  --cc-muted: #64748b;
+  --cc-shadow-sm: 0 1px 2px rgba(15, 23, 42, .04),
+    0 1px 3px rgba(15, 23, 42, .06);
+  --cc-shadow: 0 4px 12px -2px rgba(15, 23, 42, .06),
+    0 2px 6px -2px rgba(15, 23, 42, .05);
+  --cc-shadow-lg: 0 24px 48px -12px rgba(15, 23, 42, .18),
+    0 8px 16px -8px rgba(15, 23, 42, .08);
+  --cc-shadow-brand: 0 12px 32px -10px rgba(29, 78, 216, .5);
+}
+
+html[data-cc-theme="dark"] {
+  background: #0b1020;
+  color-scheme: dark;
+  --cc-border: rgba(191, 219, 254, .09);
+  --cc-glass: rgba(18, 26, 46, .72);
+  --cc-glass-strong: rgba(18, 26, 46, .92);
+  --cc-muted: #94a3b8;
+  --cc-shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --cc-shadow: 0 4px 14px -2px rgba(0, 0, 0, .45);
+  --cc-shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, .6);
+  --cc-shadow-brand: 0 12px 32px -10px rgba(96, 165, 250, .45);
+}
+
+// The theme colors of src-v2/plugins/vuetify.js, also for the space that
+// the app does not cover.
+html {
+  background: #f5f6fb;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+html[data-web-ui="v2"],
+html[data-web-ui="v2"] .v-application {
+  font-family: var(--cc-font);
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -.005em;
+
+  // Vuetify's typography classes set their own font family.
+  [class*="text-h"], [class*="text-body"], [class*="text-subtitle"],
+  .text-caption, .text-overline, .text-button, .headline, .v-btn {
+    font-family: var(--cc-font) !important;
+  }
+
+  code, kbd, pre, .cm-editor, .cm-content {
+    font-family: var(--cc-font-mono);
+  }
+
+  ::selection {
+    background: rgba(29, 78, 216, .25);
+  }
+}
+
+// Slim scrollbars that follow the theme.
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, .35) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, .3);
+  border: 3px solid transparent;
+  border-radius: 10px;
+  background-clip: padding-box;
+
+  &:hover {
+    background-color: rgba(100, 116, 139, .5);
+  }
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+// Text with the brand gradient.
+.cc-gradient-text {
+  background: var(--cc-gradient);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: cc-gradient-pan 8s ease infinite;
+}
+
+.cc-muted {
+  color: var(--cc-muted) !important;
+}

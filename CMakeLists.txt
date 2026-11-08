@@ -113,9 +113,10 @@ add_subdirectory(src)
 
 # The web UI (build-system.md §4.5): the copied sources are built with npm in
 # the build folder, with the JavaScript stubs of our Thrift compiler, into
-# www/ next to bin/. A prebuilt folder given with CC_WEB_UI_DIR is copied
-# there instead.
+# www/ next to bin/, and the web UI v2 (server --web-ui-v2) into www-v2/. A
+# prebuilt folder given with CC_WEB_UI_DIR is copied to www/ instead.
 set(www_dir ${PROJECT_BINARY_DIR}/www)
+set(www_v2_dir ${PROJECT_BINARY_DIR}/www-v2)
 if(CC_BUILD_WEB AND CC_BUILD_WEB_UI)
   set(web_ui_root ${PROJECT_BINARY_DIR}/web-ui)
   set(vue_dir ${web_ui_root}/web/server/vue-cli)
@@ -137,8 +138,13 @@ if(CC_BUILD_WEB AND CC_BUILD_WEB_UI)
     WORKING_DIRECTORY ${vue_dir}
     COMMENT "Installing the npm packages of the web UI"
     VERBATIM)
+  # The sources are copied over the previous copy: remove it first, so
+  # files deleted from web-ui/ do not stay. For src-v2/, a stale file would
+  # still replace its src/ counterpart.
   add_custom_command(
-    OUTPUT ${www_dir}/index.html
+    OUTPUT ${www_dir}/index.html ${www_v2_dir}/index.html
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${vue_dir}/src ${vue_dir}/src-v2
+            ${vue_dir}/public
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${PROJECT_SOURCE_DIR}/web-ui ${vue_dir}
     COMMAND ${CMAKE_COMMAND} -E rm -rf ${api_js_dir}
@@ -154,19 +160,23 @@ if(CC_BUILD_WEB AND CC_BUILD_WEB_UI)
     COMMAND ${CC_NPM} run build
     COMMAND ${CMAKE_COMMAND} -E rm -rf ${www_dir}
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${vue_dir}/dist ${www_dir}
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${www_v2_dir}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${vue_dir}/dist-v2 ${www_v2_dir}
     DEPENDS ${web_ui_sources} ${thrift_idl_files}
             ${vue_dir}/node_modules/.cc-npm-ci
             ${PROJECT_SOURCE_DIR}/cmake/ThriftGenerate.cmake
     WORKING_DIRECTORY ${vue_dir}
     COMMENT "Building the web UI"
     VERBATIM)
-  add_custom_target(web_ui ALL DEPENDS ${www_dir}/index.html)
+  add_custom_target(web_ui ALL
+    DEPENDS ${www_dir}/index.html ${www_v2_dir}/index.html)
 elseif(CC_BUILD_WEB AND CC_WEB_UI_DIR)
   file(GLOB_RECURSE web_ui_files CONFIGURE_DEPENDS ${CC_WEB_UI_DIR}/*)
   add_custom_command(
     OUTPUT ${PROJECT_BINARY_DIR}/web-ui/.cc-copied
     COMMAND ${CMAKE_COMMAND} -E rm -rf ${www_dir}
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CC_WEB_UI_DIR} ${www_dir}
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${www_v2_dir}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/web-ui
     COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/web-ui/.cc-copied
     DEPENDS ${web_ui_files}
