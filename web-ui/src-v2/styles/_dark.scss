@@ -50,12 +50,6 @@ html[data-cc-theme="dark"] {
     background-color: rgb(var(--v-theme-surface-bright)) !important;
   }
 
-  // The report page: file tree header, kbd hints.
-  .tree-header {
-    background: rgb(var(--v-theme-surface));
-    border-bottom-color: var(--cc-border);
-  }
-
   // The source code viewer of the report detail page.
   #editor-wrapper {
     border-color: var(--cc-border);
