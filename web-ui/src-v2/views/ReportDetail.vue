@@ -33,6 +33,30 @@ import OriginalReportDetail from "@v1/views/ReportDetail";
   }
 }
 
+// Show arrows, in the toolbar of the report: as high as the small buttons
+// beside it.
+.cc-report-detail :deep(.show-arrows) {
+  .v-selection-control {
+    min-height: 28px;
+  }
+
+  .v-selection-control__wrapper,
+  .v-selection-control__input {
+    width: 28px;
+    height: 28px;
+  }
+
+  .v-selection-control__input > .v-icon {
+    font-size: 18px;
+  }
+
+  .v-label {
+    font-size: .8rem;
+    font-weight: 600;
+    opacity: 1;
+  }
+}
+
 // Back to reports: a tinted primary button at the top of the card, like
 // Clear all in the filter sidebar.
 .cc-report-detail :deep(#back-to-reports-btn) {

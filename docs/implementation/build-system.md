@@ -590,15 +590,40 @@ Products page, and animations as content loads). Not in the reference.
 - **Filter sidebar.** `src-v2/components/Report/ReportFilter/ReportFilter.vue`
   wraps the original sidebar (`@v1/`), which keeps all filter and preset
   logic, and lays it out as a card. Its parts are replaced one by one: the
-  header (`ReportCount.vue`, `ClearAllFilters.vue`), each filter's row
+  header (`ReportCount.vue`, `ClearAllFilters.vue`), the filter preset
+  (`Filters/PresetMenu.vue`), each filter's row
   (`Filters/Layout/FilterToolbar.vue`), and the selected values and the
-  value menu (`Filters/SelectOption/`). The filter components themselves
+  value menu (`Filters/SelectOption/`). The preset is one row with a menu
+  of the saved presets and their actions; the original preset buttons and
+  their save dialog stay in the original sidebar, hidden, and the menu's
+  actions click those buttons. The filter groups (Baseline, Compare to,
+  Dates) keep the original markup; `ReportFilter.vue` styles it and adds
+  each group's icon and description in CSS, finding the group by a
+  filter in it. The filter components themselves
   (`Filters/*Filter.vue`) are the original ones. The sidebar of the report
   page is built the same way: `src-v2/views/ReportDetail.vue` wraps the
   original page and lays the sidebar out as a card,
   `ReportTree/ReportTree.vue` wraps the original tree under a header with
   the file's name, and `ReportTree/ReportTreeLabel.vue` replaces the rows'
   labels.
+- **Report info.** `src-v2/components/Report/ReportInfo/ShowReportInfoDialog.vue`
+  replaces the Report Info dialog of the report page. It shows the
+  report's statuses, then its checker, run, location and history (with the
+  review's author, date and comment) as label and value rows. The values
+  link to the report list filtered by them, as in the original. The bug
+  path length is shown only when the report has one: `getReport()`, which
+  loads the report when the page opens, does not return it.
+- **Review status.** `src-v2/components/Report/SelectReviewStatusDialog.vue`
+  replaces the review status select of the report page and the dialog
+  that confirms a change. The select is as high as the small buttons of
+  the toolbar. The note that false positive and intentional reports are
+  closed follows the new status; the original showed it for the old one.
+- **Analysis info.** `src-v2/components/AnalysisInfoDialog.vue` replaces
+  the dialog of the run list, the run history and the report page. It
+  loads the data with the original `src/composables/useAnalysisInfo.js`,
+  and shows a summary of the checkers, the analysis commands (with a copy
+  button), and the checkers of each analyzer by group, with a search and
+  an enabled / disabled filter.
 - **Theme and global styles.** `src/plugins/vuetify.js` creates Vuetify for
   the original UI; `src-v2/plugins/vuetify.js` replaces it with the light
   and dark themes of v2 and loads `src-v2/styles/`, which restyles the

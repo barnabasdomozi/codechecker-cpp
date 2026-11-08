@@ -35,59 +35,31 @@
       </span>
     </router-link>
 
-    <nav
-      v-if="crumbs.length"
-      class="cc-crumbs"
-      aria-label="Breadcrumb"
+    <router-link
+      v-if="endpoint"
+      :to="{ name: 'products', query: queries.products ?? {} }"
+      class="cc-header__product"
+      title="Show all products"
     >
-      <transition-group name="cc-crumb">
+      <v-icon icon="mdi-briefcase-outline" size="15" />
+      <span class="cc-header__product-name">
+        <span class="cc-header__product-label">Product:</span>
+        <template v-if="currentProductDisplayName">
+          {{ currentProductDisplayName }}
+        </template>
         <span
-          v-for="(crumb, i) in crumbs"
-          :key="crumb.key"
-          class="cc-crumbs__crumb"
-        >
-          <v-icon
-            class="cc-crumbs__sep"
-            icon="mdi-chevron-right"
-            size="18"
-          />
-          <router-link
-            v-if="i < crumbs.length - 1"
-            :to="crumb.to"
-            class="cc-crumbs__item cc-crumbs__item--link"
-            :title="crumb.title"
-            :aria-label="crumb.title"
-          >
-            <v-icon
-              v-if="crumb.icon"
-              :icon="crumb.icon"
-              size="16"
-            />
-            <span
-              v-if="!crumb.iconOnly"
-              class="cc-crumbs__text"
-            >
-              {{ crumb.title }}
-            </span>
-          </router-link>
-          <span
-            v-else
-            class="cc-crumbs__item cc-crumbs__item--current"
-            :title="crumb.title"
-            aria-current="page"
-          >
-            <v-icon
-              v-if="crumb.icon"
-              :icon="crumb.icon"
-              size="16"
-            />
-            <span class="cc-crumbs__text">{{ crumb.title }}</span>
-          </span>
-        </span>
-      </transition-group>
-    </nav>
+          v-else
+          class="cc-header__product-skeleton"
+          aria-label="Loading"
+        />
+      </span>
+      <v-icon
+        class="cc-header__product-switch"
+        icon="mdi-swap-horizontal"
+        size="15"
+      />
+    </router-link>
 
-    <v-spacer />
 
     <nav
       v-if="showMenuItems"
@@ -148,6 +120,8 @@
       </v-list>
     </v-menu>
 
+    <v-spacer />
+
     <v-divider
       v-if="showUserInfo && menuItems.length"
       class="cc-header__divider mx-2"
@@ -179,7 +153,10 @@
 
 <script setup>
 // Web UI v2: replaces src/components/Layout/TheHeader.vue (see
-// vite.config.mjs). The items and their behavior are the original ones.
+// vite.config.mjs). The title, the product (a link to the products page)
+// and the product's pages on the left; the user, theme and menu buttons on
+// the right. The items and their
+// behavior are the original ones.
 
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
@@ -196,16 +173,9 @@ import ThemeToggle from "./ThemeToggle";
 const store = useStore();
 const route = useRoute();
 
+// The pages of the product. The products page is reached from the
+// product pill (and the title).
 const menuButtons = ref([
-  {
-    name: "Products",
-    query_namespace: "products",
-    icon: "mdi-briefcase-outline",
-    route: "products",
-    active: [ "products" ],
-    exact: true,
-    hide: [ "products", "login", "404" ]
-  },
   {
     name: "Runs",
     query_namespace: "runs",
@@ -220,7 +190,8 @@ const menuButtons = ref([
     query_namespace: "report_filter",
     icon: "mdi-bug",
     route: "reports",
-    active: [ "reports" ],
+    // The report page belongs to Reports.
+    active: [ "reports", "report-detail" ],
     exact: true,
     query: defaultReportFilterValues,
     hide: [ "products", "login", "404" ]
@@ -270,98 +241,16 @@ const announcement = computed(() => store.getters.announcement);
 const packageVersion = computed(() => store.getters.packageVersion);
 const currentProduct = computed(() => store.getters.currentProduct);
 
+// The product of the page, if it belongs to one.
+const endpoint = computed(() => route.params.endpoint);
+
+// The name of the page's product. Until the product of this endpoint is
+// loaded, the pill shows a placeholder (never the previous product).
 const currentProductDisplayName = computed(() => {
-  return currentProduct.value
-    ? window.atob(currentProduct.value.displayedName_b64)
+  const product = currentProduct.value;
+  return product && product.endpoint === endpoint.value
+    ? window.atob(product.displayedName_b64)
     : null;
-});
-
-// The title of each page in the breadcrumbs, by route name.
-const PAGE_TITLES = {
-  "runs": "Runs",
-  "main_runs": "Runs",
-  "reports": "Reports",
-  "report-detail": "Report",
-  // Statistics tabs, after a "Statistics" crumb.
-  "product-overview": "Overview",
-  "checker-statistics": "Checkers",
-  "severity-statistics": "Severity",
-  "component-statistics": "Components",
-  "checker-coverage-statistics": "Checker Coverage",
-  "guideline-statistics": "Guidelines",
-  "cleanup-plan": "Cleanup Plan",
-  "review-status-rules": "Review Status Rules",
-  "source-component": "Source Component",
-  "userguide": "User guide",
-  "new-features": "New features",
-  "404": "Not found"
-};
-
-// The tabs of the statistics page.
-const STATISTICS_PAGES = [
-  "product-overview",
-  "checker-statistics",
-  "severity-statistics",
-  "component-statistics",
-  "checker-coverage-statistics",
-  "guideline-statistics"
-];
-
-// A product page with the query it had last, as the menu buttons use.
-function savedLocation(name, endpoint) {
-  const item = menuButtons.value.find(i => i.route === name);
-  const query = queries.value[item.query_namespace];
-  return {
-    name,
-    params: { endpoint },
-    query: query === undefined ? item.query || {} : query
-  };
-}
-
-// Products > product > (Statistics or Reports) > page. Each crumb but the
-// last one links to its page.
-const crumbs = computed(() => {
-  const name = route.name;
-  if (!name || name === "login" || name === "oauthlogin") return [];
-
-  // The first crumb is only an icon, unless the products page is shown.
-  const result = [ {
-    key: "products",
-    title: "Products",
-    icon: "mdi-briefcase-outline",
-    iconOnly: name !== "products",
-    to: { name: "products" }
-  } ];
-
-  const endpoint = route.params.endpoint;
-  if (endpoint && PAGE_TITLES[name]) {
-    result.push({
-      key: `product-${endpoint}`,
-      title: currentProductDisplayName.value || endpoint,
-      to: { name: "runs", params: { endpoint } }
-    });
-
-    if (STATISTICS_PAGES.includes(name)) {
-      result.push({
-        key: "statistics",
-        title: "Statistics",
-        to: savedLocation("statistics", endpoint)
-      });
-    } else if (name === "report-detail") {
-      result.push({
-        key: "reports",
-        title: "Reports",
-        to: savedLocation("reports", endpoint)
-      });
-    }
-  }
-
-  // The product's own page is its run list: no second crumb for it.
-  if (PAGE_TITLES[name] && !(endpoint && name === "main_runs")) {
-    result.push({ key: `page-${name}`, title: PAGE_TITLES[name] });
-  }
-
-  return result;
 });
 
 const menuItems = computed(() => {
@@ -380,8 +269,10 @@ const showUserInfo = computed(() => {
   return authParams.value?.requiresAuthentication && isAuthenticated.value;
 });
 
+// Shown with the page links, once the page is known.
 const showConfigItems = computed(() => {
-  return ![ "products", "login", "404" ].includes(route.name) &&
+  return !!route.name &&
+    ![ "products", "login", "404" ].includes(route.name) &&
     showMenuItems.value;
 });
 
@@ -421,93 +312,95 @@ onMounted(() => {
 }
 
 .cc-header__version {
+  display: inline-block;
+  // The room of the version while it loads, so nothing moves when it comes.
+  min-width: 2.2em;
   margin-left: 2px;
+  font-weight: 500;
+  opacity: .75;
+
+  // Room for the page links on narrow screens.
+  @media (max-width: 1100px) {
+    display: none;
+  }
+}
+
+// The product of the page, after the title, as the original header's chip.
+// It links to the products page, where another product can be chosen.
+.cc-header__product {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 28px;
+  margin-left: 14px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .1);
+  color: #fff !important;
+  font-size: .82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none !important;
+  animation: cc-fade var(--cc-motion-enter) var(--cc-ease-enter) both;
+  transition: background-color .2s ease, border-color .2s ease;
+
+  &:hover {
+    border-color: rgba(255, 255, 255, .5);
+    background: rgba(255, 255, 255, .2);
+
+    .cc-header__product-switch {
+      opacity: 1;
+    }
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, .45);
+  }
+}
+
+.cc-header__product-skeleton {
+  display: inline-block;
+  width: 56px;
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, .25);
+  vertical-align: -1px;
+  animation: cc-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes cc-skeleton-pulse {
+  0%, 100% { opacity: .5; }
+  50% { opacity: 1; }
+}
+
+// A margin, not a space: the template drops the space before the name.
+.cc-header__product-label {
+  margin-right: .3em;
   font-weight: 500;
   opacity: .75;
 }
 
-// The breadcrumbs after the title.
-.cc-crumbs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-  margin-left: 10px;
-  overflow: hidden;
-  white-space: nowrap;
+.cc-header__product-switch {
+  opacity: .7;
+  transition: opacity .2s ease;
 }
 
-.cc-crumbs__crumb {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-
-  // The current page is never shortened; earlier crumbs give way first.
-  &:last-child {
-    flex: 0 0 auto;
-  }
-}
-
-.cc-crumbs__sep {
-  flex: 0 0 auto;
-  color: rgba(255, 255, 255, .55);
-}
-
-.cc-crumbs__item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  padding: 5px 10px;
-  border-radius: var(--cc-radius-sm);
-  font-size: .9rem;
-  font-weight: 550;
-  text-decoration: none !important;
-  transition: background-color .2s ease, color .2s ease;
-
-  &--link {
-    flex: 0 1 auto;
-    color: rgba(255, 255, 255, .75) !important;
-
-    &:hover {
-      background: rgba(255, 255, 255, .12);
-      color: #fff !important;
-    }
-  }
-
-  &--current {
-    flex: 0 0 auto;
-    color: #fff;
-    font-weight: 700;
-  }
-}
-
-.cc-crumbs__text {
+.cc-header__product-name {
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-// A new crumb slides in; leaving ones vanish at once, so they never push
-// the new ones aside.
-.cc-crumb-enter-active {
-  transition: opacity .3s ease, transform .35s var(--cc-ease-out);
-}
-
-.cc-crumb-enter-from {
-  opacity: 0;
-  transform: translateX(-8px);
-}
-
-.cc-crumb-leave-active {
-  display: none;
-}
-
+// The page links, on the left after the title and the product.
 .cc-header__nav {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-right: 4px;
+  margin: 0 4px 0 16px;
 }
 
 // The page links: white text, a glass pill on hover, a solid one with a
@@ -547,6 +440,18 @@ onMounted(() => {
     &::after {
       transform: scaleX(1);
     }
+  }
+}
+
+// Narrow screens: tighter page links.
+@media (max-width: 1100px) {
+  .cc-header__nav {
+    gap: 0;
+    margin-left: 10px;
+  }
+
+  .cc-header__link {
+    padding-inline: 10px;
   }
 }
 
