@@ -15,6 +15,7 @@
       >
         <v-card
           class="cc-login pa-8"
+          :class="{ 'cc-login--animated': optionsToggled }"
           variant="flat"
         >
           <v-card-title>
@@ -33,8 +34,7 @@
           <v-card-actions
             v-if="providers.length !== 0"
             id="btn-container"
-            class="d-flex justify-center flex-column cc-login__step"
-            style="--cc-delay: calc(var(--cc-motion-step) * 2)"
+            class="d-flex justify-center flex-column"
           >
             <v-btn
               block
@@ -54,7 +54,7 @@
             </a>
           </v-card-actions>
 
-          <v-expand-transition>
+          <v-expand-transition :disabled="!optionsToggled">
             <div v-if="optionsShow">
               <v-card-text class="px-0 pb-0">
                 <v-form v-model="isDataValid">
@@ -172,6 +172,9 @@ const isDataValid = ref(false);
 const providers = ref([]);
 const dialog = ref(false);
 const optionsShow = ref(false);
+// The card shows at once when the page opens; only the other login options
+// animate, once they are opened or closed by a click.
+const optionsToggled = ref(false);
 const loggingIn = ref(false);
 
 const authParams = computed(() => store.getters.authParams);
@@ -203,6 +206,7 @@ onMounted(() => {
 });
 
 function toggleOtherLoginOptions() {
+  optionsToggled.value = true;
   optionsShow.value = !optionsShow.value;
 }
 
@@ -325,12 +329,11 @@ function resetPlaceholder() {
 
 <style lang="scss" scoped>
 // The layout of the original login page: a card in the middle with the
-// avatar over its top edge.
+// avatar over its top edge. It does not animate when the page opens.
 .cc-login {
   overflow: visible;
   border-radius: 24px !important;
   box-shadow: var(--cc-shadow-lg) !important;
-  animation: cc-rise var(--cc-motion-enter) var(--cc-ease-enter) both;
 }
 
 .cc-login__avatar {
@@ -350,8 +353,6 @@ function resetPlaceholder() {
   background: var(--cc-gradient);
   color: #fff;
   box-shadow: var(--cc-shadow-brand);
-  animation: cc-pop var(--cc-motion-enter) var(--cc-ease-enter) both;
-  animation-delay: var(--cc-motion-step);
 }
 
 .cc-login__title {
@@ -360,12 +361,11 @@ function resetPlaceholder() {
   font-weight: 750;
   letter-spacing: -.02em;
   color: var(--cc-muted);
-  animation: cc-rise var(--cc-motion-enter) var(--cc-ease-enter) both;
-  animation-delay: calc(var(--cc-motion-step) * 2);
 }
 
-// Parts of the form appear one after the other.
-.cc-login__step {
+// When the other login options are opened by a click, their parts appear one
+// after the other.
+.cc-login--animated .cc-login__step {
   animation: cc-rise var(--cc-motion-enter) var(--cc-ease-enter) both;
   animation-delay: var(--cc-delay, 0ms);
 }
