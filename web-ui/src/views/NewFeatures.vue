@@ -146,10 +146,9 @@ function hasBreaking(release) {
   return release.features.some(f => f.breaking);
 }
 
+// The images are in public/images, which is served as it is.
 function resolveImage(version, file) {
-  return require(
-    `@/assets/userguide/images/new_features/${version}/${file}`
-  );
+  return `/images/new_features/${version}/${file}`;
 }
 </script>
 

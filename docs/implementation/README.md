@@ -34,7 +34,9 @@ These are **accepted** and apply to every page below.
 - **The web UI is copied, not changed.** The Vue sources
   (`web/server/vue-cli` in the Python repository, built into `www/`) are
   copied as they are. The C++ server serves the same files and the same
-  Thrift API, so the web UI works without changes.
+  Thrift API, so the web UI works without changes. The exception is the
+  build: it uses Vite instead of webpack, and loads the global styles once
+  ([build-system.md](build-system.md#changes-to-the-web-ui)).
 - **ldlogger is copied, not changed.** The C sources of the build logger
   (`analyzer/tools/build-logger/src/`, and its `README.md`) are copied as they
   are, and CMake compiles them. Its `Makefile`, Python unit tests

@@ -1,12 +1,12 @@
-@use 'vuetify/styles';
-@use "sass:math";
-
-$font-size-root: 14px;
+/*
+ * Global styles, imported once in main.js. Don't import this file from
+ * component <style> blocks: each import would add another copy to the bundle.
+ */
 
 :root {
   --color-red: #d63031;
   --color-soft-red: #E53935;
-  --color-soft-orange: 1#FFB300;
+  --color-soft-orange: #FFB300;
   --color-soft-green: #43A047;
   --color-soft-blue: #0984e3;
   --color-soft-purple: #6c5ce7;

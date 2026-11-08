@@ -26,7 +26,7 @@
     <v-app-bar-nav-icon>
       <v-avatar
         size="36px"
-        :image="require('@/assets/logo.png')"
+        :image="logo"
         color="transparent"
       />
     </v-app-bar-nav-icon>
@@ -128,6 +128,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useStore } from "vuex";
 
+import logo from "@/assets/logo.png";
 import { GET_ANNOUNCEMENT, GET_PACKAGE_VERSION } from "@/store/actions.type";
 
 import { defaultReportFilterValues } from "@/components/Report/ReportFilter";

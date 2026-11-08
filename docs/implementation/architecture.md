@@ -66,7 +66,7 @@ The port has the same parts as the Python project:
 | Shared client/server code | `web/codechecker_web` | `src/web/` |
 | Command line client | `web/client/codechecker_client` | `src/client/` |
 | Server | `web/server/codechecker_server` | `src/server/` |
-| Web UI | `web/server/vue-cli` | copied unchanged |
+| Web UI | `web/server/vue-cli` | application copied, built with Vite ([build-system.md](build-system.md#changes-to-the-web-ui)) |
 
 ## 2. Source tree
 
