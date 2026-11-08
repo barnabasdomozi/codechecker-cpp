@@ -80,10 +80,24 @@ function setDateTime(_date, updateUrl=true) {
   }
 }
 
+// The date belongs to the compared side (cmpData), not to the baseline's
+// report filter: that is the "Outstanding reports on a given date" filter of
+// the BASELINE group.
 function updateReportFilter() {
-  baseFilter.setReportFilter({
-    openReportsDate: date.value ? getUnixTime(date.value) : null
-  });
+  if (date.value) {
+    baseFilter.setCmpData({ openReportsDate: getUnixTime(date.value) });
+    return;
+  }
+
+  const _cmpData = baseFilter.cmpData.value;
+  if (!_cmpData) return;
+
+  // Without a compared run or tag, nothing is compared any more.
+  if (_cmpData.runIds?.length || _cmpData.runTag?.length) {
+    baseFilter.setCmpData({ openReportsDate: null });
+  } else {
+    baseFilter.setCmpData(null);
+  }
 }
 
 function getUrlState() {

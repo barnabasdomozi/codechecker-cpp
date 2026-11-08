@@ -415,6 +415,10 @@ async function updateReportFilter() {
       runIds: [ -1 ],
       runTag: null
     });
+  } else if (baseSelectOptionFilter.cmpData.value?.openReportsDate) {
+    // Reports can also be compared to a date alone (the "Outstanding reports
+    // on a given date" filter of COMPARE TO): keep that comparison.
+    baseSelectOptionFilter.setCmpData({ runIds: null, runTag: null });
   } else {
     baseSelectOptionFilter.setCmpData(null);
   }

@@ -16,12 +16,11 @@ html[data-web-ui="v2"] {
     }
   }
 
+  // Filled buttons have one color, without a gradient or a glow.
   .v-btn--variant-flat.bg-primary,
   .v-btn--variant-elevated.bg-primary {
-    background: var(--cc-gradient) !important;
-    background-size: 160% 160% !important;
-    box-shadow: var(--cc-shadow-brand);
-
+    background: rgb(var(--v-theme-primary)) !important;
+    box-shadow: none;
   }
 
   // Cards and sheets: a thin border and a soft shadow instead of elevation.
@@ -104,11 +103,14 @@ html[data-web-ui="v2"] {
     border-radius: var(--cc-radius-sm);
   }
 
-  // Tooltips are opaque, so the page never shows through their text.
+  // Tooltips follow the theme: white with a gray border on the light theme
+  // (src-v2/styles/_dark.scss has the dark one). They are opaque, so the
+  // page never shows through their text.
   .v-tooltip > .v-overlay__content {
     border-radius: var(--cc-radius-sm);
-    background: #0f172a !important;
-    color: #e2e8f0 !important;
+    border: 1px solid rgba(15, 23, 42, .12);
+    background: rgb(var(--v-theme-surface)) !important;
+    color: rgb(var(--v-theme-on-surface)) !important;
     box-shadow: var(--cc-shadow-lg);
     font-weight: 500;
     line-height: 1.5;
@@ -238,7 +240,7 @@ html[data-web-ui="v2"] {
   }
 
   // Toggle groups (such as Report List / File Tree): a primary outline,
-  // and the selected button filled with the theme gradient. This also wins
+  // and the selected button filled with the primary color. This also wins
   // over pages that color the selected button themselves.
   .v-btn-toggle {
     border: 1px solid rgba(var(--v-theme-primary), .45) !important;
@@ -263,7 +265,7 @@ html[data-web-ui="v2"] {
     }
 
     > .v-btn.v-btn--active {
-      background: var(--cc-gradient) !important;
+      background: rgb(var(--v-theme-primary)) !important;
       color: #fff !important;
 
       .v-btn__overlay {
@@ -273,7 +275,7 @@ html[data-web-ui="v2"] {
   }
 
   .v-pagination__item--is-active .v-btn {
-    background: var(--cc-gradient);
+    background: rgb(var(--v-theme-primary));
     color: #fff;
   }
 

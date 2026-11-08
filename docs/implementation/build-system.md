@@ -587,6 +587,18 @@ Products page, and animations as content loads). Not in the reference.
   and every page that `src-v2/` does not replace are shared. `@v2/` imports
   from `src-v2/`, and `@v1/<path>` imports the original `src/<path>` even
   where `src-v2/` replaces it. The original build does not use `src-v2/`.
+- **Filter sidebar.** `src-v2/components/Report/ReportFilter/ReportFilter.vue`
+  wraps the original sidebar (`@v1/`), which keeps all filter and preset
+  logic, and lays it out as a card. Its parts are replaced one by one: the
+  header (`ReportCount.vue`, `ClearAllFilters.vue`), each filter's row
+  (`Filters/Layout/FilterToolbar.vue`), and the selected values and the
+  value menu (`Filters/SelectOption/`). The filter components themselves
+  (`Filters/*Filter.vue`) are the original ones. The sidebar of the report
+  page is built the same way: `src-v2/views/ReportDetail.vue` wraps the
+  original page and lays the sidebar out as a card,
+  `ReportTree/ReportTree.vue` wraps the original tree under a header with
+  the file's name, and `ReportTree/ReportTreeLabel.vue` replaces the rows'
+  labels.
 - **Theme and global styles.** `src/plugins/vuetify.js` creates Vuetify for
   the original UI; `src-v2/plugins/vuetify.js` replaces it with the light
   and dark themes of v2 and loads `src-v2/styles/`, which restyles the

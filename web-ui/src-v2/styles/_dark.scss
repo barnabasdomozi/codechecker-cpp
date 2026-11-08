@@ -30,6 +30,7 @@ html[data-cc-theme="dark"] {
   // Tooltips stand out from the dark page.
   .v-tooltip > .v-overlay__content {
     background: #1e293b !important;
+    color: #e2e8f0 !important;
     border: 1px solid rgba(191, 219, 254, .16);
   }
 
@@ -100,6 +101,11 @@ html[data-cc-theme="dark"] {
     }
   }
 
+  // Bug path step icons of the report tree that are colored black.
+  .cc-report-tree .v-icon[style*="--color-black"] {
+    color: rgb(var(--v-theme-on-surface)) !important;
+  }
+
   .checker-step {
     background-color: rgba(238, 238, 187, .18);
   }
@@ -112,13 +118,6 @@ html[data-cc-theme="dark"] {
   .analyzer-statistics-tooltip-card,
   .analyzer-statistics-tooltip {
     background-color: rgb(var(--v-theme-surface-bright)) !important;
-  }
-
-  // Filter toolbar of the report filter.
-  .v-expansion-panel-title:hover .toolbar-items,
-  .v-expansion-panel-title:focus-within .toolbar-items,
-  .toolbar-items:focus-within {
-    background-color: rgba(255, 255, 255, .08);
   }
 
   // The analysis info dialog's checker colors.
